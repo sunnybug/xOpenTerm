@@ -1,0 +1,36 @@
+# 发布：在创建 Release 或推送 tag 时构建并发布到 dist
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 构建 Release
+        run: dotnet build src/xOpenTerm2.csproj -c Release
+
+      - name: 发布到 dist
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          New-Item -ItemType Directory -Path dist -Force
+          $out = "dist/xOpenTerm2-v$version"
+          New-Item -ItemType Directory -Path $out -Force
+          Copy-Item -Path "bin/Release/net8.0-windows/*" -Destination $out -Recurse -Force
+        shell: pwsh
+
+      - name: 上传制品
+        uses: actions/upload-artifact@v4
+        with:
+          name: xOpenTerm2-${{ github.ref_name }}
+          path: dist/

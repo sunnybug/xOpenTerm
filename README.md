@@ -21,12 +21,30 @@
 - [SSH.NET](https://github.com/sshnet/SSH.NET)（SSH）
 - [YamlDotNet](https://github.com/aaubry/YamlDotNet)（YAML）
 
+## 项目结构
+
+- `src/` — 源码（输出到仓库根下 `bin/Debug`、`bin/Release`，中间文件在 `temp/`）
+- `script/` — 脚本：`build.ps1`、`test.ps1`、`publish.ps1`、`init_dev.ps1`
+- `bin/` — 工作目录：`config/` 配置、`log/` 日志、`var/` 临时覆盖配置
+- `dist/` — 发布目录（由 `script/publish.ps1` 或 GitHub Actions 生成）
+- `doc/`、`aidoc/` — 文档与 AI 生成文档
+
 ## 构建与运行
 
-```bash
-cd d:\xsw\code_auto_push\xOpenTerm2
-dotnet build src\xOpenTerm2\xOpenTerm2.csproj
-dotnet run --project src\xOpenTerm2\xOpenTerm2.csproj
+```powershell
+# 编译并运行 Debug
+.\run.ps1
+
+# 或：仅构建 / 构建并运行（支持 -Release）
+.\script\build.ps1
+.\script\test.ps1              # Debug
+.\script\test.ps1 -Release     # Release
+
+# 初始化开发环境（还原依赖、创建 bin/config 等）
+.\script\init_dev.ps1
+
+# 发布到 dist（带版本号）
+.\script\publish.ps1
 ```
 
 或使用 Visual Studio 打开 `xOpenTerm2.sln` 后 F5 运行。

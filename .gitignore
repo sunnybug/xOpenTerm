@@ -1,7 +1,15 @@
-# Build
+# 项目规范：发布与生成物
+dist/
+bin/debug/
+bin/release/
+bin/log/
+bin/var/
+temp/
+obj/
+
+# Build (兜底，与项目 bin 无关的旧输出)
 [Dd]ebug/
 [Rr]elease/
-[Bb]in/
 [Oo]bj/
 [Tt]emp/
 *.user
@@ -13,10 +21,6 @@
 *.log
 .vs/
 *.csproj.user
-
-# Config (optional: 若不想提交本地连接配置可取消注释)
-# src/xOpenTerm2/bin/
-# config/
 
 # NuGet
 packages/
