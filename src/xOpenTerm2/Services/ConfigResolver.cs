@@ -16,14 +16,14 @@ public static class ConfigResolver
         var host = effective.Host?.Trim() ?? "";
         var port = effective.Port ?? 3389;
         string username;
-        string domain = effective.Domain?.Trim() ?? "";
+        string domain = ""; // RDP 不用域
         string? password = null;
 
         if (effective.AuthSource == AuthSource.credential && !string.IsNullOrEmpty(effective.CredentialId))
         {
             var cred = credentials.FirstOrDefault(c => c.Id == effective.CredentialId);
             if (cred == null) throw new InvalidOperationException($"登录凭证不存在: {effective.CredentialId}");
-            username = cred.Username ?? "";
+            username = cred.Username?.Trim() ?? "";
             if (cred.AuthType == AuthType.password) password = cred.Password;
         }
         else
@@ -31,6 +31,7 @@ public static class ConfigResolver
             username = effective.Username?.Trim() ?? "";
             password = effective.Password;
         }
+        if (string.IsNullOrEmpty(username)) username = "administrator";
 
         return (host, port, username, domain, password);
     }

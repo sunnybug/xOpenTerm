@@ -27,33 +27,89 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧：服务器树 -->
+        <!-- 左侧：Tab（服务器/远程文件） -->
         <Border Grid.Column="0" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0"
                 Background="{StaticResource BgSidebar}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="服务器" Margin="12,10,12,6" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold"/>
-                <TextBox x:Name="SearchBox" Grid.Row="1" Margin="8,0,8,8" Padding="8,6"
-                         Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"
-                         BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                         TextChanged="SearchBox_TextChanged">
-                    <TextBox.Style>
-                        <Style TargetType="TextBox">
-                            <Setter Property="Tag" Value="搜索连接..."/>
+                <TabControl x:Name="LeftTabControl" Grid.Row="0" Margin="0" Padding="4,4,4,0"
+                            Background="Transparent" BorderThickness="0">
+                    <TabControl.Resources>
+                        <Style TargetType="TabItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="TabItem">
+                                        <Border x:Name="Border" Background="Transparent" Padding="10,6" Margin="0,0,4,0"
+                                                BorderThickness="0" Cursor="Hand">
+                                            <ContentPresenter ContentSource="Header"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Border" Property="Background" Value="{StaticResource BgInput}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
                         </Style>
-                    </TextBox.Style>
-                </TextBox>
-                <TreeView x:Name="ServerTree" Grid.Row="2" Margin="4,0,4,8"
-                          Background="Transparent" Foreground="{StaticResource TextPrimary}"
-                          BorderThickness="0" SelectedItemChanged="ServerTree_SelectedItemChanged"
-                          MouseDoubleClick="ServerTree_MouseDoubleClick" MouseRightButtonDown="ServerTree_MouseRightButtonDown"
-                          ContextMenuOpening="ServerTree_ContextMenuOpening"
-                          AllowDrop="True" PreviewMouseLeftButtonDown="ServerTree_PreviewMouseLeftButtonDown"
-                          PreviewMouseMove="ServerTree_PreviewMouseMove" DragOver="ServerTree_DragOver" Drop="ServerTree_Drop"/>
+                    </TabControl.Resources>
+                    <TabItem Header="服务器">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="服务器" Margin="12,10,12,6" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold"/>
+                            <TextBox x:Name="SearchBox" Grid.Row="1" Margin="8,0,8,8" Padding="8,6"
+                                     Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"
+                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                     TextChanged="SearchBox_TextChanged">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="Tag" Value="搜索连接..."/>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                            <TreeView x:Name="ServerTree" Grid.Row="2" Margin="4,0,4,8"
+                                      Background="Transparent" Foreground="{StaticResource TextPrimary}"
+                                      BorderThickness="0" SelectedItemChanged="ServerTree_SelectedItemChanged"
+                                      MouseDoubleClick="ServerTree_MouseDoubleClick" MouseRightButtonDown="ServerTree_MouseRightButtonDown"
+                                      ContextMenuOpening="ServerTree_ContextMenuOpening"
+                                      AllowDrop="True" PreviewMouseLeftButtonDown="ServerTree_PreviewMouseLeftButtonDown"
+                                      PreviewMouseMove="ServerTree_PreviewMouseMove" DragOver="ServerTree_DragOver" Drop="ServerTree_Drop"/>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="远程文件">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="RemoteFileTitle" Grid.Row="0" Text="远程文件" Margin="12,10,12,6"
+                                       Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold"/>
+                            <TextBox x:Name="RemotePathBox" Grid.Row="1" Margin="8,0,8,6" Padding="8,6"
+                                     Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"
+                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                     KeyDown="RemotePathBox_KeyDown"/>
+                            <ListView x:Name="RemoteFileList" Grid.Row="2" Margin="4,0,4,8"
+                                     Background="Transparent" Foreground="{StaticResource TextPrimary}"
+                                     BorderThickness="0" MouseDoubleClick="RemoteFileList_MouseDoubleClick">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="名称" Width="140" DisplayMemberBinding="{Binding Name}"/>
+                                        <GridViewColumn Header="大小" Width="80" DisplayMemberBinding="{Binding DisplaySize}"/>
+                                        <GridViewColumn Header="类型" Width="60" DisplayMemberBinding="{Binding DisplayType}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
             </Grid>
         </Border>
 

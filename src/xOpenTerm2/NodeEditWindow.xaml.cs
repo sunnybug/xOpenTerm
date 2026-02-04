@@ -106,7 +106,7 @@ public partial class NodeEditWindow : Window
         AuthSourceRow.Visibility = (isSsh || isGroup) ? Visibility.Visible : Visibility.Collapsed;
         CredentialRow.Visibility = Visibility.Collapsed;
         TunnelRow.Visibility = isSsh ? Visibility.Visible : Visibility.Collapsed;
-        DomainRow.Visibility = isRdp ? Visibility.Visible : Visibility.Collapsed;
+        DomainRow.Visibility = Visibility.Collapsed; // RDP 不用域
         TestConnectionRow.Visibility = isSsh ? Visibility.Visible : Visibility.Collapsed;
         if (isLocal)
         {
@@ -205,7 +205,7 @@ public partial class NodeEditWindow : Window
                 _node.Config.Host = HostBox.Text?.Trim();
                 _node.Config.Port = ushort.TryParse(PortBox.Text, out var pr) && pr > 0 ? pr : (ushort)3389;
                 _node.Config.Username = UsernameBox.Text?.Trim() ?? "administrator";
-                _node.Config.Domain = DomainBox.Text?.Trim();
+                _node.Config.Domain = ""; // RDP 不用域
                 _node.Config.Password = PasswordBox.Password;
             }
             else

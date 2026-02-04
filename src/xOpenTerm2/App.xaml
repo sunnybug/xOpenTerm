@@ -36,6 +36,27 @@
             </Style.Triggers>
         </Style>
 
+        <!-- 节点树项：文字与选中/悬停背景与主题一致 -->
+        <Style TargetType="TreeViewItem">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HoverBg}"/>
+                </Trigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True"/>
+                        <Condition Binding="{Binding IsSelectionActive, RelativeSource={RelativeSource Self}}" Value="False"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="Transparent"/>
+                </MultiDataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HoverBg}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- 统一所有弹出菜单：深色背景 + 浅色文字 -->
         <Style TargetType="ContextMenu">
             <Setter Property="Background" Value="{StaticResource BgSidebar}"/>

@@ -17,7 +17,7 @@ public static class RdpLauncher
             throw new InvalidOperationException("请填写 RDP 主机地址");
         var port = config.Port ?? 3389;
         var username = config.Username?.Trim() ?? "administrator";
-        var domain = config.Domain?.Trim() ?? "";
+        var domain = ""; // RDP 不用域
         var password = config.Password;
 
         if (!string.IsNullOrEmpty(password))

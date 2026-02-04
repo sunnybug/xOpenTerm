@@ -25,6 +25,10 @@ public partial class MainWindow : Window
     private Node? _contextMenuNode;
     private Node? _draggedNode;
     private Point _dragStartPoint;
+    /// <summary>远程文件列表当前对应的 SSH 节点 ID</summary>
+    private string? _remoteFileNodeId;
+    /// <summary>远程文件当前路径</summary>
+    private string _remoteFilePath = ".";
 
     public MainWindow()
     {
@@ -33,7 +37,9 @@ public partial class MainWindow : Window
         BuildTree();
         _sessionManager.DataReceived += OnSessionDataReceived;
         _sessionManager.SessionClosed += OnSessionClosed;
+        _sessionManager.SessionConnected += OnSessionConnected;
         SearchBox.Text = "";
+        RemotePathBox.Text = ".";
     }
 
     private void LoadData()
@@ -63,16 +69,25 @@ public partial class MainWindow : Window
 
     private TreeViewItem CreateTreeItem(Node node)
     {
+        var textPrimary = (Brush)FindResource("TextPrimary");
+        var textSecondary = (Brush)FindResource("TextSecondary");
         var header = new StackPanel { Orientation = Orientation.Horizontal };
-        header.Children.Add(new TextBlock
+        var iconBlock = new TextBlock
         {
-            Text = NodeIcon(node),
+            Text = NodeIcon(node, isGroupExpanded: true),
             Margin = new Thickness(0, 0, 6, 0),
             Foreground = NodeColor(node)
-        });
+        };
+        if (node.Type == NodeType.ssh || node.Type == NodeType.rdp)
+            iconBlock.FontFamily = new FontFamily("Segoe MDL2 Assets");
+        header.Children.Add(iconBlock);
+        var displayName = node.Type == NodeType.rdp && string.IsNullOrEmpty(node.Name) && !string.IsNullOrEmpty(node.Config?.Host)
+            ? node.Config!.Host!
+            : node.Name;
         header.Children.Add(new TextBlock
         {
-            Text = node.Name,
+            Text = displayName,
+            Foreground = textPrimary,
             VerticalAlignment = VerticalAlignment.Center
         });
         if (node.Type == NodeType.ssh && !string.IsNullOrEmpty(node.Config?.Host))
@@ -80,7 +95,7 @@ public partial class MainWindow : Window
             header.Children.Add(new TextBlock
             {
                 Text = " " + node.Config.Host,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8)),
+                Foreground = textSecondary,
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center
             });
@@ -92,6 +107,15 @@ public partial class MainWindow : Window
             Tag = node,
             IsExpanded = true
         };
+        if (node.Type == NodeType.group)
+        {
+            void UpdateGroupIcon()
+            {
+                iconBlock.Text = NodeIcon(node, item.IsExpanded);
+            }
+            item.Expanded += (_, _) => UpdateGroupIcon();
+            item.Collapsed += (_, _) => UpdateGroupIcon();
+        }
         var children = _nodes.Where(n => n.ParentId == node.Id).ToList();
         foreach (var child in children)
             if (MatchesSearch(child))
@@ -99,13 +123,13 @@ public partial class MainWindow : Window
         return item;
     }
 
-    private static string NodeIcon(Node n)
+    private static string NodeIcon(Node n, bool isGroupExpanded = true)
     {
         return n.Type switch
         {
-            NodeType.group => "📁",
-            NodeType.ssh => "🖥",
-            NodeType.rdp => "🖥",
+            NodeType.group => isGroupExpanded ? "📂" : "📁",
+            NodeType.ssh => "\uE756",   // Segoe MDL2: CommandPrompt（终端/命令行，Linux 相关）
+            NodeType.rdp => "\uE7C4",  // Segoe MDL2: TaskView（Windows 四格徽标）
             _ => "⌨"
         };
     }
@@ -395,7 +419,8 @@ public partial class MainWindow : Window
             }
 
             var sameCount = _tabIdToNodeId.Values.Count(id => id == node.Id);
-            var tabTitle = sameCount == 0 ? node.Name : $"{node.Name} ({sameCount + 1})";
+            var displayName = string.IsNullOrEmpty(node.Name) ? host : node.Name;
+            var tabTitle = sameCount == 0 ? displayName : $"{displayName} ({sameCount + 1})";
             var tabId = "rdp-" + DateTime.UtcNow.Ticks;
 
             var rdpControl = new RdpHostControl(host, port, username, domain, password);
@@ -484,7 +509,91 @@ public partial class MainWindow : Window
         {
             if (_tabIdToTerminal.TryGetValue(sessionId, out var term))
                 term.Append("\r\n\x1b[31m连接已关闭\x1b[0m\r\n");
+            if (_remoteFileNodeId != null && _tabIdToNodeId.TryGetValue(sessionId, out var nodeId) && nodeId == _remoteFileNodeId)
+            {
+                _remoteFileNodeId = null;
+                RemoteFileList.ItemsSource = null;
+                RemoteFileTitle.Text = "远程文件";
+            }
         });
+    }
+
+    private void OnSessionConnected(object? sender, string sessionId)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (!_tabIdToNodeId.TryGetValue(sessionId, out var nodeId)) return;
+            var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
+            if (node == null || node.Type != NodeType.ssh) return;
+            _remoteFileNodeId = nodeId;
+            _remoteFilePath = ".";
+            RemotePathBox.Text = ".";
+            RemoteFileTitle.Text = "远程文件 - " + node.Name;
+            LeftTabControl.SelectedIndex = 1;
+            LoadRemoteFileList();
+        });
+    }
+
+    private void LoadRemoteFileList()
+    {
+        if (string.IsNullOrEmpty(_remoteFileNodeId))
+        {
+            RemoteFileList.ItemsSource = null;
+            return;
+        }
+        var node = _nodes.FirstOrDefault(n => n.Id == _remoteFileNodeId);
+        if (node == null) { RemoteFileList.ItemsSource = null; return; }
+        var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "." : RemotePathBox.Text.Trim();
+        _remoteFilePath = path;
+        var list = RemoteFileService.ListDirectory(node, _nodes, _credentials, _tunnels, path, out var error);
+        if (!string.IsNullOrEmpty(error))
+        {
+            RemoteFileList.ItemsSource = new List<RemoteFileItem>();
+            if (_tabIdToTerminal.Count > 0)
+            {
+                var tabId = _tabIdToNodeId.FirstOrDefault(p => p.Value == _remoteFileNodeId).Key;
+                if (!string.IsNullOrEmpty(tabId) && _tabIdToTerminal.TryGetValue(tabId, out var term))
+                    term.Append("\r\n\x1b[31m[远程文件] " + error + "\x1b[0m\r\n");
+            }
+            return;
+        }
+        if (path != "." && path != "/")
+        {
+            var parentList = new List<RemoteFileItem> { new RemoteFileItem { Name = "..", IsDirectory = true } };
+            parentList.AddRange(list);
+            list = parentList;
+        }
+        RemoteFileList.ItemsSource = list;
+    }
+
+    private void RemotePathBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        LoadRemoteFileList();
+    }
+
+    private void RemoteFileList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (RemoteFileList.SelectedItem is not RemoteFileItem item) return;
+        var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "." : RemotePathBox.Text.Trim();
+        if (path == ".") path = "";
+        if (item.Name == "..")
+        {
+            var idx = path.TrimEnd('/').LastIndexOf('/');
+            var newPath = idx <= 0 ? "." : path.Substring(0, idx);
+            RemotePathBox.Text = newPath;
+            _remoteFilePath = newPath;
+            LoadRemoteFileList();
+            return;
+        }
+        var newPath2 = string.IsNullOrEmpty(path) ? item.Name : path.TrimEnd('/') + "/" + item.Name;
+        if (item.IsDirectory)
+        {
+            RemotePathBox.Text = newPath2;
+            _remoteFilePath = newPath2;
+            LoadRemoteFileList();
+        }
     }
 
     protected override void OnClosed(EventArgs e)

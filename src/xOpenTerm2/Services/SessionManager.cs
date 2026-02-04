@@ -13,6 +13,8 @@ public class SessionManager
 
     public event EventHandler<(string SessionId, string Data)>? DataReceived;
     public event EventHandler<string>? SessionClosed;
+    /// <summary>SSH 会话连接成功后触发（仅 SSH，不含本地会话）</summary>
+    public event EventHandler<string>? SessionConnected;
 
     public void CreateLocalSession(string sessionId, string nodeId, string protocol, Action<string> onError)
     {
@@ -110,7 +112,8 @@ public class SessionManager
         }
     }
 
-    private static ConnectionInfo? CreateConnectionInfo(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase)
+    /// <summary>供 RemoteFileService 等复用：创建 SSH/SFTP 连接信息。</summary>
+    internal static ConnectionInfo? CreateConnectionInfo(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase)
     {
         if (!string.IsNullOrEmpty(keyPath))
         {
@@ -148,6 +151,7 @@ public class SessionManager
             };
             _sessions[sessionId] = handle;
             handle.StartReading();
+            SessionConnected?.Invoke(this, sessionId);
         }
         catch (Exception ex)
         {
