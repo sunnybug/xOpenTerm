@@ -13,7 +13,7 @@ public static class RemoteFileService
         error = null;
         try
         {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain) =
+            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
                 ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
 
             string connectHost = host;
@@ -29,7 +29,7 @@ public static class RemoteFileService
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase);
+                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, false);
                     if (conn == null) { error = $"跳板机 {i + 1} 请配置密码或私钥"; return new List<RemoteFileItem>(); }
 
                     var client = new SshClient(conn);
@@ -48,8 +48,8 @@ public static class RemoteFileService
                 }
             }
 
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase);
-            if (connectionInfo == null) { error = "请配置密码或私钥"; return new List<RemoteFileItem>(); }
+            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
+            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return new List<RemoteFileItem>(); }
 
             try
             {
@@ -94,7 +94,7 @@ public static class RemoteFileService
         error = null;
         try
         {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain) =
+            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
                 ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
 
             string connectHost = host;
@@ -109,7 +109,7 @@ public static class RemoteFileService
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase);
+                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, false);
                     if (conn == null) { error = $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
                     client.Connect();
@@ -125,8 +125,8 @@ public static class RemoteFileService
                 }
             }
 
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase);
-            if (connectionInfo == null) { error = "请配置密码或私钥"; return false; }
+            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
+            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return false; }
 
             try
             {
@@ -160,7 +160,7 @@ public static class RemoteFileService
         error = null;
         try
         {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain) =
+            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
                 ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
 
             string connectHost = host;
@@ -175,7 +175,7 @@ public static class RemoteFileService
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase);
+                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, false);
                     if (conn == null) { error = $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
                     client.Connect();
@@ -191,8 +191,8 @@ public static class RemoteFileService
                 }
             }
 
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase);
-            if (connectionInfo == null) { error = "请配置密码或私钥"; return false; }
+            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
+            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return false; }
 
             try
             {

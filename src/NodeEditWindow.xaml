@@ -46,10 +46,6 @@
                     <TextBlock Text="私钥路径" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
                     <TextBox x:Name="KeyPathBox" Width="220" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="AuthSourceRow" Visibility="Collapsed">
-                    <TextBlock Text="认证来源" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <ComboBox x:Name="AuthSourceCombo" Width="160" Padding="4"/>
-                </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
                     <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
                     <ComboBox x:Name="CredentialCombo" Width="260" Padding="4"/>

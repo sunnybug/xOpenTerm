@@ -63,7 +63,7 @@ public static class ConfigResolver
     }
 
     /// <summary>解析 SSH 连接参数（支持直连或经 TunnelIds 多跳），并解析隧道链。</summary>
-    public static (string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, List<JumpHop>? jumpChain) ResolveSsh(
+    public static (string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, List<JumpHop>? jumpChain, bool useAgent) ResolveSsh(
         Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels)
     {
         var effective = ResolveEffectiveSshConfig(node, allNodes);
@@ -74,6 +74,7 @@ public static class ConfigResolver
         string? keyPath = null;
         string? keyPassphrase = null;
 
+        var useAgent = effective.AuthSource == AuthSource.agent;
         if (effective.AuthSource == AuthSource.credential && !string.IsNullOrEmpty(effective.CredentialId))
         {
             var cred = credentials.FirstOrDefault(c => c.Id == effective.CredentialId);
@@ -84,6 +85,10 @@ public static class ConfigResolver
                 case AuthType.password: password = cred.Password; break;
                 case AuthType.key: keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; break;
             }
+        }
+        else if (useAgent)
+        {
+            username = effective.Username ?? "";
         }
         else
         {
@@ -96,7 +101,7 @@ public static class ConfigResolver
         }
 
         List<JumpHop>? jumpChain = ResolveTunnelChain(effective.TunnelIds, tunnels, credentials);
-        return (host, port, username, password, keyPath, keyPassphrase, jumpChain);
+        return (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent);
     }
 
     /// <summary>根据 TunnelIds 解析出有序的跳板机连接参数列表（多跳链）。</summary>

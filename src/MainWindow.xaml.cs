@@ -38,7 +38,6 @@ public partial class MainWindow : Window
         _sessionManager.DataReceived += OnSessionDataReceived;
         _sessionManager.SessionClosed += OnSessionClosed;
         _sessionManager.SessionConnected += OnSessionConnected;
-        SearchBox.Text = "";
         RemotePathBox.Text = ".";
     }
 
@@ -143,12 +142,6 @@ public partial class MainWindow : Window
             NodeType.rdp => new SolidColorBrush(Color.FromRgb(0xc0, 0x84, 0xfc)),
             _ => Brushes.LightGreen
         };
-    }
-
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        _searchTerm = SearchBox.Text ?? "";
-        BuildTree();
     }
 
     private void ServerTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -368,9 +361,9 @@ public partial class MainWindow : Window
         {
             try
             {
-                var (host, port, username, password, keyPath, keyPassphrase, jumpChain) =
+                var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
                     ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
-                _sessionManager.CreateSshSession(tabId, node.Id, host, port, username, password, keyPath, keyPassphrase, jumpChain, err =>
+                _sessionManager.CreateSshSession(tabId, node.Id, host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent, err =>
                 {
                     Dispatcher.Invoke(() => terminal.Append("\r\n\x1b[31m" + err + "\x1b[0m\r\n"));
                 });

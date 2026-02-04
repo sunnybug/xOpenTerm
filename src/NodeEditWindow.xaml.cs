@@ -33,15 +33,9 @@ public partial class NodeEditWindow : Window
 
         AuthCombo.Items.Add("密码");
         AuthCombo.Items.Add("私钥");
-        AuthCombo.SelectedIndex = node.Config?.AuthType == AuthType.key ? 1 : 0;
-
-        ProtocolCombo.Items.Add("PowerShell");
-        ProtocolCombo.Items.Add("CMD");
-        ProtocolCombo.SelectedIndex = node.Config?.Protocol == Protocol.cmd ? 1 : 0;
-
-        AuthSourceCombo.Items.Add("本节点");
-        AuthSourceCombo.Items.Add("登录凭证");
-        AuthSourceCombo.Items.Add("同父节点");
+        AuthCombo.Items.Add("同父节点");
+        AuthCombo.Items.Add("SSH Agent");
+        AuthCombo.Items.Add("登录凭证");
         CredentialCombo.DisplayMemberPath = "Name";
         CredentialCombo.SelectedValuePath = "Id";
 
@@ -54,7 +48,14 @@ public partial class NodeEditWindow : Window
             KeyPathBox.Text = node.Config.KeyPath ?? "";
             DomainBox.Text = node.Config.Domain ?? "";
             var asrc = node.Config.AuthSource ?? AuthSource.inline;
-            AuthSourceCombo.SelectedIndex = asrc == AuthSource.parent ? 2 : (asrc == AuthSource.credential ? 1 : 0);
+            var authType = node.Config.AuthType ?? AuthType.password;
+            AuthCombo.SelectedIndex = asrc switch
+            {
+                AuthSource.parent => 2,
+                AuthSource.agent => 3,
+                AuthSource.credential => 4,
+                _ => authType == AuthType.key ? 1 : 0
+            };
             RefreshCredentialCombo();
             CredentialCombo.SelectedValue = node.Config.CredentialId;
             RefreshTunnelList(node.Config.TunnelIds);
@@ -65,8 +66,7 @@ public partial class NodeEditWindow : Window
         }
 
         TypeCombo.SelectionChanged += (_, _) => UpdateConfigVisibility();
-        AuthCombo.SelectionChanged += (_, _) => UpdateAuthVisibility();
-        AuthSourceCombo.SelectionChanged += (_, _) => UpdateAuthSourceVisibility();
+        AuthCombo.SelectionChanged += (_, _) => { UpdateAuthVisibility(); UpdateAuthSourceVisibility(); };
         UpdateConfigVisibility();
         UpdateAuthVisibility();
         UpdateAuthSourceVisibility();
@@ -90,8 +90,7 @@ public partial class NodeEditWindow : Window
 
     private void UpdateAuthSourceVisibility()
     {
-        var authSrc = AuthSourceCombo.SelectedIndex;
-        CredentialRow.Visibility = authSrc == 1 ? Visibility.Visible : Visibility.Collapsed;
+        CredentialRow.Visibility = AuthCombo.SelectedIndex == 4 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateConfigVisibility()
@@ -103,7 +102,6 @@ public partial class NodeEditWindow : Window
         var isRdp = idx == 3;
         ConfigLabel.Visibility = isGroup ? Visibility.Collapsed : Visibility.Visible;
         ConfigPanel.Visibility = isGroup ? Visibility.Collapsed : Visibility.Visible;
-        AuthSourceRow.Visibility = (isSsh || isGroup) ? Visibility.Visible : Visibility.Collapsed;
         CredentialRow.Visibility = Visibility.Collapsed;
         TunnelRow.Visibility = isSsh ? Visibility.Visible : Visibility.Collapsed;
         DomainRow.Visibility = Visibility.Collapsed; // RDP 不用域
@@ -142,9 +140,11 @@ public partial class NodeEditWindow : Window
     private void UpdateAuthVisibility()
     {
         if (TypeCombo.SelectedIndex == 3) return; // RDP
-        var isKey = AuthCombo.SelectedIndex == 1;
-        PasswordRow.Visibility = isKey ? Visibility.Collapsed : Visibility.Visible;
-        KeyRow.Visibility = isKey ? Visibility.Visible : Visibility.Collapsed;
+        var idx = AuthCombo.SelectedIndex;
+        var showPassword = idx == 0;
+        var showKey = idx == 1;
+        PasswordRow.Visibility = showPassword ? Visibility.Visible : Visibility.Collapsed;
+        KeyRow.Visibility = showKey ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void TunnelManageBtn_Click(object sender, RoutedEventArgs e)
@@ -162,7 +162,8 @@ public partial class NodeEditWindow : Window
         if (string.IsNullOrEmpty(host)) { MessageBox.Show("请填写主机。", "xOpenTerm2"); return; }
         if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
         string username; string? password = null; string? keyPath = null; string? keyPassphrase = null;
-        if (AuthSourceCombo.SelectedIndex == 1 && CredentialCombo.SelectedValue is string cid)
+        var useAgent = AuthCombo.SelectedIndex == 3;
+        if (AuthCombo.SelectedIndex == 4 && CredentialCombo.SelectedValue is string cid)
         {
             var cred = _credentials.FirstOrDefault(c => c.Id == cid);
             if (cred == null) { MessageBox.Show("请选择登录凭证。", "xOpenTerm2"); return; }
@@ -170,14 +171,23 @@ public partial class NodeEditWindow : Window
             if (cred.AuthType == AuthType.password) password = cred.Password;
             else { keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; }
         }
-        else
+        else if (AuthCombo.SelectedIndex == 0 || AuthCombo.SelectedIndex == 1)
         {
             username = UsernameBox.Text?.Trim() ?? "";
             if (AuthCombo.SelectedIndex == 0) password = PasswordBox.Password;
-            else keyPath = KeyPathBox.Text?.Trim(); keyPassphrase = null;
+            else { keyPath = KeyPathBox.Text?.Trim(); keyPassphrase = null; }
+        }
+        else if (useAgent)
+        {
+            username = UsernameBox.Text?.Trim() ?? "";
+        }
+        else
+        {
+            MessageBox.Show("同父节点请保存后在实际连接时验证。", "xOpenTerm2");
+            return;
         }
         if (string.IsNullOrEmpty(username)) { MessageBox.Show("请填写用户名。", "xOpenTerm2"); return; }
-        var ok = SshTester.Test(host, port, username, password, keyPath, keyPassphrase);
+        var ok = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
         MessageBox.Show(ok ? "连接成功" : "连接失败", "测试连接");
     }
 
@@ -213,11 +223,12 @@ public partial class NodeEditWindow : Window
                 _node.Config.Host = HostBox.Text?.Trim();
                 _node.Config.Port = ushort.TryParse(PortBox.Text, out var p) && p > 0 ? p : (ushort)22;
                 _node.Config.Username = UsernameBox.Text?.Trim();
-                _node.Config.AuthSource = AuthSourceCombo.SelectedIndex switch { 1 => AuthSource.credential, 2 => AuthSource.parent, _ => AuthSource.inline };
-                _node.Config.CredentialId = AuthSourceCombo.SelectedIndex == 1 && CredentialCombo.SelectedValue is string cid ? cid : null;
-                _node.Config.AuthType = AuthCombo.SelectedIndex == 1 ? AuthType.key : AuthType.password;
-                _node.Config.Password = AuthSourceCombo.SelectedIndex == 0 && AuthCombo.SelectedIndex == 0 ? PasswordBox.Password : null;
-                _node.Config.KeyPath = AuthSourceCombo.SelectedIndex == 0 && AuthCombo.SelectedIndex == 1 ? KeyPathBox.Text?.Trim() : null;
+                var authIdx = AuthCombo.SelectedIndex;
+                _node.Config.AuthSource = authIdx switch { 2 => AuthSource.parent, 3 => AuthSource.agent, 4 => AuthSource.credential, _ => AuthSource.inline };
+                _node.Config.CredentialId = authIdx == 4 && CredentialCombo.SelectedValue is string cid ? cid : null;
+                _node.Config.AuthType = authIdx == 1 ? AuthType.key : AuthType.password;
+                _node.Config.Password = authIdx == 0 ? PasswordBox.Password : null;
+                _node.Config.KeyPath = authIdx == 1 ? KeyPathBox.Text?.Trim() : null;
                 _node.Config.TunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => _tunnels.IndexOf(t)).Select(t => t.Id).ToList();
             }
         }

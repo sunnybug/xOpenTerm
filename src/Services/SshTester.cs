@@ -7,12 +7,16 @@ namespace xOpenTerm2.Services;
 public static class SshTester
 {
     public static bool Test(string host, ushort port, string username,
-        string? password, string? keyPath, string? keyPassphrase)
+        string? password, string? keyPath, string? keyPassphrase, bool useAgent = false)
     {
         try
         {
-            ConnectionInfo conn;
-            if (!string.IsNullOrEmpty(keyPath))
+            ConnectionInfo? conn;
+            if (useAgent)
+            {
+                conn = SessionManager.CreateConnectionInfo(host, port, username, null, null, null, true);
+            }
+            else if (!string.IsNullOrEmpty(keyPath))
             {
                 var keyFile = new PrivateKeyFile(keyPath, keyPassphrase);
                 conn = new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keyFile));
@@ -25,6 +29,7 @@ public static class SshTester
             {
                 return false;
             }
+            if (conn == null) return false;
             using var client = new SshClient(conn);
             client.Connect();
             client.Disconnect();

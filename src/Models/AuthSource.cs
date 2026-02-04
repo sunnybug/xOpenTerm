@@ -4,5 +4,6 @@ public enum AuthSource
 {
     inline,
     credential,
-    parent
+    parent,
+    agent
 }

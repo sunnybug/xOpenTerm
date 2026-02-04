@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using Renci.SshNet;
+using SshNet.Agent;
 using xOpenTerm2.Models;
 
 namespace xOpenTerm2.Services;
@@ -67,14 +68,14 @@ public class SessionManager
     public void CreateSshSession(string sessionId, string nodeId,
         string host, ushort port, string username,
         string? password, string? keyPath, string? keyPassphrase,
-        List<JumpHop>? jumpChain,
+        List<JumpHop>? jumpChain, bool useAgent,
         Action<string> onError)
     {
         try
         {
             if (jumpChain == null || jumpChain.Count == 0)
             {
-                CreateSshSessionDirect(sessionId, nodeId, host, port, username, password, keyPath, keyPassphrase, null, onError);
+                CreateSshSessionDirect(sessionId, nodeId, host, port, username, password, keyPath, keyPassphrase, useAgent, null, onError);
                 return;
             }
 
@@ -86,7 +87,7 @@ public class SessionManager
             for (var i = 0; i < jumpChain.Count; i++)
             {
                 var hop = jumpChain[i];
-                var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase);
+                var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, false);
                 if (conn == null) { onError($"跳板机 {i + 1} 请配置密码或私钥"); return; }
 
                 var client = new SshClient(conn);
@@ -104,7 +105,7 @@ public class SessionManager
                 connectPort = fwd.BoundPort;
             }
 
-            CreateSshSessionDirect(sessionId, nodeId, connectHost, (ushort)connectPort, username, password, keyPath, keyPassphrase, chainDisposables, onError);
+            CreateSshSessionDirect(sessionId, nodeId, connectHost, (ushort)connectPort, username, password, keyPath, keyPassphrase, useAgent, chainDisposables, onError);
         }
         catch (Exception ex)
         {
@@ -113,8 +114,10 @@ public class SessionManager
     }
 
     /// <summary>供 RemoteFileService 等复用：创建 SSH/SFTP 连接信息。</summary>
-    internal static ConnectionInfo? CreateConnectionInfo(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase)
+    internal static ConnectionInfo? CreateConnectionInfo(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent = false)
     {
+        if (useAgent)
+            return CreateConnectionInfoWithAgent(host, port, username);
         if (!string.IsNullOrEmpty(keyPath))
         {
             var keyFile = new PrivateKeyFile(keyPath, keyPassphrase);
@@ -125,16 +128,54 @@ public class SessionManager
         return null;
     }
 
+    /// <summary>使用 SSH Agent（OpenSSH 或 PuTTY Pageant）创建连接信息。</summary>
+    private static ConnectionInfo? CreateConnectionInfoWithAgent(string host, int port, string username)
+    {
+        SshAgentPrivateKey[]? keys = null;
+        try
+        {
+            // 先尝试 OpenSSH Agent（Windows 上为 openssh-ssh-agent 或 SSH_AUTH_SOCK）
+            var sshAgent = new SshAgent();
+            keys = sshAgent.RequestIdentities();
+            if (keys is { Length: > 0 })
+                return new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keys));
+        }
+        catch
+        {
+            // OpenSSH Agent 不可用（未运行或非 Windows 默认管道）
+        }
+
+        try
+        {
+            // 再尝试 PuTTY Pageant（Windows 上常用）
+            var pageant = new Pageant();
+            keys = pageant.RequestIdentities();
+            if (keys is { Length: > 0 })
+                return new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keys));
+        }
+        catch
+        {
+            // Pageant 未运行
+        }
+
+        return null;
+    }
+
     private void CreateSshSessionDirect(string sessionId, string nodeId,
         string host, ushort port, string username,
         string? password, string? keyPath, string? keyPassphrase,
+        bool useAgent,
         List<IDisposable>? chainDisposables,
         Action<string> onError)
     {
         try
         {
-            var conn = CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase);
-            if (conn == null) { onError("请配置密码或私钥"); return; }
+            var conn = CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent);
+            if (conn == null)
+            {
+                onError(useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥");
+                return;
+            }
 
             var client = new SshClient(conn);
             client.Connect();
