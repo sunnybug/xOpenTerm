@@ -1,12 +1,9 @@
 <UserControl x:Class="xOpenTerm2.Controls.TerminalControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="Black">
+             Background="{StaticResource BgDark}">
     <ScrollViewer x:Name="ScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                  Padding="8">
-        <TextBox x:Name="TerminalBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
-                 FontFamily="Consolas" FontSize="14" Foreground="#e2e8f0" Background="Transparent"
-                 BorderThickness="0" Padding="0" CaretBrush="#e2e8f0" VerticalScrollBarVisibility="Disabled"
-                 KeyDown="TerminalBox_KeyDown"/>
+                  Padding="8" KeyDown="TerminalSurface_KeyDown">
+        <Border x:Name="SurfaceHost" Background="Transparent" Focusable="False"/>
     </ScrollViewer>
 </UserControl>

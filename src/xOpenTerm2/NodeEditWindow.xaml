@@ -17,7 +17,7 @@
         </StackPanel>
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
             <TextBlock Text="类型" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-            <ComboBox x:Name="TypeCombo" Width="120" Padding="4" Background="#1e293b" Foreground="#e2e8f0"/>
+            <ComboBox x:Name="TypeCombo" Width="120" Padding="4"/>
         </StackPanel>
         <TextBlock Grid.Row="2" x:Name="ConfigLabel" Text="连接配置" Foreground="#94a3b8" Margin="0,8,0,6"/>
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
@@ -36,7 +36,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="认证" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <ComboBox x:Name="AuthCombo" Width="120" Padding="4" Background="#1e293b" Foreground="#e2e8f0"/>
+                    <ComboBox x:Name="AuthCombo" Width="120" Padding="4"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="PasswordRow">
                     <TextBlock Text="密码" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
@@ -48,11 +48,11 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="AuthSourceRow" Visibility="Collapsed">
                     <TextBlock Text="认证来源" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <ComboBox x:Name="AuthSourceCombo" Width="160" Padding="4" Background="#1e293b" Foreground="#e2e8f0"/>
+                    <ComboBox x:Name="AuthSourceCombo" Width="160" Padding="4"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
                     <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <ComboBox x:Name="CredentialCombo" Width="260" Padding="4" Background="#1e293b" Foreground="#e2e8f0"/>
+                    <ComboBox x:Name="CredentialCombo" Width="260" Padding="4"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="TunnelRow" Visibility="Collapsed">
                     <TextBlock Text="跳板机" Width="80" VerticalAlignment="Top" Foreground="#e2e8f0" Margin="0,6,0,0"/>
@@ -70,7 +70,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="ProtocolRow" Visibility="Collapsed">
                     <TextBlock Text="协议" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <ComboBox x:Name="ProtocolCombo" Width="120" Padding="4" Background="#1e293b" Foreground="#e2e8f0"/>
+                    <ComboBox x:Name="ProtocolCombo" Width="120" Padding="4"/>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

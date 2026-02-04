@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Forms.Integration;
 using xOpenTerm2.Controls;
 using xOpenTerm2.Models;
 using xOpenTerm2.Services;
@@ -19,6 +20,7 @@ public partial class MainWindow : Window
     private string _searchTerm = "";
     private readonly Dictionary<string, TerminalControl> _tabIdToTerminal = new();
     private readonly Dictionary<string, string> _tabIdToNodeId = new();
+    private readonly Dictionary<string, RdpHostControl> _tabIdToRdpControl = new();
     private ContextMenu? _treeContextMenu;
     private Node? _contextMenuNode;
     private Node? _draggedNode;
@@ -305,14 +307,7 @@ public partial class MainWindow : Window
         if (node.Type == NodeType.group) return;
         if (node.Type == NodeType.rdp)
         {
-            try
-            {
-                RdpLauncher.Launch(node);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "xOpenTerm2");
-            }
+            OpenRdpTab(node);
             return;
         }
 
@@ -388,8 +383,79 @@ public partial class MainWindow : Window
         return panel;
     }
 
+    private void OpenRdpTab(Node node)
+    {
+        try
+        {
+            var (host, port, username, domain, password) = ConfigResolver.ResolveRdp(node, _nodes, _credentials);
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                MessageBox.Show("请填写 RDP 主机地址。", "xOpenTerm2");
+                return;
+            }
+
+            var sameCount = _tabIdToNodeId.Values.Count(id => id == node.Id);
+            var tabTitle = sameCount == 0 ? node.Name : $"{node.Name} ({sameCount + 1})";
+            var tabId = "rdp-" + DateTime.UtcNow.Ticks;
+
+            var rdpControl = new RdpHostControl(host, port, username, domain, password);
+            rdpControl.ErrorOccurred += (_, msg) =>
+            {
+                Dispatcher.Invoke(() => MessageBox.Show(msg, "xOpenTerm2"));
+            };
+            rdpControl.Disconnected += (_, _) =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    if (_tabIdToRdpControl.ContainsKey(tabId))
+                        CloseTab(tabId);
+                });
+            };
+
+            var hostWpf = new WindowsFormsHost { Child = rdpControl };
+            var tabItem = new TabItem
+            {
+                Header = CreateTabHeader(tabTitle, tabId),
+                Content = hostWpf,
+                Tag = tabId
+            };
+            TabsControl.Items.Add(tabItem);
+            TabsControl.SelectedItem = tabItem;
+            _tabIdToRdpControl[tabId] = rdpControl;
+            _tabIdToNodeId[tabId] = node.Id;
+
+            // 延迟连接，等 WindowsFormsHost 与 RDP ActiveX 创建完成后再 Connect，避免 InvalidActiveXStateException
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
+            {
+                if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+                    rdp.Connect();
+            }));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "xOpenTerm2");
+        }
+    }
+
     private void CloseTab(string tabId)
     {
+        if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+        {
+            rdp.Disconnect();
+            rdp.Dispose();
+            _tabIdToRdpControl.Remove(tabId);
+            _tabIdToNodeId.Remove(tabId);
+            for (var i = 0; i < TabsControl.Items.Count; i++)
+            {
+                if (TabsControl.Items[i] is TabItem ti && ti.Tag is string id && id == tabId)
+                {
+                    TabsControl.Items.RemoveAt(i);
+                    break;
+                }
+            }
+            return;
+        }
+
         _sessionManager.CloseSession(tabId);
         for (var i = 0; i < TabsControl.Items.Count; i++)
         {
@@ -423,6 +489,15 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        foreach (var tabId in _tabIdToRdpControl.Keys.ToList())
+        {
+            if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+            {
+                rdp.Disconnect();
+                rdp.Dispose();
+            }
+        }
+        _tabIdToRdpControl.Clear();
         foreach (var tabId in _tabIdToTerminal.Keys.ToList())
             _sessionManager.CloseSession(tabId);
         base.OnClosed(e);

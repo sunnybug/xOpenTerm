@@ -45,5 +45,5 @@ dotnet run --project src\xOpenTerm2\xOpenTerm2.csproj
 
 - 无内嵌 RDP 窗口（RDP 通过 mstsc 启动系统远程桌面）
 - 无「远程文件」面板与 `list_remote_dir`
-- 终端为简易文本框，非 xterm.js，无完整 VT100 渲染
+- 终端为自定义绘制 VT100 终端（ANSI 颜色/SGR、仅绘制可见行，无 xterm.js）
 - 隧道链配置与选择已支持，SSH 支持直连与多跳（经跳板机链本地端口转发连接目标）

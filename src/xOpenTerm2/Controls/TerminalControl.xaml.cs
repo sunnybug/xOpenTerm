@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace xOpenTerm2.Controls;
 
@@ -8,10 +9,28 @@ public partial class TerminalControl : UserControl
 {
     public event EventHandler<string>? DataToSend;
 
+    private readonly TerminalBuffer _buffer = new();
+    private readonly Vt100Parser _parser = new();
+    private TerminalSurface? _surface;
+
     public TerminalControl()
     {
         InitializeComponent();
-        TerminalBox.Focusable = true;
+        Loaded += OnLoaded;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _surface = new TerminalSurface
+        {
+            Buffer = _buffer,
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 14,
+            DefaultForeground = (Brush)FindResource("TextPrimary")
+        };
+        _surface.KeyDown += TerminalSurface_KeyDown;
+        _surface.MouseDown += (_, _) => _surface.Focus();
+        SurfaceHost.Child = _surface;
     }
 
     public void Append(string data)
@@ -21,16 +40,23 @@ public partial class TerminalControl : UserControl
             Dispatcher.Invoke(() => Append(data));
             return;
         }
-        TerminalBox.AppendText(data);
-        TerminalBox.ScrollToEnd();
+
+        _parser.Feed(data, seg => _buffer.AddSegment(seg), () => _buffer.NewLine());
+
+        _surface?.InvalidateMeasure();
+        _surface?.InvalidateVisual();
+
+        ScrollViewer.ScrollToBottom();
     }
 
     public void Clear()
     {
-        TerminalBox.Clear();
+        _buffer.Clear();
+        _surface?.InvalidateMeasure();
+        _surface?.InvalidateVisual();
     }
 
-    private void TerminalBox_KeyDown(object sender, KeyEventArgs e)
+    private void TerminalSurface_KeyDown(object sender, KeyEventArgs e)
     {
         if (DataToSend == null) return;
         var c = KeyToChar(e);
