@@ -1,0 +1,202 @@
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.IO.Pipes;
+using System.Text;
+using System.Windows.Forms;
+using xOpenTerm2.Native;
+
+namespace xOpenTerm2.Controls;
+
+/// <summary>
+/// 采用 mRemoteNG 方式：嵌入 PuTTY/PuTTY NG 窗口显示 SSH 终端。
+/// 使用与 mRemoteNG PuttyBase 相同的逻辑：-hwndparent（PuTTY NG）或 SetParent（经典 PuTTY）、命名管道传密码、Resize 等。
+/// </summary>
+public sealed class SshPuttyHostControl : Panel
+{
+    private Process? _puttyProcess;
+    private IntPtr _puttyHandle;
+    private bool _isPuttyNg;
+    private readonly DisplayScale _display = new();
+
+    /// <summary>默认 PuTTY 路径：优先使用 mRemoteNG 目录下的 PuTTYNG.exe。</summary>
+    public static string DefaultPuttyPath { get; set; } = GetDefaultPuttyPath();
+
+    public event EventHandler? Closed;
+
+    /// <summary>PuTTY 窗口已嵌入并显示时触发（可用于切换远程文件等）。</summary>
+    public event EventHandler? Connected;
+
+    public IntPtr PuttyHandle => _puttyHandle;
+
+    public bool IsRunning => _puttyProcess != null && !_puttyProcess.HasExited;
+
+    public void Connect(string host, int port, string username, string? password, string? keyPath, string puttyPath)
+    {
+        if (string.IsNullOrWhiteSpace(puttyPath) || !File.Exists(puttyPath))
+        {
+            throw new FileNotFoundException("未找到 PuTTY 程序，请指定有效路径。", puttyPath);
+        }
+
+        _isPuttyNg = IsPuttyNg(puttyPath);
+
+        var arguments = new List<string>();
+        arguments.Add("-ssh");
+        arguments.Add("-2");
+        if (!string.IsNullOrEmpty(username))
+            arguments.AddRange(["-l", username]);
+        if (!string.IsNullOrEmpty(password))
+        {
+            var pipeName = "xOpenTerm2Pipe" + Guid.NewGuid().ToString("n")[..8];
+            var thread = new Thread(() => CreatePipeServer(pipeName, password));
+            thread.Start();
+            arguments.AddRange(["-pwfile", $"\\\\.\\PIPE\\{pipeName}"]);
+        }
+        if (!string.IsNullOrEmpty(keyPath) && File.Exists(keyPath))
+            arguments.AddRange(["-i", keyPath]);
+        arguments.AddRange(["-P", port.ToString()]);
+        arguments.Add(host);
+
+        if (_isPuttyNg)
+            arguments.AddRange(["-hwndparent", Handle.ToString()]);
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = puttyPath,
+            Arguments = string.Join(" ", arguments.Select(a => a.Contains(' ') ? "\"" + a + "\"" : a)),
+            UseShellExecute = false
+        };
+
+        _puttyProcess = new Process { StartInfo = startInfo };
+        _puttyProcess.EnableRaisingEvents = true;
+        _puttyProcess.Exited += (_, _) => OnClosed();
+        _puttyProcess.Start();
+
+        var waitMs = 30_000;
+        _puttyProcess.WaitForInputIdle(waitMs);
+
+        var startTicks = Environment.TickCount;
+        while (_puttyHandle == IntPtr.Zero && Environment.TickCount - startTicks < waitMs)
+        {
+            if (_isPuttyNg)
+                _puttyHandle = NativeMethods.FindWindowEx(Handle, IntPtr.Zero, null, null);
+            else
+            {
+                _puttyProcess.Refresh();
+                _puttyHandle = _puttyProcess.MainWindowHandle;
+            }
+            if (_puttyHandle == IntPtr.Zero)
+                Thread.Sleep(10);
+        }
+
+        if (!_isPuttyNg && _puttyHandle != IntPtr.Zero)
+            NativeMethods.SetParent(_puttyHandle, Handle);
+
+        ResizePuttyWindow();
+        try { Connected?.Invoke(this, EventArgs.Empty); } catch { }
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        ResizePuttyWindow();
+    }
+
+    protected override void OnHandleDestroyed(EventArgs e)
+    {
+        Close();
+        base.OnHandleDestroyed(e);
+    }
+
+    public void Close()
+    {
+        try
+        {
+            if (_puttyProcess != null && !_puttyProcess.HasExited)
+                _puttyProcess.Kill();
+        }
+        catch { }
+        try
+        {
+            _puttyProcess?.Dispose();
+        }
+        catch { }
+        _puttyProcess = null;
+        _puttyHandle = IntPtr.Zero;
+    }
+
+    public void FocusPutty()
+    {
+        if (_puttyHandle != IntPtr.Zero)
+            NativeMethods.SetForegroundWindow(_puttyHandle);
+    }
+
+    private void ResizePuttyWindow()
+    {
+        if (_puttyHandle == IntPtr.Zero) return;
+        try
+        {
+            var clientRect = ClientRectangle;
+            if (clientRect.Size == System.Drawing.Size.Empty) return;
+
+            if (_isPuttyNg)
+            {
+                NativeMethods.MoveWindow(_puttyHandle, clientRect.X, clientRect.Y, clientRect.Width, clientRect.Height, true);
+            }
+            else
+            {
+                int borderH = _display.ScaleHeight(SystemInformation.FrameBorderSize.Height);
+                int borderW = _display.ScaleWidth(SystemInformation.FrameBorderSize.Width);
+                int captionH = SystemInformation.CaptionHeight;
+                NativeMethods.MoveWindow(_puttyHandle,
+                    clientRect.X - borderW,
+                    clientRect.Y - (captionH + borderH),
+                    clientRect.Width + borderW * 2,
+                    clientRect.Height + captionH + borderH * 2,
+                    true);
+            }
+        }
+        catch { }
+    }
+
+    private void OnClosed()
+    {
+        _puttyHandle = IntPtr.Zero;
+        try { Closed?.Invoke(this, EventArgs.Empty); } catch { }
+    }
+
+    private static void CreatePipeServer(string pipeName, string password)
+    {
+        using var server = new NamedPipeServerStream(pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.None);
+        server.WaitForConnection();
+        using var writer = new StreamWriter(server, new UTF8Encoding(false)) { AutoFlush = true };
+        writer.Write(password);
+    }
+
+    private static bool IsPuttyNg(string filename)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(filename) || !File.Exists(filename)) return false;
+            var vi = FileVersionInfo.GetVersionInfo(filename);
+            return (vi.InternalName ?? "").Contains("PuTTYNG", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    private static string GetDefaultPuttyPath()
+    {
+        var mremoteDir = @"d:\xsw\code_auto_push\mRemoteNG\mRemoteNG";
+        var puttyNg = Path.Combine(mremoteDir, "PuTTYNG.exe");
+        if (File.Exists(puttyNg)) return puttyNg;
+        var putty = Path.Combine(mremoteDir, "putty.exe");
+        if (File.Exists(putty)) return putty;
+        return "PuTTYNG.exe";
+    }
+
+    private sealed class DisplayScale
+    {
+        public int ScaleHeight(int height) => height;
+        public int ScaleWidth(int width) => width;
+    }
+}

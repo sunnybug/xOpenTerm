@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private List<Tunnel> _tunnels = new();
     private string _searchTerm = "";
     private readonly Dictionary<string, TerminalControl> _tabIdToTerminal = new();
+    private readonly Dictionary<string, SshPuttyHostControl> _tabIdToPuttyControl = new();
     private readonly Dictionary<string, string> _tabIdToNodeId = new();
     private readonly Dictionary<string, RdpHostControl> _tabIdToRdpControl = new();
     private ContextMenu? _treeContextMenu;
@@ -332,6 +333,103 @@ public partial class MainWindow : Window
         var tabTitle = sameCount == 0 ? node.Name : $"{node.Name} ({sameCount + 1})";
         var tabId = "tab-" + DateTime.UtcNow.Ticks;
 
+        if (node.Type == NodeType.local)
+        {
+            OpenLocalOrSshTab(tabId, tabTitle, node, null);
+            return;
+        }
+
+        if (node.Type == NodeType.ssh)
+        {
+            try
+            {
+                var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
+                    ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
+
+                // 直连：采用 mRemoteNG 方式，用 PuTTY/PuTTY NG 嵌入渲染
+                if (jumpChain == null || jumpChain.Count == 0)
+                {
+                    OpenSshPuttyTab(tabId, tabTitle, node, host, port, username, password, keyPath);
+                    return;
+                }
+
+                // 多跳：保留 SSH.NET + 自研终端
+                OpenLocalOrSshTab(tabId, tabTitle, node, (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent));
+            }
+            catch (Exception ex)
+            {
+                var terminal = new TerminalControl();
+                var tabItem = new TabItem
+                {
+                    Header = CreateTabHeader(tabTitle, tabId),
+                    Content = terminal,
+                    Tag = tabId
+                };
+                TabsControl.Items.Add(tabItem);
+                TabsControl.SelectedItem = tabItem;
+                _tabIdToTerminal[tabId] = terminal;
+                _tabIdToNodeId[tabId] = node.Id;
+                terminal.Append("\r\n\x1b[31m" + ex.Message + "\x1b[0m\r\n");
+            }
+            return;
+        }
+
+        OpenLocalOrSshTab(tabId, tabTitle, node, null);
+    }
+
+    /// <summary>直连 SSH：使用 mRemoteNG 的 PuTTY 嵌入方式渲染终端。</summary>
+    private void OpenSshPuttyTab(string tabId, string tabTitle, Node node,
+        string host, int port, string username, string? password, string? keyPath)
+    {
+        var puttyControl = new SshPuttyHostControl();
+        puttyControl.Closed += (_, _) =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (_tabIdToPuttyControl.ContainsKey(tabId))
+                    CloseTab(tabId);
+            });
+        };
+        puttyControl.Connected += (_, _) =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                _remoteFileNodeId = node.Id;
+                _remoteFilePath = ".";
+                RemotePathBox.Text = ".";
+                RemoteFileTitle.Text = "远程文件 - " + node.Name;
+                LeftTabControl.SelectedIndex = 1;
+                LoadRemoteFileList();
+            });
+        };
+
+        var hostWpf = new WindowsFormsHost { Child = puttyControl };
+        var tabItem = new TabItem
+        {
+            Header = CreateTabHeader(tabTitle, tabId),
+            Content = hostWpf,
+            Tag = tabId
+        };
+        TabsControl.Items.Add(tabItem);
+        TabsControl.SelectedItem = tabItem;
+        _tabIdToPuttyControl[tabId] = puttyControl;
+        _tabIdToNodeId[tabId] = node.Id;
+
+        try
+        {
+            puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("PuTTY 启动失败：" + ex.Message, "xOpenTerm2");
+            CloseTab(tabId);
+        }
+    }
+
+    /// <summary>本地终端或多跳 SSH：使用自研 TerminalControl + SessionManager。</summary>
+    private void OpenLocalOrSshTab(string tabId, string tabTitle, Node node,
+        (string host, int port, string username, string? password, string? keyPath, string? keyPassphrase, List<JumpHop>? jumpChain, bool useAgent)? sshParams)
+    {
         var terminal = new TerminalControl();
         terminal.DataToSend += (_, data) => _sessionManager.WriteToSession(tabId, data);
 
@@ -346,33 +444,35 @@ public partial class MainWindow : Window
         _tabIdToTerminal[tabId] = terminal;
         _tabIdToNodeId[tabId] = node.Id;
 
-        terminal.Append("\x1b[32m正在连接...\x1b[0m\r\n");
-
-        if (node.Type == NodeType.local)
+        if (sshParams == null)
         {
+            // 本地
+            terminal.Append("\x1b[32m正在连接...\x1b[0m\r\n");
             var protocol = node.Config?.Protocol ?? Protocol.powershell;
             var protocolStr = protocol == Protocol.cmd ? "cmd" : "powershell";
             _sessionManager.CreateLocalSession(tabId, node.Id, protocolStr, err =>
             {
                 Dispatcher.Invoke(() => terminal.Append("\r\n\x1b[31m" + err + "\x1b[0m\r\n"));
             });
+            return;
         }
-        else if (node.Type == NodeType.ssh)
+
+        terminal.Append("\x1b[32m正在连接...\x1b[0m\r\n");
+        var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) = sshParams.Value;
+        Task.Run(() =>
         {
             try
             {
-                var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
-                    ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
-                _sessionManager.CreateSshSession(tabId, node.Id, host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent, err =>
+                _sessionManager.CreateSshSession(tabId, node.Id, host, (ushort)port, username, password, keyPath, keyPassphrase, jumpChain, useAgent, err =>
                 {
-                    Dispatcher.Invoke(() => terminal.Append("\r\n\x1b[31m" + err + "\x1b[0m\r\n"));
+                    Dispatcher.BeginInvoke(() => terminal.Append("\r\n\x1b[31m" + err + "\x1b[0m\r\n"));
                 });
             }
             catch (Exception ex)
             {
-                Dispatcher.Invoke(() => terminal.Append("\r\n\x1b[31m" + ex.Message + "\x1b[0m\r\n"));
+                Dispatcher.BeginInvoke(() => terminal.Append("\r\n\x1b[31m" + ex.Message + "\x1b[0m\r\n"));
             }
-        }
+        });
     }
 
     private StackPanel CreateTabHeader(string title, string tabId)
@@ -463,25 +563,38 @@ public partial class MainWindow : Window
             rdp.Dispose();
             _tabIdToRdpControl.Remove(tabId);
             _tabIdToNodeId.Remove(tabId);
-            for (var i = 0; i < TabsControl.Items.Count; i++)
+            RemoveTabItem(tabId);
+            return;
+        }
+
+        if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
+        {
+            putty.Close();
+            _tabIdToPuttyControl.Remove(tabId);
+            if (_tabIdToNodeId.TryGetValue(tabId, out var nodeId) && nodeId == _remoteFileNodeId)
             {
-                if (TabsControl.Items[i] is TabItem ti && ti.Tag is string id && id == tabId)
-                {
-                    TabsControl.Items.RemoveAt(i);
-                    break;
-                }
+                _remoteFileNodeId = null;
+                RemoteFileList.ItemsSource = null;
+                RemoteFileTitle.Text = "远程文件";
             }
+            _tabIdToNodeId.Remove(tabId);
+            RemoveTabItem(tabId);
             return;
         }
 
         _sessionManager.CloseSession(tabId);
+        _tabIdToTerminal.Remove(tabId);
+        _tabIdToNodeId.Remove(tabId);
+        RemoveTabItem(tabId);
+    }
+
+    private void RemoveTabItem(string tabId)
+    {
         for (var i = 0; i < TabsControl.Items.Count; i++)
         {
             if (TabsControl.Items[i] is TabItem ti && ti.Tag is string id && id == tabId)
             {
                 TabsControl.Items.RemoveAt(i);
-                _tabIdToTerminal.Remove(tabId);
-                _tabIdToNodeId.Remove(tabId);
                 break;
             }
         }
@@ -489,7 +602,8 @@ public partial class MainWindow : Window
 
     private void OnSessionDataReceived(object? sender, (string SessionId, string Data) e)
     {
-        Dispatcher.Invoke(() =>
+        // 使用 BeginInvoke 避免阻塞读线程，连接后大量输出时界面更流畅
+        Dispatcher.BeginInvoke(() =>
         {
             if (_tabIdToTerminal.TryGetValue(e.SessionId, out var term))
                 term.Append(e.Data);
@@ -513,7 +627,7 @@ public partial class MainWindow : Window
 
     private void OnSessionConnected(object? sender, string sessionId)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.BeginInvoke(() =>
         {
             if (!_tabIdToNodeId.TryGetValue(sessionId, out var nodeId)) return;
             var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
@@ -600,6 +714,12 @@ public partial class MainWindow : Window
             }
         }
         _tabIdToRdpControl.Clear();
+        foreach (var tabId in _tabIdToPuttyControl.Keys.ToList())
+        {
+            if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
+                putty.Close();
+        }
+        _tabIdToPuttyControl.Clear();
         foreach (var tabId in _tabIdToTerminal.Keys.ToList())
             _sessionManager.CloseSession(tabId);
         base.OnClosed(e);

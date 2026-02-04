@@ -37,11 +37,21 @@ public partial class TerminalControl : UserControl
     {
         if (!Dispatcher.CheckAccess())
         {
-            Dispatcher.Invoke(() => Append(data));
+            Dispatcher.BeginInvoke(() => Append(data));
             return;
         }
 
-        _parser.Feed(data, seg => _buffer.AddSegment(seg), () => _buffer.NewLine());
+        _parser.Feed(data,
+            seg => _buffer.AddSegment(seg),
+            () => _buffer.NewLine(),
+            (r, c) => _buffer.SetCursor(r, c),
+            () => _buffer.CarriageReturn(),
+            mode => _buffer.EraseInDisplay(mode),
+            mode => _buffer.EraseInLine(mode),
+            n => _buffer.MoveCursorUp(n),
+            n => _buffer.MoveCursorDown(n),
+            n => _buffer.MoveCursorForward(n),
+            n => _buffer.MoveCursorBack(n));
 
         _surface?.InvalidateMeasure();
         _surface?.InvalidateVisual();

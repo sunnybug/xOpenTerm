@@ -4,7 +4,7 @@ using System.Windows.Media;
 namespace xOpenTerm2.Controls;
 
 /// <summary>
-/// VT100/ANSI 流式解析器，解析 SGR（颜色/粗体）及常用 CSI，输出带样式的文本段。
+/// VT100/ANSI 流式解析器：SGR（颜色/粗体）、CSI 光标/擦除、ESC E（NEL）、BEL 等。
 /// </summary>
 public sealed class Vt100Parser
 {
@@ -42,15 +42,44 @@ public sealed class Vt100Parser
     }
 
     /// <summary>
-    /// 喂入数据，解析后通过回调输出文本段与换行。
+    /// 喂入数据，解析后通过回调输出文本段、换行、光标与擦除。
     /// </summary>
     public void Feed(string data, Action<Vt100Segment> onSegment, Action onNewLine)
     {
-        foreach (var c in data)
-            ProcessChar(c, onSegment, onNewLine);
+        Feed(data, onSegment, onNewLine, null, null, null, null, null, null, null, null);
     }
 
-    private void ProcessChar(char c, Action<Vt100Segment> onSegment, Action onNewLine)
+    /// <summary>
+    /// 喂入数据（含 VT100 光标/擦除回调）。
+    /// </summary>
+    public void Feed(string data,
+        Action<Vt100Segment> onSegment,
+        Action onNewLine,
+        Action<int, int>? onSetCursor,
+        Action? onCarriageReturn,
+        Action<int>? onEraseInDisplay,
+        Action<int>? onEraseInLine,
+        Action<int>? onCursorUp,
+        Action<int>? onCursorDown,
+        Action<int>? onCursorForward,
+        Action<int>? onCursorBack)
+    {
+        foreach (var c in data)
+            ProcessChar(c, onSegment, onNewLine, onSetCursor, onCarriageReturn, onEraseInDisplay, onEraseInLine,
+                onCursorUp, onCursorDown, onCursorForward, onCursorBack);
+    }
+
+    private void ProcessChar(char c,
+        Action<Vt100Segment> onSegment,
+        Action onNewLine,
+        Action<int, int>? onSetCursor,
+        Action? onCarriageReturn,
+        Action<int>? onEraseInDisplay,
+        Action<int>? onEraseInLine,
+        Action<int>? onCursorUp,
+        Action<int>? onCursorDown,
+        Action<int>? onCursorForward,
+        Action<int>? onCursorBack)
     {
         switch (_state)
         {
@@ -68,7 +97,11 @@ public sealed class Vt100Parser
                 else if (c == '\r')
                 {
                     FlushText(onSegment);
-                    // \r 仅移动光标到行首，不换行；\r\n 时由 \n 负责换行
+                    onCarriageReturn?.Invoke();
+                }
+                else if (c == '\x07')
+                {
+                    // BEL：可在此扩展蜂鸣等
                 }
                 else if (c >= ' ' || c == '\t')
                 {
@@ -82,6 +115,14 @@ public sealed class Vt100Parser
                     _csiBuffer.Clear();
                     _state = State.CsiParam;
                 }
+                else if (c == 'E')
+                {
+                    // NEL (Next Line) = CR+LF
+                    FlushText(onSegment);
+                    onCarriageReturn?.Invoke();
+                    onNewLine();
+                    _state = State.Normal;
+                }
                 else
                 {
                     _state = State.Normal;
@@ -92,10 +133,17 @@ public sealed class Vt100Parser
             case State.CsiParam:
                 if (c >= ' ' && c <= '~')
                 {
+                    if (_csiBuffer.Length >= MaxCsiParamStrLength)
+                    {
+                        _csiBuffer.Clear();
+                        _state = State.Normal;
+                        break;
+                    }
                     _csiBuffer.Append(c);
                     if (c >= '@' && c <= '~')
                     {
-                        ApplyCsi(onSegment);
+                        ApplyCsi(onSegment, onSetCursor, onEraseInDisplay, onEraseInLine,
+                            onCursorUp, onCursorDown, onCursorForward, onCursorBack);
                         _csiBuffer.Clear();
                         _state = State.Normal;
                     }
@@ -112,11 +160,54 @@ public sealed class Vt100Parser
     private void FlushText(Action<Vt100Segment> onSegment)
     {
         if (_textBuffer.Length == 0) return;
-        onSegment(new Vt100Segment(_textBuffer.ToString(), _fg, _bg, _bold));
+        onSegment(new Vt100Segment(_textBuffer.ToString(), _fg!, _bg!, _bold));
         _textBuffer.Clear();
     }
 
-    private void ApplyCsi(Action<Vt100Segment> onSegment)
+    /// <summary>CSI 参数个数上限，防止畸形数据导致 List 无限扩容 (OutOfMemoryException)。</summary>
+    private const int MaxCsiParams = 64;
+    /// <summary>单个参数值上限，防止超大数值导致异常。</summary>
+    private const int MaxParamValue = 65535;
+    /// <summary>参数字符串最大解析长度，避免超长畸形输入长时间循环。</summary>
+    private const int MaxCsiParamStrLength = 1024;
+
+    /// <summary>
+    /// 解析 CSI 参数字符串为整数列表（缺省为 1）。参数个数与数值均有限制，避免恶意/畸形输入导致崩溃。
+    /// </summary>
+    private static void ParseCsiParams(ReadOnlySpan<char> paramStr, List<int> outParams)
+    {
+        outParams.Clear();
+        if (paramStr.Length > MaxCsiParamStrLength)
+            paramStr = paramStr.Slice(0, MaxCsiParamStrLength);
+        if (paramStr.Length == 0)
+        {
+            outParams.Add(1);
+            return;
+        }
+        var i = 0;
+        while (i < paramStr.Length && outParams.Count < MaxCsiParams)
+        {
+            int value = 0;
+            while (i < paramStr.Length && paramStr[i] >= '0' && paramStr[i] <= '9')
+            {
+                value = value * 10 + (paramStr[i] - '0');
+                if (value > MaxParamValue) value = MaxParamValue;
+                i++;
+            }
+            outParams.Add(value == 0 ? 1 : value);
+            while (i < paramStr.Length && (paramStr[i] == ';' || paramStr[i] == ':')) i++;
+        }
+        if (outParams.Count == 0) outParams.Add(1);
+    }
+
+    private void ApplyCsi(Action<Vt100Segment> onSegment,
+        Action<int, int>? onSetCursor,
+        Action<int>? onEraseInDisplay,
+        Action<int>? onEraseInLine,
+        Action<int>? onCursorUp,
+        Action<int>? onCursorDown,
+        Action<int>? onCursorForward,
+        Action<int>? onCursorBack)
     {
         var s = _csiBuffer.ToString();
         var cmd = s.Length > 0 ? s[^1] : '\0';
@@ -128,13 +219,42 @@ public sealed class Vt100Parser
             return;
         }
 
-        if (cmd == 'J' || cmd == 'K' || cmd == 'H' || cmd == 'f' || cmd == 'h' || cmd == 'l')
-        {
-            // 清屏/擦行/光标/模式：仅消费，不改变当前 SGR
-            return;
-        }
+        var pars = new List<int>();
+        ParseCsiParams(paramStr, pars);
+        int p0 = pars.Count > 0 ? pars[0] : 1;
+        int p1 = pars.Count > 1 ? pars[1] : 1;
 
-        // 其他 CSI：忽略
+        switch (cmd)
+        {
+            case 'A': // CUU Cursor Up
+                onCursorUp?.Invoke(p0);
+                break;
+            case 'B': // CUD Cursor Down
+                onCursorDown?.Invoke(p0);
+                break;
+            case 'C': // CUF Cursor Forward
+                onCursorForward?.Invoke(p0);
+                break;
+            case 'D': // CUB Cursor Back
+                onCursorBack?.Invoke(p0);
+                break;
+            case 'H':
+            case 'f': // CUP / HVP  (row;col 1-based)
+                onSetCursor?.Invoke(Math.Max(0, p0 - 1), Math.Max(0, p1 - 1));
+                break;
+            case 'J': // ED Erase in Display: 0=below, 1=above, 2=all
+                onEraseInDisplay?.Invoke(p0);
+                break;
+            case 'K': // EL Erase in Line: 0=to end, 1=to start, 2=all
+                onEraseInLine?.Invoke(p0);
+                break;
+            case 'h':
+            case 'l':
+                // DECSET/DECRST 等模式：仅消费
+                break;
+            default:
+                break;
+        }
     }
 
     private void ApplySgr(ReadOnlySpan<char> paramStr)
@@ -193,6 +313,6 @@ public sealed class Vt100Parser
 }
 
 /// <summary>
-/// 一段带样式的终端文本。
+/// 一段带样式的终端文本。Foreground/Background 为 null 时使用控件默认色。
 /// </summary>
-public readonly record struct Vt100Segment(string Text, Brush Foreground, Brush Background, bool Bold);
+public readonly record struct Vt100Segment(string Text, Brush? Foreground, Brush? Background, bool Bold);
