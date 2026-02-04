@@ -87,8 +87,8 @@ public class SessionManager
             for (var i = 0; i < jumpChain.Count; i++)
             {
                 var hop = jumpChain[i];
-                var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, false);
-                if (conn == null) { onError($"跳板机 {i + 1} 请配置密码或私钥"); return; }
+                var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
+                if (conn == null) { onError(hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"); return; }
 
                 var client = new SshClient(conn);
                 client.Connect();

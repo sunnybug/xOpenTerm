@@ -3,7 +3,7 @@ using xOpenTerm2.Models;
 namespace xOpenTerm2.Services;
 
 /// <summary>单跳跳板机的连接参数（用于多跳隧道链）</summary>
-public record JumpHop(string Host, ushort Port, string Username, string? Password, string? KeyPath, string? KeyPassphrase);
+public record JumpHop(string Host, ushort Port, string Username, string? Password, string? KeyPath, string? KeyPassphrase, bool UseAgent = false);
 
 /// <summary>解析节点配置：认证来源、凭证、隧道（直连 + 多跳跳板机）</summary>
 public static class ConfigResolver
@@ -84,6 +84,7 @@ public static class ConfigResolver
             {
                 case AuthType.password: password = cred.Password; break;
                 case AuthType.key: keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; break;
+                case AuthType.agent: useAgent = true; break;
             }
         }
         else if (useAgent)
@@ -127,6 +128,7 @@ public static class ConfigResolver
         string? password = null;
         string? keyPath = null;
         string? keyPassphrase = null;
+        var useAgent = false;
         if (!string.IsNullOrEmpty(t.CredentialId))
         {
             var cred = credentials.FirstOrDefault(c => c.Id == t.CredentialId);
@@ -137,18 +139,20 @@ public static class ConfigResolver
                 {
                     case AuthType.password: password = cred.Password; break;
                     case AuthType.key: keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; break;
+                    case AuthType.agent: useAgent = true; break;
                 }
             }
         }
-        if (string.IsNullOrEmpty(password) && string.IsNullOrEmpty(keyPath))
+        if (!useAgent && string.IsNullOrEmpty(password) && string.IsNullOrEmpty(keyPath))
         {
             switch (t.AuthType)
             {
                 case AuthType.password: password = t.Password; break;
                 case AuthType.key: keyPath = t.KeyPath; keyPassphrase = t.KeyPassphrase; break;
+                case AuthType.agent: useAgent = true; break;
             }
         }
-        return new JumpHop(t.Host ?? "", port, username, password, keyPath, keyPassphrase);
+        return new JumpHop(t.Host ?? "", port, username, password, keyPath, keyPassphrase, useAgent);
     }
 
     private static ConnectionConfig ResolveEffectiveSshConfig(Node sshNode, List<Node> allNodes)

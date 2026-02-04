@@ -29,8 +29,8 @@ public static class RemoteFileService
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, false);
-                    if (conn == null) { error = $"跳板机 {i + 1} 请配置密码或私钥"; return new List<RemoteFileItem>(); }
+                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
+                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return new List<RemoteFileItem>(); }
 
                     var client = new SshClient(conn);
                     client.Connect();
@@ -109,8 +109,8 @@ public static class RemoteFileService
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, false);
-                    if (conn == null) { error = $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
+                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
+                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
                     client.Connect();
                     chainDisposables.Add(client);
@@ -175,8 +175,8 @@ public static class RemoteFileService
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, false);
-                    if (conn == null) { error = $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
+                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
+                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
                     client.Connect();
                     chainDisposables.Add(client);

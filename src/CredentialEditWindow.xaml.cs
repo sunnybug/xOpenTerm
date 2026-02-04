@@ -20,7 +20,8 @@ public partial class CredentialEditWindow : Window
         Title = isNew ? "新增凭证" : "编辑凭证";
         AuthCombo.Items.Add("密码");
         AuthCombo.Items.Add("私钥");
-        AuthCombo.SelectedIndex = _cred.AuthType == AuthType.key ? 1 : 0;
+        AuthCombo.Items.Add("SSH Agent");
+        AuthCombo.SelectedIndex = _cred.AuthType switch { AuthType.key => 1, AuthType.agent => 2, _ => 0 };
         NameBox.Text = _cred.Name;
         UsernameBox.Text = _cred.Username;
         PasswordBox.Password = _cred.Password ?? "";
@@ -31,8 +32,10 @@ public partial class CredentialEditWindow : Window
 
     private void UpdateAuthVisibility()
     {
-        var isKey = AuthCombo.SelectedIndex == 1;
-        PasswordRow.Visibility = isKey ? Visibility.Collapsed : Visibility.Visible;
+        var idx = AuthCombo.SelectedIndex;
+        var isAgent = idx == 2;
+        var isKey = idx == 1;
+        PasswordRow.Visibility = (isKey || isAgent) ? Visibility.Collapsed : Visibility.Visible;
         KeyRow.Visibility = isKey ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -41,9 +44,10 @@ public partial class CredentialEditWindow : Window
         _cred.Name = NameBox.Text?.Trim() ?? "";
         if (string.IsNullOrEmpty(_cred.Name)) { MessageBox.Show("请输入名称。", "xOpenTerm2"); return; }
         _cred.Username = UsernameBox.Text?.Trim() ?? "";
-        _cred.AuthType = AuthCombo.SelectedIndex == 1 ? AuthType.key : AuthType.password;
-        _cred.Password = AuthCombo.SelectedIndex == 0 ? PasswordBox.Password : null;
-        _cred.KeyPath = AuthCombo.SelectedIndex == 1 ? KeyPathBox.Text?.Trim() : null;
+        var authIdx = AuthCombo.SelectedIndex;
+        _cred.AuthType = authIdx switch { 1 => AuthType.key, 2 => AuthType.agent, _ => AuthType.password };
+        _cred.Password = authIdx == 0 ? PasswordBox.Password : null;
+        _cred.KeyPath = authIdx == 1 ? KeyPathBox.Text?.Trim() : null;
         var list = new List<Credential>(_all);
         var idx = list.FindIndex(c => c.Id == _cred.Id);
         if (idx >= 0) list[idx] = _cred;

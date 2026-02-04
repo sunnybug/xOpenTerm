@@ -22,7 +22,8 @@ public partial class TunnelEditWindow : Window
         Title = isNew ? "新增跳板机" : "编辑跳板机";
         AuthCombo.Items.Add("密码");
         AuthCombo.Items.Add("私钥");
-        AuthCombo.SelectedIndex = _tunnel.AuthType == AuthType.key ? 1 : 0;
+        AuthCombo.Items.Add("SSH Agent");
+        AuthCombo.SelectedIndex = _tunnel.AuthType switch { AuthType.key => 1, AuthType.agent => 2, _ => 0 };
         NameBox.Text = _tunnel.Name;
         HostBox.Text = _tunnel.Host ?? "";
         PortBox.Text = (_tunnel.Port ?? 22).ToString();
@@ -35,8 +36,10 @@ public partial class TunnelEditWindow : Window
 
     private void UpdateAuthVisibility()
     {
-        var isKey = AuthCombo.SelectedIndex == 1;
-        PasswordRow.Visibility = isKey ? Visibility.Collapsed : Visibility.Visible;
+        var idx = AuthCombo.SelectedIndex;
+        var isAgent = idx == 2;
+        var isKey = idx == 1;
+        PasswordRow.Visibility = (isKey || isAgent) ? Visibility.Collapsed : Visibility.Visible;
         KeyRow.Visibility = isKey ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -50,11 +53,13 @@ public partial class TunnelEditWindow : Window
         string? password = null;
         string? keyPath = null;
         string? keyPassphrase = null;
-        if (AuthCombo.SelectedIndex == 0)
+        var authIdx = AuthCombo.SelectedIndex;
+        if (authIdx == 0)
             password = PasswordBox.Password;
-        else
+        else if (authIdx == 1)
             keyPath = KeyPathBox.Text?.Trim();
-        var ok = SshTester.Test(host, port, username, password, keyPath, keyPassphrase);
+        var useAgent = authIdx == 2;
+        var ok = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
         MessageBox.Show(ok ? "连接成功" : "连接失败", "测试连接");
     }
 
@@ -64,9 +69,10 @@ public partial class TunnelEditWindow : Window
         _tunnel.Host = HostBox.Text?.Trim() ?? "";
         _tunnel.Port = ushort.TryParse(PortBox.Text, out var p) && p > 0 ? p : (ushort)22;
         _tunnel.Username = UsernameBox.Text?.Trim() ?? "";
-        _tunnel.AuthType = AuthCombo.SelectedIndex == 1 ? AuthType.key : AuthType.password;
-        _tunnel.Password = AuthCombo.SelectedIndex == 0 ? PasswordBox.Password : null;
-        _tunnel.KeyPath = AuthCombo.SelectedIndex == 1 ? KeyPathBox.Text?.Trim() : null;
+        var authIdx = AuthCombo.SelectedIndex;
+        _tunnel.AuthType = authIdx switch { 1 => AuthType.key, 2 => AuthType.agent, _ => AuthType.password };
+        _tunnel.Password = authIdx == 0 ? PasswordBox.Password : null;
+        _tunnel.KeyPath = authIdx == 1 ? KeyPathBox.Text?.Trim() : null;
         var list = new List<Tunnel>(_all);
         var idx = list.FindIndex(t => t.Id == _tunnel.Id);
         if (idx >= 0) list[idx] = _tunnel;
