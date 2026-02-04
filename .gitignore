@@ -1,0 +1,24 @@
+# Build
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+[Tt]emp/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.log
+.vs/
+*.csproj.user
+
+# Config (optional: 若不想提交本地连接配置可取消注释)
+# src/xOpenTerm2/bin/
+# config/
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json

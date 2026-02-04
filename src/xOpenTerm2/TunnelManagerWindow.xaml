@@ -1,0 +1,24 @@
+<Window x:Class="xOpenTerm2.TunnelManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="隧道管理（跳板机）" Height="420" Width="560" WindowStartupLocation="CenterOwner"
+        Background="#1a1a2e" ResizeMode="CanResize">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="AddBtn" Content="新增" Width="70" Padding="6,4" Margin="0,0,8,0" Click="AddBtn_Click"/>
+            <Button x:Name="EditBtn" Content="编辑" Width="70" Padding="6,4" Margin="0,0,8,0" Click="EditBtn_Click" IsEnabled="False"/>
+            <Button x:Name="DelBtn" Content="删除" Width="70" Padding="6,4" Click="DelBtn_Click" IsEnabled="False"/>
+        </StackPanel>
+        <ListBox x:Name="TunnelList" Grid.Row="1" Background="#1e293b" Foreground="#e2e8f0"
+                 BorderBrush="#475569" BorderThickness="1" SelectionChanged="TunnelList_SelectionChanged"
+                 MouseDoubleClick="TunnelList_MouseDoubleClick"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="关闭" Width="70" Padding="6,4" IsCancel="True" Click="CloseBtn_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
