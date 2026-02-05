@@ -15,4 +15,5 @@ global using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 global using Orientation = System.Windows.Controls.Orientation;
 global using Point = System.Windows.Point;
 global using Size = System.Windows.Size;
+global using Thickness = System.Windows.Thickness;
 global using UserControl = System.Windows.Controls.UserControl;

@@ -120,14 +120,14 @@ public partial class MainWindow
         var textPrimary = (Brush)FindResource("TextPrimary");
         var bgInput = FindResource("BgInput");
         var borderBrush = FindResource("BorderBrush");
-        var textBox = new TextBox
+        var textBox = new System.Windows.Controls.TextBox
         {
             Text = displayName,
             Foreground = textPrimary,
             Background = bgInput as Brush ?? Brushes.Transparent,
             BorderBrush = borderBrush as Brush,
             BorderThickness = new Thickness(1),
-            Padding = new Thickness(4, 2),
+            Padding = new Thickness(4, 2, 4, 2),
             MinWidth = 120,
             VerticalAlignment = VerticalAlignment.Center
         };
