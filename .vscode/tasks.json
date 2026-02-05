@@ -1,0 +1,56 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/xOpenTerm.sln",
+        "/property:Configuration=Debug",
+        "/property:GenerateFullPaths=true"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "silent",
+        "echo": true
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build-release",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/xOpenTerm.sln",
+        "/property:Configuration=Release",
+        "/property:GenerateFullPaths=true"
+      ],
+      "group": "build",
+      "presentation": { "reveal": "silent" },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "web: dev",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "typescript",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Local:.+http"
+        }
+      },
+      "presentation": { "reveal": "always" }
+    }
+  ]
+}

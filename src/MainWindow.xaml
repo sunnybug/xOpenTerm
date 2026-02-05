@@ -83,7 +83,18 @@
                                      KeyDown="RemotePathBox_KeyDown"/>
                             <ListView x:Name="RemoteFileList" Grid.Row="2" Margin="4,0,4,8"
                                      Background="Transparent" Foreground="{StaticResource TextPrimary}"
-                                     BorderThickness="0" MouseDoubleClick="RemoteFileList_MouseDoubleClick">
+                                     BorderThickness="0" MouseDoubleClick="RemoteFileList_MouseDoubleClick"
+                                     ContextMenuOpening="RemoteFileList_ContextMenuOpening">
+                                <ListView.ContextMenu>
+                                    <ContextMenu x:Name="RemoteFileListContextMenu">
+                                        <MenuItem x:Name="RemoteFileMenuEdit"   Header="编辑" Click="RemoteFileList_Edit_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuRename" Header="改名" Click="RemoteFileList_Rename_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuPermissions" Header="编辑权限" Click="RemoteFileList_Permissions_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuDelete" Header="删除" Click="RemoteFileList_Delete_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuDownload" Header="下载" Click="RemoteFileList_Download_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuUpload" Header="上传" Click="RemoteFileList_Upload_Click"/>
+                                    </ContextMenu>
+                                </ListView.ContextMenu>
                                 <ListView.View>
                                     <GridView>
                                         <GridViewColumn Header="名称" Width="140" DisplayMemberBinding="{Binding Name}"/>

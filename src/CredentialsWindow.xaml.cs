@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using xOpenTerm.Models;
@@ -20,7 +21,7 @@ public partial class CredentialsWindow : Window
 
     private void LoadCredentials()
     {
-        _credentials = _storage.LoadCredentials();
+        _credentials = _storage.LoadCredentials().OrderBy(c => c.AuthType).ThenBy(c => c.Name).ToList();
         CredList.Items.Clear();
         foreach (var c in _credentials)
             CredList.Items.Add($"{c.Name} ({c.Username}, {c.AuthType})");

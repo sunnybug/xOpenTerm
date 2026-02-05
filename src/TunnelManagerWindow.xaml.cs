@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using xOpenTerm.Models;
@@ -22,7 +23,7 @@ public partial class TunnelManagerWindow : Window
 
     private void LoadTunnels()
     {
-        _tunnels = _storage.LoadTunnels();
+        _tunnels = _storage.LoadTunnels().OrderBy(t => t.AuthType).ThenBy(t => t.Name).ToList();
         TunnelList.Items.Clear();
         foreach (var t in _tunnels)
             TunnelList.Items.Add($"{t.Name} — {t.Host}:{t.Port ?? 22} ({t.Username})");

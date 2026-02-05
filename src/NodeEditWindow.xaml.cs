@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using xOpenTerm.Models;
@@ -31,11 +32,11 @@ public partial class NodeEditWindow : Window
         TypeCombo.Items.Add("RDP");
         TypeCombo.SelectedIndex = (int)node.Type;
 
+        AuthCombo.Items.Add("同父节点");
+        AuthCombo.Items.Add("登录凭证");
         AuthCombo.Items.Add("密码");
         AuthCombo.Items.Add("私钥");
-        AuthCombo.Items.Add("同父节点");
         AuthCombo.Items.Add("SSH Agent");
-        AuthCombo.Items.Add("登录凭证");
         CredentialCombo.DisplayMemberPath = "Name";
         CredentialCombo.SelectedValuePath = "Id";
 
@@ -51,18 +52,29 @@ public partial class NodeEditWindow : Window
             var authType = node.Config.AuthType ?? AuthType.password;
             AuthCombo.SelectedIndex = asrc switch
             {
-                AuthSource.parent => 2,
-                AuthSource.agent => 3,
-                AuthSource.credential => 4,
-                _ => authType == AuthType.key ? 1 : 0
+                AuthSource.parent => 0,
+                AuthSource.credential => 1,
+                AuthSource.agent => 4,
+                _ => authType == AuthType.key ? 3 : 2
             };
             RefreshCredentialCombo();
             CredentialCombo.SelectedValue = node.Config.CredentialId;
-            RefreshTunnelList(node.Config.TunnelIds);
+            TunnelUseParentCheckBox.Visibility = string.IsNullOrEmpty(node.ParentId) ? Visibility.Collapsed : Visibility.Visible;
+            var useParentTunnel = node.Config.TunnelSource == AuthSource.parent;
+            TunnelUseParentCheckBox.IsChecked = useParentTunnel;
+            RefreshTunnelList(useParentTunnel ? null : node.Config.TunnelIds);
+            UpdateTunnelListEnabled();
         }
         else
         {
             PortBox.Text = "22";
+            if (node.Type == NodeType.ssh)
+            {
+                TunnelUseParentCheckBox.Visibility = string.IsNullOrEmpty(node.ParentId) ? Visibility.Collapsed : Visibility.Visible;
+                TunnelUseParentCheckBox.IsChecked = false;
+                RefreshTunnelList(null);
+                UpdateTunnelListEnabled();
+            }
         }
 
         TypeCombo.SelectionChanged += (_, _) => UpdateConfigVisibility();
@@ -70,27 +82,42 @@ public partial class NodeEditWindow : Window
         UpdateConfigVisibility();
         UpdateAuthVisibility();
         UpdateAuthSourceVisibility();
+        if (node.Config != null)
+            UpdateTunnelListEnabled();
+    }
+
+    private void TunnelUseParentCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        UpdateTunnelListEnabled();
+    }
+
+    private void UpdateTunnelListEnabled()
+    {
+        var useParent = TunnelUseParentCheckBox.IsChecked == true;
+        TunnelListBox.IsEnabled = !useParent;
+        TunnelManageBtn.IsEnabled = !useParent;
     }
 
     private void RefreshCredentialCombo()
     {
         CredentialCombo.ItemsSource = null;
-        CredentialCombo.ItemsSource = _credentials;
+        CredentialCombo.ItemsSource = _credentials.OrderBy(c => c.AuthType).ThenBy(c => c.Name).ToList();
     }
 
     private void RefreshTunnelList(List<string>? initialSelectedIds = null)
     {
         var sel = initialSelectedIds ?? TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
+        var sorted = _tunnels.OrderBy(t => t.AuthType).ThenBy(t => t.Name).ToList();
         TunnelListBox.ItemsSource = null;
-        TunnelListBox.ItemsSource = _tunnels;
+        TunnelListBox.ItemsSource = sorted;
         TunnelListBox.DisplayMemberPath = "Name";
-        foreach (var t in _tunnels.Where(t => sel.Contains(t.Id)))
+        foreach (var t in sorted.Where(t => sel.Contains(t.Id)))
             TunnelListBox.SelectedItems.Add(t);
     }
 
     private void UpdateAuthSourceVisibility()
     {
-        CredentialRow.Visibility = AuthCombo.SelectedIndex == 4 ? Visibility.Visible : Visibility.Collapsed;
+        CredentialRow.Visibility = AuthCombo.SelectedIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateConfigVisibility()
@@ -104,6 +131,8 @@ public partial class NodeEditWindow : Window
         ConfigPanel.Visibility = isGroup ? Visibility.Collapsed : Visibility.Visible;
         CredentialRow.Visibility = Visibility.Collapsed;
         TunnelRow.Visibility = isSsh ? Visibility.Visible : Visibility.Collapsed;
+        if (isSsh)
+            TunnelUseParentCheckBox.Visibility = string.IsNullOrEmpty(_node.ParentId) ? Visibility.Collapsed : Visibility.Visible;
         DomainRow.Visibility = Visibility.Collapsed; // RDP 不用域
         TestConnectionRow.Visibility = isSsh ? Visibility.Visible : Visibility.Collapsed;
         if (isLocal)
@@ -141,8 +170,8 @@ public partial class NodeEditWindow : Window
     {
         if (TypeCombo.SelectedIndex == 3) return; // RDP
         var idx = AuthCombo.SelectedIndex;
-        var showPassword = idx == 0;
-        var showKey = idx == 1;
+        var showPassword = idx == 2;
+        var showKey = idx == 3;
         PasswordRow.Visibility = showPassword ? Visibility.Visible : Visibility.Collapsed;
         KeyRow.Visibility = showKey ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -162,8 +191,8 @@ public partial class NodeEditWindow : Window
         if (string.IsNullOrEmpty(host)) { MessageBox.Show("请填写主机。", "xOpenTerm"); return; }
         if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
         string username; string? password = null; string? keyPath = null; string? keyPassphrase = null;
-        var useAgent = AuthCombo.SelectedIndex == 3;
-        if (AuthCombo.SelectedIndex == 4 && CredentialCombo.SelectedValue is string cid)
+        var useAgent = AuthCombo.SelectedIndex == 4;
+        if (AuthCombo.SelectedIndex == 1 && CredentialCombo.SelectedValue is string cid)
         {
             var cred = _credentials.FirstOrDefault(c => c.Id == cid);
             if (cred == null) { MessageBox.Show("请选择登录凭证。", "xOpenTerm"); return; }
@@ -171,10 +200,10 @@ public partial class NodeEditWindow : Window
             if (cred.AuthType == AuthType.password) password = cred.Password;
             else { keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; }
         }
-        else if (AuthCombo.SelectedIndex == 0 || AuthCombo.SelectedIndex == 1)
+        else if (AuthCombo.SelectedIndex == 2 || AuthCombo.SelectedIndex == 3)
         {
             username = UsernameBox.Text?.Trim() ?? "";
-            if (AuthCombo.SelectedIndex == 0) password = PasswordBox.Password;
+            if (AuthCombo.SelectedIndex == 2) password = PasswordBox.Password;
             else { keyPath = KeyPathBox.Text?.Trim(); keyPassphrase = null; }
         }
         else if (useAgent)
@@ -224,12 +253,21 @@ public partial class NodeEditWindow : Window
                 _node.Config.Port = ushort.TryParse(PortBox.Text, out var p) && p > 0 ? p : (ushort)22;
                 _node.Config.Username = UsernameBox.Text?.Trim();
                 var authIdx = AuthCombo.SelectedIndex;
-                _node.Config.AuthSource = authIdx switch { 2 => AuthSource.parent, 3 => AuthSource.agent, 4 => AuthSource.credential, _ => AuthSource.inline };
-                _node.Config.CredentialId = authIdx == 4 && CredentialCombo.SelectedValue is string cid ? cid : null;
-                _node.Config.AuthType = authIdx == 1 ? AuthType.key : AuthType.password;
-                _node.Config.Password = authIdx == 0 ? PasswordBox.Password : null;
-                _node.Config.KeyPath = authIdx == 1 ? KeyPathBox.Text?.Trim() : null;
-                _node.Config.TunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => _tunnels.IndexOf(t)).Select(t => t.Id).ToList();
+                _node.Config.AuthSource = authIdx switch { 0 => AuthSource.parent, 1 => AuthSource.credential, 4 => AuthSource.agent, _ => AuthSource.inline };
+                _node.Config.CredentialId = authIdx == 1 && CredentialCombo.SelectedValue is string cid ? cid : null;
+                _node.Config.AuthType = authIdx == 3 ? AuthType.key : AuthType.password;
+                _node.Config.Password = authIdx == 2 ? PasswordBox.Password : null;
+                _node.Config.KeyPath = authIdx == 3 ? KeyPathBox.Text?.Trim() : null;
+                if (TunnelUseParentCheckBox.IsChecked == true)
+                {
+                    _node.Config.TunnelSource = AuthSource.parent;
+                    _node.Config.TunnelIds = null;
+                }
+                else
+                {
+                    _node.Config.TunnelSource = null;
+                    _node.Config.TunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => t.AuthType).ThenBy(t => t.Name).Select(t => t.Id).ToList();
+                }
             }
         }
         else

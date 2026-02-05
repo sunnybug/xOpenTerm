@@ -37,6 +37,9 @@ public class ConnectionConfig
     [YamlMember(Alias = "credentialId")]
     public string? CredentialId { get; set; }
 
+    [YamlMember(Alias = "tunnelSource")]
+    public AuthSource? TunnelSource { get; set; }
+
     [YamlMember(Alias = "tunnelIds")]
     public List<string>? TunnelIds { get; set; }
 

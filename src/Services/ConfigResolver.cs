@@ -159,27 +159,51 @@ public static class ConfigResolver
     {
         var config = sshNode.Config;
         if (config == null) return new ConnectionConfig();
-        if (config.AuthSource != AuthSource.parent) return config;
 
         var parentId = sshNode.ParentId;
-        if (string.IsNullOrEmpty(parentId)) return config;
-        var parent = allNodes.FirstOrDefault(n => n.Id == parentId);
-        if (parent?.Type != NodeType.group || parent.Config == null) return config;
+        var parent = string.IsNullOrEmpty(parentId) ? null : allNodes.FirstOrDefault(n => n.Id == parentId);
+        var parentIsGroupWithConfig = parent?.Type == NodeType.group && parent.Config != null;
 
-        return new ConnectionConfig
+        if (config.AuthSource == AuthSource.parent && parentIsGroupWithConfig)
         {
-            Host = config.Host,
-            Port = config.Port,
-            Username = parent.Config.Username ?? config.Username,
-            AuthType = parent.Config.AuthType ?? config.AuthType,
-            Password = parent.Config.Password ?? config.Password,
-            KeyPath = parent.Config.KeyPath ?? config.KeyPath,
-            KeyPassphrase = parent.Config.KeyPassphrase ?? config.KeyPassphrase,
-            AuthSource = parent.Config.AuthSource,
-            CredentialId = parent.Config.CredentialId ?? config.CredentialId,
-            TunnelIds = parent.Config.TunnelIds ?? config.TunnelIds,
-            TunnelId = parent.Config.TunnelId ?? config.TunnelId,
-            Tunnel = parent.Config.Tunnel ?? config.Tunnel
-        };
+            return new ConnectionConfig
+            {
+                Host = config.Host,
+                Port = config.Port,
+                Username = parent!.Config!.Username ?? config.Username,
+                AuthType = parent.Config.AuthType ?? config.AuthType,
+                Password = parent.Config.Password ?? config.Password,
+                KeyPath = parent.Config.KeyPath ?? config.KeyPath,
+                KeyPassphrase = parent.Config.KeyPassphrase ?? config.KeyPassphrase,
+                AuthSource = parent.Config.AuthSource,
+                CredentialId = parent.Config.CredentialId ?? config.CredentialId,
+                TunnelSource = parent.Config.TunnelSource ?? config.TunnelSource,
+                TunnelIds = parent.Config.TunnelIds ?? config.TunnelIds,
+                TunnelId = parent.Config.TunnelId ?? config.TunnelId,
+                Tunnel = parent.Config.Tunnel ?? config.Tunnel
+            };
+        }
+
+        if (config.TunnelSource == AuthSource.parent && parentIsGroupWithConfig)
+        {
+            return new ConnectionConfig
+            {
+                Host = config.Host,
+                Port = config.Port,
+                Username = config.Username,
+                AuthType = config.AuthType,
+                Password = config.Password,
+                KeyPath = config.KeyPath,
+                KeyPassphrase = config.KeyPassphrase,
+                AuthSource = config.AuthSource,
+                CredentialId = config.CredentialId,
+                TunnelSource = parent!.Config!.TunnelSource ?? config.TunnelSource,
+                TunnelIds = parent.Config.TunnelIds ?? config.TunnelIds,
+                TunnelId = parent.Config.TunnelId ?? config.TunnelId,
+                Tunnel = parent.Config.Tunnel ?? config.Tunnel
+            };
+        }
+
+        return config;
     }
 }

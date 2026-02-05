@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch xOpenTerm (Debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/bin/Debug/net8.0-windows/xOpenTerm.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    },
+    {
+      "name": "Launch xOpenTerm (No Build)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/bin/Debug/net8.0-windows/xOpenTerm.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    },
+    {
+      "name": "Web: 启动并打开浏览器",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "web: dev",
+      "serverReadyAction": {
+        "pattern": "Local:.+(https?://[^\\s]+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      }
+    }
+  ]
+}

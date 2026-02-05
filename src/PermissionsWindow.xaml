@@ -1,0 +1,51 @@
+<Window x:Class="xOpenTerm.PermissionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Changing permissions..." Height="400" Width="380" WindowStartupLocation="CenterOwner"
+        Background="#1a1a2e" ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="FileLabel" Grid.Row="0" Text="Permissions for &quot;&quot;" Foreground="#94a3b8" Margin="0,0,0,12" TextWrapping="Wrap"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="Permissions:" Width="90" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+            <TextBox x:Name="PermSymbolBox" Width="180" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0" MaxLength="9" TextChanged="PermSymbolBox_TextChanged"/>
+        </StackPanel>
+        <TextBlock Grid.Row="2" Text="User (用户)" Foreground="#e2e8f0" Margin="0,8,0,4"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,4">
+            <CheckBox x:Name="UserRead" Content="Read" Foreground="#e2e8f0" Margin="0,0,24,0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+            <CheckBox x:Name="UserWrite" Content="Write" Foreground="#e2e8f0" Margin="0,0,24,0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+            <CheckBox x:Name="UserExecute" Content="Execute" Foreground="#e2e8f0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+        </StackPanel>
+        <TextBlock Grid.Row="4" Text="Group (组)" Foreground="#e2e8f0" Margin="0,8,0,4"/>
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,4">
+            <CheckBox x:Name="GroupRead" Content="Read" Foreground="#e2e8f0" Margin="0,0,24,0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+            <CheckBox x:Name="GroupWrite" Content="Write" Foreground="#e2e8f0" Margin="0,0,24,0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+            <CheckBox x:Name="GroupExecute" Content="Execute" Foreground="#e2e8f0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+        </StackPanel>
+        <TextBlock Grid.Row="6" Text="Other (其他)" Foreground="#e2e8f0" Margin="0,8,0,4"/>
+        <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,0,0,4">
+            <CheckBox x:Name="OtherRead" Content="Read" Foreground="#e2e8f0" Margin="0,0,24,0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+            <CheckBox x:Name="OtherWrite" Content="Write" Foreground="#e2e8f0" Margin="0,0,24,0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+            <CheckBox x:Name="OtherExecute" Content="Execute" Foreground="#e2e8f0" Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"/>
+        </StackPanel>
+        <StackPanel Grid.Row="8" Orientation="Horizontal" Margin="0,12,0,0">
+            <TextBlock Text="Octal mode:" Width="90" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+            <TextBox x:Name="OctalBox" Width="80" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0" MaxLength="3" TextChanged="OctalBox_TextChanged"/>
+        </StackPanel>
+        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="ApplyBtn" Content="Apply" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="ApplyBtn_Click" Background="#22c55e" Foreground="White"/>
+            <Button Content="Cancel" Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click" Background="#ef4444" Foreground="White"/>
+        </StackPanel>
+    </Grid>
+</Window>
