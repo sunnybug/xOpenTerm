@@ -236,6 +236,10 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("新建分组", () => AddNode(NodeType.group, node.Id)));
             menu.Items.Add(CreateMenuItem("新建主机", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(new Separator());
+            var importSub = new MenuItem { Header = "导入" };
+            importSub.Items.Add(CreateMenuItem("导入 MobaXterm", () => ImportMobaXterm(node)));
+            menu.Items.Add(importSub);
+            menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("设置", () => EditGroupSettings(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部", () => ConnectAll(node.Id)));
@@ -377,6 +381,19 @@ public partial class MainWindow
             _storage.SaveNodes(_nodes);
             BuildTree();
         }
+    }
+
+    private void ImportMobaXterm(Node parentNode)
+    {
+        var dlg = new ImportMobaXtermWindow(this);
+        if (dlg.ShowDialog() != true || dlg.SelectedSessions.Count == 0) return;
+        foreach (var item in dlg.SelectedSessions)
+        {
+            var node = item.ToNode(parentNode.Id);
+            _nodes.Add(node);
+        }
+        _storage.SaveNodes(_nodes);
+        BuildTree();
     }
 
     private void ServerTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
