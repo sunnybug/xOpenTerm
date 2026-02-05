@@ -54,7 +54,7 @@
                     <TextBlock Text="跳板机" Width="80" VerticalAlignment="Top" Foreground="#e2e8f0" Margin="0,6,0,0"/>
                     <StackPanel>
                         <ListBox x:Name="TunnelListBox" Height="72" Background="#1e293b" Foreground="#e2e8f0" SelectionMode="Multiple"/>
-                        <Button x:Name="TunnelManageBtn" Content="管理跳板机…" Margin="0,4,0,0" Padding="6,2" Click="TunnelManageBtn_Click"/>
+                        <Button x:Name="TunnelManageBtn" Content="管理…" Margin="0,4,0,0" Padding="6,2" Click="TunnelManageBtn_Click"/>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="DomainRow" Visibility="Collapsed">

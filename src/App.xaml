@@ -14,26 +14,45 @@
         <SolidColorBrush x:Key="HoverBg" Color="#374151"/>
         <SolidColorBrush x:Key="ButtonBg" Color="#374151"/>
         <SolidColorBrush x:Key="ButtonHoverBg" Color="#4B5563"/>
+        <!-- 按钮边框：比输入框边框更亮，便于与静态区域区分 -->
+        <SolidColorBrush x:Key="ButtonBorder" Color="#5B6370"/>
+        <SolidColorBrush x:Key="ButtonBorderHighlight" Color="#6B7280"/>
+        <!-- 列表选中项：背景与文字对比明显，便于区分 -->
+        <SolidColorBrush x:Key="SelectionBg" Color="#374151"/>
+        <SolidColorBrush x:Key="SelectionFg" Color="#FFFFFF"/>
 
-        <!-- 按钮：与 xOpenTerm 一致 (bg-gray-700 / hover:bg-gray-600 / text-white) -->
+        <!-- 按钮投影：默认轻微浮起，按下时减弱 -->
+        <DropShadowEffect x:Key="ButtonShadow" BlurRadius="8" ShadowDepth="2" Opacity="0.35" Color="Black" Direction="270"/>
+        <DropShadowEffect x:Key="ButtonShadowPressed" BlurRadius="2" ShadowDepth="0" Opacity="0.2" Color="Black"/>
+        <!-- 按钮模板：圆角 + 边框 + 顶边高光 + 投影 -->
+        <ControlTemplate x:Key="ButtonTemplate" TargetType="Button">
+            <Border x:Name="OuterBorder" Background="{TemplateBinding Background}"
+                    BorderBrush="{StaticResource ButtonBorder}" BorderThickness="1"
+                    CornerRadius="5" Padding="{TemplateBinding Padding}" Cursor="{TemplateBinding Cursor}"
+                    Effect="{StaticResource ButtonShadow}">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  TextBlock.Foreground="{TemplateBinding Foreground}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="OuterBorder" Property="Background" Value="{StaticResource ButtonHoverBg}"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="OuterBorder" Property="Background" Value="{StaticResource BgDark}"/>
+                    <Setter TargetName="OuterBorder" Property="Effect" Value="{StaticResource ButtonShadowPressed}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter TargetName="OuterBorder" Property="Opacity" Value="0.5"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+        <!-- 按钮：立体边框 + 顶边高光，与非可操作控件区分 -->
         <Style TargetType="Button">
             <Setter Property="Background" Value="{StaticResource ButtonBg}"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource ButtonHoverBg}"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="{StaticResource BgDark}"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.5"/>
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Template" Value="{StaticResource ButtonTemplate}"/>
         </Style>
 
         <!-- 节点树项：文字与选中/悬停背景与主题一致 -->
@@ -51,6 +70,21 @@
                     </MultiDataTrigger.Conditions>
                     <Setter Property="Background" Value="Transparent"/>
                 </MultiDataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HoverBg}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 列表项（如远程文件）：选中时背景与文字颜色区分明显 -->
+        <Style TargetType="ListViewItem">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SelectionBg}"/>
+                    <Setter Property="Foreground" Value="{StaticResource SelectionFg}"/>
+                </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{StaticResource HoverBg}"/>
                 </Trigger>

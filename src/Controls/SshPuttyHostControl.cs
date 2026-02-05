@@ -19,7 +19,7 @@ public sealed class SshPuttyHostControl : Panel
     private bool _isPuttyNg;
     private readonly DisplayScale _display = new();
 
-    /// <summary>默认 PuTTY 路径：优先使用 mRemoteNG 目录下的 PuTTYNG.exe。</summary>
+    /// <summary>默认 PuTTY 路径：优先使用应用目录 bin/PuTTYNG.exe，否则为 PuTTYNG.exe。</summary>
     public static string DefaultPuttyPath { get; set; } = GetDefaultPuttyPath();
 
     public event EventHandler? Closed;
@@ -31,7 +31,10 @@ public sealed class SshPuttyHostControl : Panel
 
     public bool IsRunning => _puttyProcess != null && !_puttyProcess.HasExited;
 
-    public void Connect(string host, int port, string username, string? password, string? keyPath, string puttyPath)
+    /// <param name="fontName">保留参数，Windows 版 PuTTY 不支持命令行指定字体，仅用于兼容调用方。</param>
+    /// <param name="fontSize">保留参数，Windows 版 PuTTY 不支持命令行指定字号，仅用于兼容调用方。</param>
+    public void Connect(string host, int port, string username, string? password, string? keyPath, string puttyPath,
+        string? fontName = null, double fontSize = 14)
     {
         if (string.IsNullOrWhiteSpace(puttyPath) || !File.Exists(puttyPath))
         {
@@ -43,6 +46,7 @@ public sealed class SshPuttyHostControl : Panel
         var arguments = new List<string>();
         arguments.Add("-ssh");
         arguments.Add("-2");
+        // Windows 版 PuTTY 不支持 -fn；字体需在 PuTTY 选项或已保存会话中配置
         if (!string.IsNullOrEmpty(username))
             arguments.AddRange(["-l", username]);
         if (!string.IsNullOrEmpty(password))
@@ -60,11 +64,13 @@ public sealed class SshPuttyHostControl : Panel
         if (_isPuttyNg)
             arguments.AddRange(["-hwndparent", Handle.ToString()]);
 
+        var puttyDir = Path.GetDirectoryName(puttyPath);
         var startInfo = new ProcessStartInfo
         {
             FileName = puttyPath,
             Arguments = string.Join(" ", arguments.Select(a => a.Contains(' ') ? "\"" + a + "\"" : a)),
-            UseShellExecute = false
+            UseShellExecute = false,
+            WorkingDirectory = string.IsNullOrEmpty(puttyDir) ? Environment.CurrentDirectory : puttyDir
         };
 
         _puttyProcess = new Process { StartInfo = startInfo };
@@ -186,11 +192,17 @@ public sealed class SshPuttyHostControl : Panel
 
     private static string GetDefaultPuttyPath()
     {
-        var mremoteDir = @"d:\xsw\code_auto_push\mRemoteNG\mRemoteNG";
-        var puttyNg = Path.Combine(mremoteDir, "PuTTYNG.exe");
-        if (File.Exists(puttyNg)) return puttyNg;
-        var putty = Path.Combine(mremoteDir, "putty.exe");
-        if (File.Exists(putty)) return putty;
+        var appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        // 1) 应用目录下的 bin\PuTTYNG.exe（例如部署时把 PuTTY 放在 exe 同级的 bin 子目录）
+        var binPuttyNg = Path.Combine(appDir, "bin", "PuTTYNG.exe");
+        if (File.Exists(binPuttyNg)) return binPuttyNg;
+        // 2) 输出在 bin\Debug\net8.0-windows 时，上一级 bin 目录的 PuTTYNG.exe（项目根 bin）
+        var parentBin = Path.GetDirectoryName(Path.GetDirectoryName(appDir));
+        if (!string.IsNullOrEmpty(parentBin))
+        {
+            var puttyInParentBin = Path.Combine(parentBin, "PuTTYNG.exe");
+            if (File.Exists(puttyInParentBin)) return puttyInParentBin;
+        }
         return "PuTTYNG.exe";
     }
 

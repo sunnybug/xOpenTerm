@@ -13,6 +13,7 @@ namespace xOpenTerm2;
 public partial class MainWindow : Window
 {
     private readonly StorageService _storage = new();
+    private AppSettings _appSettings = new();
     private readonly SessionManager _sessionManager = new();
     private List<Node> _nodes = new();
     private List<Credential> _credentials = new();
@@ -34,12 +35,28 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ApplyAppSettings(_storage.LoadAppSettings());
         LoadData();
         BuildTree();
         _sessionManager.DataReceived += OnSessionDataReceived;
         _sessionManager.SessionClosed += OnSessionClosed;
         _sessionManager.SessionConnected += OnSessionConnected;
         RemotePathBox.Text = ".";
+    }
+
+    private void ApplyAppSettings(AppSettings settings)
+    {
+        _appSettings = settings;
+        try
+        {
+            FontFamily = new FontFamily(settings.InterfaceFontFamily);
+            FontSize = settings.InterfaceFontSize;
+        }
+        catch
+        {
+            FontFamily = new FontFamily("Microsoft YaHei UI");
+            FontSize = 14;
+        }
     }
 
     private void LoadData()
@@ -731,6 +748,13 @@ public partial class MainWindow : Window
         win.ShowDialog();
         LoadData();
         BuildTree();
+    }
+
+    private void MenuFontSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var win = new SettingsWindow(this);
+        if (win.ShowDialog() == true)
+            ApplyAppSettings(_storage.LoadAppSettings());
     }
 
     private void MenuTunnels_Click(object sender, RoutedEventArgs e)

@@ -1,7 +1,7 @@
 <Window x:Class="xOpenTerm2.TunnelManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="隧道管理（跳板机）" Height="420" Width="560" WindowStartupLocation="CenterOwner"
+        Title="隧道管理" Height="420" Width="560" WindowStartupLocation="CenterOwner"
         Background="{StaticResource BgDark}" ResizeMode="CanResize">
     <Grid Margin="12">
         <Grid.RowDefinitions>

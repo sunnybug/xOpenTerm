@@ -12,6 +12,7 @@
         <!-- 顶栏菜单 -->
         <Menu Grid.Row="0" Background="{StaticResource BgSidebar}" Foreground="White" Padding="4,2">
             <MenuItem Header="设置">
+                <MenuItem Header="字体" Click="MenuFontSettings_Click"/>
                 <MenuItem Header="登录凭证" Click="MenuCredentials_Click"/>
                 <MenuItem Header="隧道管理" Click="MenuTunnels_Click"/>
             </MenuItem>

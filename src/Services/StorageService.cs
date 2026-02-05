@@ -14,10 +14,12 @@ public class StorageService
     private const string NodesFile = "nodes.yaml";
     private const string CredentialsFile = "credentials.yaml";
     private const string TunnelsFile = "tunnels.yaml";
+    private const string SettingsFile = "settings.yaml";
 
     private readonly string _nodesPath;
     private readonly string _credentialsPath;
     private readonly string _tunnelsPath;
+    private readonly string _settingsPath;
     private readonly ISerializer _serializer;
     private readonly IDeserializer _deserializer;
 
@@ -27,6 +29,7 @@ public class StorageService
         _nodesPath = Path.Combine(ConfigDir, NodesFile);
         _credentialsPath = Path.Combine(ConfigDir, CredentialsFile);
         _tunnelsPath = Path.Combine(ConfigDir, TunnelsFile);
+        _settingsPath = Path.Combine(ConfigDir, SettingsFile);
 
         _serializer = new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -102,5 +105,27 @@ public class StorageService
     {
         var yaml = _serializer.Serialize(tunnels.ToList());
         File.WriteAllText(_tunnelsPath, yaml);
+    }
+
+    public AppSettings LoadAppSettings()
+    {
+        if (!File.Exists(_settingsPath)) return new AppSettings();
+        try
+        {
+            var yaml = File.ReadAllText(_settingsPath);
+            var settings = _deserializer.Deserialize<AppSettings>(yaml);
+            return settings ?? new AppSettings();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[xOpenTerm2] 加载设置失败: {ex.Message}");
+            return new AppSettings();
+        }
+    }
+
+    public void SaveAppSettings(AppSettings settings)
+    {
+        var yaml = _serializer.Serialize(settings);
+        File.WriteAllText(_settingsPath, yaml);
     }
 }
