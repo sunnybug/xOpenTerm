@@ -88,6 +88,24 @@ public partial class MainWindow
         // 单击仅选中，不打开
     }
 
+    private void ServerTree_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (ServerTree.SelectedItem is not TreeViewItem tvi || tvi.Tag is not Node node) return;
+        if (e.Key == Key.F2)
+        {
+            e.Handled = true;
+            EditNode(node);
+        }
+        else if (e.Key == Key.Delete)
+        {
+            e.Handled = true;
+            if (node.Type == NodeType.group)
+                DeleteNodeRecursive(node);
+            else
+                DeleteNode(node);
+        }
+    }
+
     private void ServerTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left) return;

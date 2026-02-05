@@ -52,6 +52,21 @@ public partial class MainWindow
         LoadRemoteFileList();
     }
 
+    private void RemoteFileList_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (RemoteFileList.SelectedItem is not RemoteFileItem item || item.Name == "..") return;
+        if (e.Key == Key.F2)
+        {
+            e.Handled = true;
+            RemoteFileList_Rename_Click(sender, new RoutedEventArgs());
+        }
+        else if (e.Key == Key.Delete)
+        {
+            e.Handled = true;
+            RemoteFileList_Delete_Click(sender, new RoutedEventArgs());
+        }
+    }
+
     private void RemoteFileList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (RemoteFileList.SelectedItem is not RemoteFileItem item) return;

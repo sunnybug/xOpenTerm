@@ -9,7 +9,7 @@ namespace xOpenTerm.Services;
 public static class SecretService
 {
     /// <summary>当前配置版本，保存时使用此版本加密。</summary>
-    public const int CurrentConfigVersion = 1;
+    public const int CurrentConfigVersion = 2;
 
     private const string PrefixDpapi = "xot1:";
     private const string PrefixAesV1 = "xot2:";

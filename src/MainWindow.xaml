@@ -66,7 +66,8 @@
                                       MouseDoubleClick="ServerTree_MouseDoubleClick" MouseRightButtonDown="ServerTree_MouseRightButtonDown"
                                       ContextMenuOpening="ServerTree_ContextMenuOpening"
                                       AllowDrop="True" PreviewMouseLeftButtonDown="ServerTree_PreviewMouseLeftButtonDown"
-                                      PreviewMouseMove="ServerTree_PreviewMouseMove" DragOver="ServerTree_DragOver" Drop="ServerTree_Drop"/>
+                                      PreviewMouseMove="ServerTree_PreviewMouseMove" DragOver="ServerTree_DragOver" Drop="ServerTree_Drop"
+                                      PreviewKeyDown="ServerTree_PreviewKeyDown"/>
                         </Grid>
                     </TabItem>
                     <TabItem Header="远程文件">
@@ -85,7 +86,8 @@
                             <ListView x:Name="RemoteFileList" Grid.Row="2" Margin="4,0,4,8"
                                      Background="Transparent" Foreground="{StaticResource TextPrimary}"
                                      BorderThickness="0" MouseDoubleClick="RemoteFileList_MouseDoubleClick"
-                                     ContextMenuOpening="RemoteFileList_ContextMenuOpening">
+                                     ContextMenuOpening="RemoteFileList_ContextMenuOpening"
+                                     PreviewKeyDown="RemoteFileList_PreviewKeyDown">
                                 <ListView.ContextMenu>
                                     <ContextMenu x:Name="RemoteFileListContextMenu">
                                         <MenuItem x:Name="RemoteFileMenuEdit"   Header="编辑" Click="RemoteFileList_Edit_Click"/>
