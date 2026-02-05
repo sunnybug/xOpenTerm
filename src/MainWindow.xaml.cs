@@ -112,9 +112,7 @@ public partial class MainWindow : Window
 
     private void MenuOpenConfigDir_Click(object sender, RoutedEventArgs e)
     {
-        var configDir = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
-            "config");
+        var configDir = StorageService.GetConfigDir();
         Directory.CreateDirectory(configDir);
         Process.Start(new ProcessStartInfo
         {

@@ -1,4 +1,4 @@
-﻿# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
+# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
 
 param(
     [switch]$Release
@@ -24,7 +24,14 @@ if ($Release) {
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $Root = $PSScriptRoot
+$BinDir = Join-Path $Root "var\bin"
 $ProjectPath = Join-Path $Root "src\xOpenTerm.csproj"
 $Config = if ($Release) { "Release" } else { "Debug" }
-Write-Host "启动应用..." -ForegroundColor Cyan
-dotnet run --project $ProjectPath -c $Config --no-build
+if (-not (Test-Path $BinDir)) { New-Item -ItemType Directory -Path $BinDir -Force | Out-Null }
+Write-Host "启动应用（工作目录: $BinDir）..." -ForegroundColor Cyan
+Push-Location $BinDir
+try {
+    dotnet run --project $ProjectPath -c $Config --no-build
+} finally {
+    Pop-Location
+}

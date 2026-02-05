@@ -8,9 +8,16 @@ namespace xOpenTerm.Services;
 /// <summary>节点、凭证、隧道的 YAML 持久化</summary>
 public class StorageService
 {
-    private static readonly string ConfigDir = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
-        "config");
+    /// <summary>解析配置目录：先尝试工作目录下的 config，不存在则使用 exe 所在目录下的 config。</summary>
+    public static string GetConfigDir()
+    {
+        var workConfig = Path.Combine(Environment.CurrentDirectory, "config");
+        var exeConfig = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
+            "config");
+        return Directory.Exists(workConfig) ? workConfig : exeConfig;
+    }
+
     private const string NodesFile = "nodes.yaml";
     private const string CredentialsFile = "credentials.yaml";
     private const string TunnelsFile = "tunnels.yaml";
@@ -25,11 +32,12 @@ public class StorageService
 
     public StorageService()
     {
-        Directory.CreateDirectory(ConfigDir);
-        _nodesPath = Path.Combine(ConfigDir, NodesFile);
-        _credentialsPath = Path.Combine(ConfigDir, CredentialsFile);
-        _tunnelsPath = Path.Combine(ConfigDir, TunnelsFile);
-        _settingsPath = Path.Combine(ConfigDir, SettingsFile);
+        var configDir = GetConfigDir();
+        Directory.CreateDirectory(configDir);
+        _nodesPath = Path.Combine(configDir, NodesFile);
+        _credentialsPath = Path.Combine(configDir, CredentialsFile);
+        _tunnelsPath = Path.Combine(configDir, TunnelsFile);
+        _settingsPath = Path.Combine(configDir, SettingsFile);
 
         _serializer = new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)

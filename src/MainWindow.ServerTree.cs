@@ -94,7 +94,7 @@ public partial class MainWindow
         if (e.Key == Key.F2)
         {
             e.Handled = true;
-            EditNode(node);
+            StartInlineRename(tvi, node);
         }
         else if (e.Key == Key.Delete)
         {
@@ -104,6 +104,70 @@ public partial class MainWindow
             else
                 DeleteNode(node);
         }
+    }
+
+    private static string GetNodeDisplayName(Node node)
+    {
+        return node.Type == NodeType.rdp && string.IsNullOrEmpty(node.Name) && !string.IsNullOrEmpty(node.Config?.Host)
+            ? node.Config!.Host!
+            : node.Name;
+    }
+
+    private void StartInlineRename(TreeViewItem tvi, Node node)
+    {
+        var displayName = GetNodeDisplayName(node);
+        var originalHeader = tvi.Header;
+        var textPrimary = (Brush)FindResource("TextPrimary");
+        var bgInput = FindResource("BgInput");
+        var borderBrush = FindResource("BorderBrush");
+        var textBox = new TextBox
+        {
+            Text = displayName,
+            Foreground = textPrimary,
+            Background = bgInput as Brush ?? Brushes.Transparent,
+            BorderBrush = borderBrush as Brush,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(4, 2),
+            MinWidth = 120,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        tvi.Header = textBox;
+        textBox.Focus();
+        textBox.SelectAll();
+
+        void EndEdit(bool commit)
+        {
+            textBox.KeyDown -= OnKeyDown;
+            textBox.LostFocus -= OnLostFocus;
+            if (commit)
+            {
+                var newName = textBox.Text?.Trim() ?? "";
+                if (!string.IsNullOrEmpty(newName))
+                {
+                    node.Name = newName;
+                    _storage.SaveNodes(_nodes);
+                    BuildTree();
+                }
+                else
+                    tvi.Header = originalHeader;
+            }
+            else
+                tvi.Header = originalHeader;
+        }
+
+        void OnKeyDown(object _, KeyEventArgs args)
+        {
+            if (args.Key == Key.Enter) { args.Handled = true; EndEdit(true); }
+            else if (args.Key == Key.Escape) { args.Handled = true; EndEdit(false); }
+        }
+
+        void OnLostFocus(object _, RoutedEventArgs args)
+        {
+            EndEdit(true);
+        }
+
+        textBox.KeyDown += OnKeyDown;
+        textBox.LostFocus += OnLostFocus;
     }
 
     private void ServerTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
