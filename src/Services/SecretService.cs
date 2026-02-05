@@ -3,57 +3,61 @@ using System.Security.Cryptography;
 namespace xOpenTerm.Services;
 
 /// <summary>
-/// 配置中密码等敏感字段的加密存储。
-/// 优先使用环境变量 XOPENTERM_MASTER_KEY（Base64 的 32 字节密钥），同一密钥在不同机器上可解密同一配置；
-/// 未设置时使用 Windows DPAPI（仅当前机器当前用户可解密）。
+/// 配置中密码等敏感字段的加密存储，按配置版本号选择加密算法与密钥。
+/// 版本 1：优先环境变量 XOPENTERM_MASTER_KEY（AES），否则 Windows DPAPI。
+/// 更高版本可绑定不同环境变量与算法（如版本 2 使用 XOPENTERM_MASTER_KEY_V2 等）。
 /// </summary>
 public static class SecretService
 {
+    /// <summary>当前配置版本，保存时使用此版本加密。</summary>
+    public const int CurrentConfigVersion = 1;
+
     private const string PrefixDpapi = "xot1:";
-    private const string PrefixAes = "xot2:";
-    private const string EnvMasterKey = "XOPENTERM_MASTER_KEY";
+    private const string PrefixAesV1 = "xot2:";
+    private const string EnvMasterKeyV1 = "XOPENTERM_MASTER_KEY";
+    private const string EnvMasterKeyV2 = "XOPENTERM_MASTER_KEY_V2";
     private const int AesKeySizeBytes = 32;
     private const int AesBlockSizeBytes = 16;
 
-    /// <summary>加密明文。null 或空字符串返回 null；否则返回带前缀的密文。</summary>
-    public static string? Encrypt(string? plain)
+    /// <summary>加密明文。version 决定使用的算法与密钥；null 或空返回 null。</summary>
+    public static string? Encrypt(string? plain, int configVersion)
     {
         if (string.IsNullOrEmpty(plain)) return plain;
-        var key = GetMasterKey();
-        if (key != null)
+        switch (configVersion)
         {
-            try
-            {
-                return PrefixAes + EncryptAes(plain, key);
-            }
-            catch
-            {
-                return plain;
-            }
-        }
-        try
-        {
-            var bytes = System.Text.Encoding.UTF8.GetBytes(plain);
-            var protectedBytes = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
-            return PrefixDpapi + Convert.ToBase64String(protectedBytes);
-        }
-        catch
-        {
-            return plain;
+            case 1:
+                return EncryptV1(plain);
+            case 2:
+                return EncryptV2(plain);
+            default:
+                return EncryptV1(plain);
         }
     }
 
-    /// <summary>解密。xot2: 用主密钥解密，xot1: 用 DPAPI，否则视为明文。</summary>
+    /// <summary>解密。根据密文前缀自动选择算法与密钥（xot1=DPAPI，xot2=版本1 主密钥，xot3=版本2 主密钥）。</summary>
     public static string? Decrypt(string? value)
     {
         if (string.IsNullOrEmpty(value)) return value;
-        if (value.StartsWith(PrefixAes, StringComparison.Ordinal))
+        if (value.StartsWith(PrefixAesV1, StringComparison.Ordinal))
         {
-            var key = GetMasterKey();
+            var key = GetMasterKey(1);
             if (key == null) return value;
             try
             {
-                return DecryptAes(value.Substring(PrefixAes.Length), key);
+                return DecryptAes(value.Substring(PrefixAesV1.Length), key);
+            }
+            catch
+            {
+                return value;
+            }
+        }
+        if (value.StartsWith("xot3:", StringComparison.Ordinal))
+        {
+            var key = GetMasterKey(2);
+            if (key == null) return value;
+            try
+            {
+                return DecryptAes(value.Substring(5), key);
             }
             catch
             {
@@ -77,7 +81,7 @@ public static class SecretService
         return value;
     }
 
-    /// <summary>生成新的 32 字节主密钥的 Base64 字符串，可用于设置环境变量 XOPENTERM_MASTER_KEY。</summary>
+    /// <summary>生成新的 32 字节主密钥的 Base64，可用于环境变量。</summary>
     public static string GenerateMasterKeyBase64()
     {
         var key = new byte[AesKeySizeBytes];
@@ -85,10 +89,11 @@ public static class SecretService
         return Convert.ToBase64String(key);
     }
 
-    /// <summary>从环境变量读取主密钥（Base64，须为 32 字节）。未设置或格式错误返回 null。</summary>
-    public static byte[]? GetMasterKey()
+    /// <summary>读取指定版本的主密钥（Base64，32 字节）。版本 1→XOPENTERM_MASTER_KEY，2→XOPENTERM_MASTER_KEY_V2。</summary>
+    public static byte[]? GetMasterKey(int version)
     {
-        var raw = Environment.GetEnvironmentVariable(EnvMasterKey);
+        var envName = version == 2 ? EnvMasterKeyV2 : EnvMasterKeyV1;
+        var raw = Environment.GetEnvironmentVariable(envName);
         if (string.IsNullOrWhiteSpace(raw)) return null;
         try
         {
@@ -98,6 +103,46 @@ public static class SecretService
         catch
         {
             return null;
+        }
+    }
+
+    private static string? EncryptV1(string plain)
+    {
+        var key = GetMasterKey(1);
+        if (key != null)
+        {
+            try
+            {
+                return PrefixAesV1 + EncryptAes(plain, key);
+            }
+            catch
+            {
+                // fallback to DPAPI
+            }
+        }
+        try
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(plain);
+            var protectedBytes = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+            return PrefixDpapi + Convert.ToBase64String(protectedBytes);
+        }
+        catch
+        {
+            return plain;
+        }
+    }
+
+    private static string? EncryptV2(string plain)
+    {
+        var key = GetMasterKey(2);
+        if (key == null) return plain;
+        try
+        {
+            return "xot3:" + EncryptAes(plain, key);
+        }
+        catch
+        {
+            return plain;
         }
     }
 
@@ -115,7 +160,7 @@ public static class SecretService
     private static string DecryptAes(string payload, byte[] key)
     {
         var colon = payload.IndexOf(':');
-        if (colon <= 0) throw new InvalidOperationException("Invalid xot2 payload.");
+        if (colon <= 0) throw new InvalidOperationException("Invalid AES payload.");
         var iv = Convert.FromBase64String(payload.Substring(0, colon));
         var cipher = Convert.FromBase64String(payload.Substring(colon + 1));
         if (iv.Length != AesBlockSizeBytes) throw new InvalidOperationException("Invalid IV length.");

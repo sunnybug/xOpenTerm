@@ -47,10 +47,9 @@ public class StorageService
         try
         {
             var yaml = File.ReadAllText(_nodesPath);
-            var list = _deserializer.Deserialize<List<Node>>(yaml);
-            var result = list ?? new List<Node>();
-            DecryptNodes(result);
-            return result;
+            var list = TryLoadNodesFile(yaml);
+            DecryptNodes(list);
+            return list;
         }
         catch (Exception ex)
         {
@@ -62,10 +61,11 @@ public class StorageService
     public void SaveNodes(IEnumerable<Node> nodes)
     {
         var list = nodes.ToList();
-        EncryptNodes(list);
+        EncryptNodes(list, SecretService.CurrentConfigVersion);
         try
         {
-            var yaml = _serializer.Serialize(list);
+            var wrapper = new NodesFile { Version = SecretService.CurrentConfigVersion, Nodes = list };
+            var yaml = _serializer.Serialize(wrapper);
             File.WriteAllText(_nodesPath, yaml);
         }
         finally
@@ -74,16 +74,31 @@ public class StorageService
         }
     }
 
+    private List<Node> TryLoadNodesFile(string yaml)
+    {
+        try
+        {
+            var wrapper = _deserializer.Deserialize<NodesFile>(yaml);
+            if (wrapper?.Nodes != null)
+                return wrapper.Nodes;
+        }
+        catch
+        {
+            // 旧格式：根节点为列表
+        }
+        var list = _deserializer.Deserialize<List<Node>>(yaml);
+        return list ?? new List<Node>();
+    }
+
     public List<Credential> LoadCredentials()
     {
         if (!File.Exists(_credentialsPath)) return new List<Credential>();
         try
         {
             var yaml = File.ReadAllText(_credentialsPath);
-            var list = _deserializer.Deserialize<List<Credential>>(yaml);
-            var result = list ?? new List<Credential>();
-            DecryptCredentials(result);
-            return result;
+            var list = TryLoadCredentialsFile(yaml);
+            DecryptCredentials(list);
+            return list;
         }
         catch (Exception ex)
         {
@@ -95,10 +110,11 @@ public class StorageService
     public void SaveCredentials(IEnumerable<Credential> credentials)
     {
         var list = credentials.ToList();
-        EncryptCredentials(list);
+        EncryptCredentials(list, SecretService.CurrentConfigVersion);
         try
         {
-            var yaml = _serializer.Serialize(list);
+            var wrapper = new CredentialsFile { Version = SecretService.CurrentConfigVersion, Credentials = list };
+            var yaml = _serializer.Serialize(wrapper);
             File.WriteAllText(_credentialsPath, yaml);
         }
         finally
@@ -107,16 +123,31 @@ public class StorageService
         }
     }
 
+    private List<Credential> TryLoadCredentialsFile(string yaml)
+    {
+        try
+        {
+            var wrapper = _deserializer.Deserialize<CredentialsFile>(yaml);
+            if (wrapper?.Credentials != null)
+                return wrapper.Credentials;
+        }
+        catch
+        {
+            // 旧格式：根节点为列表
+        }
+        var list = _deserializer.Deserialize<List<Credential>>(yaml);
+        return list ?? new List<Credential>();
+    }
+
     public List<Tunnel> LoadTunnels()
     {
         if (!File.Exists(_tunnelsPath)) return new List<Tunnel>();
         try
         {
             var yaml = File.ReadAllText(_tunnelsPath);
-            var list = _deserializer.Deserialize<List<Tunnel>>(yaml);
-            var result = list ?? new List<Tunnel>();
-            DecryptTunnels(result);
-            return result;
+            var list = TryLoadTunnelsFile(yaml);
+            DecryptTunnels(list);
+            return list;
         }
         catch (Exception ex)
         {
@@ -128,16 +159,33 @@ public class StorageService
     public void SaveTunnels(IEnumerable<Tunnel> tunnels)
     {
         var list = tunnels.ToList();
-        EncryptTunnels(list);
+        EncryptTunnels(list, SecretService.CurrentConfigVersion);
         try
         {
-            var yaml = _serializer.Serialize(list);
+            var wrapper = new TunnelsFile { Version = SecretService.CurrentConfigVersion, Tunnels = list };
+            var yaml = _serializer.Serialize(wrapper);
             File.WriteAllText(_tunnelsPath, yaml);
         }
         finally
         {
             DecryptTunnels(list);
         }
+    }
+
+    private List<Tunnel> TryLoadTunnelsFile(string yaml)
+    {
+        try
+        {
+            var wrapper = _deserializer.Deserialize<TunnelsFile>(yaml);
+            if (wrapper?.Tunnels != null)
+                return wrapper.Tunnels;
+        }
+        catch
+        {
+            // 旧格式：根节点为列表
+        }
+        var list = _deserializer.Deserialize<List<Tunnel>>(yaml);
+        return list ?? new List<Tunnel>();
     }
 
     public AppSettings LoadAppSettings()
@@ -171,12 +219,12 @@ public class StorageService
         }
     }
 
-    private static void EncryptNodes(List<Node> list)
+    private static void EncryptNodes(List<Node> list, int configVersion)
     {
         foreach (var node in list)
         {
             if (node.Config != null)
-                EncryptConnectionConfig(node.Config);
+                EncryptConnectionConfig(node.Config, configVersion);
         }
     }
 
@@ -191,14 +239,14 @@ public class StorageService
         }
     }
 
-    private static void EncryptConnectionConfig(ConnectionConfig c)
+    private static void EncryptConnectionConfig(ConnectionConfig c, int configVersion)
     {
-        c.Password = SecretService.Encrypt(c.Password);
-        c.KeyPassphrase = SecretService.Encrypt(c.KeyPassphrase);
+        c.Password = SecretService.Encrypt(c.Password, configVersion);
+        c.KeyPassphrase = SecretService.Encrypt(c.KeyPassphrase, configVersion);
         if (c.Tunnel != null)
         {
             foreach (var hop in c.Tunnel)
-                EncryptTunnelHop(hop);
+                EncryptTunnelHop(hop, configVersion);
         }
     }
 
@@ -208,10 +256,10 @@ public class StorageService
         h.KeyPassphrase = SecretService.Decrypt(h.KeyPassphrase);
     }
 
-    private static void EncryptTunnelHop(TunnelHop h)
+    private static void EncryptTunnelHop(TunnelHop h, int configVersion)
     {
-        h.Password = SecretService.Encrypt(h.Password);
-        h.KeyPassphrase = SecretService.Encrypt(h.KeyPassphrase);
+        h.Password = SecretService.Encrypt(h.Password, configVersion);
+        h.KeyPassphrase = SecretService.Encrypt(h.KeyPassphrase, configVersion);
     }
 
     private static void DecryptCredentials(List<Credential> list)
@@ -228,16 +276,16 @@ public class StorageService
         }
     }
 
-    private static void EncryptCredentials(List<Credential> list)
+    private static void EncryptCredentials(List<Credential> list, int configVersion)
     {
         foreach (var cred in list)
         {
-            cred.Password = SecretService.Encrypt(cred.Password);
-            cred.KeyPassphrase = SecretService.Encrypt(cred.KeyPassphrase);
+            cred.Password = SecretService.Encrypt(cred.Password, configVersion);
+            cred.KeyPassphrase = SecretService.Encrypt(cred.KeyPassphrase, configVersion);
             if (cred.Tunnel != null)
             {
                 foreach (var hop in cred.Tunnel)
-                    EncryptTunnelHop(hop);
+                    EncryptTunnelHop(hop, configVersion);
             }
         }
     }
@@ -251,12 +299,12 @@ public class StorageService
         }
     }
 
-    private static void EncryptTunnels(List<Tunnel> list)
+    private static void EncryptTunnels(List<Tunnel> list, int configVersion)
     {
         foreach (var t in list)
         {
-            t.Password = SecretService.Encrypt(t.Password);
-            t.KeyPassphrase = SecretService.Encrypt(t.KeyPassphrase);
+            t.Password = SecretService.Encrypt(t.Password, configVersion);
+            t.KeyPassphrase = SecretService.Encrypt(t.KeyPassphrase, configVersion);
         }
     }
 }
