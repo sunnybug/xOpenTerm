@@ -48,7 +48,9 @@ public class StorageService
         {
             var yaml = File.ReadAllText(_nodesPath);
             var list = _deserializer.Deserialize<List<Node>>(yaml);
-            return list ?? new List<Node>();
+            var result = list ?? new List<Node>();
+            DecryptNodes(result);
+            return result;
         }
         catch (Exception ex)
         {
@@ -59,8 +61,17 @@ public class StorageService
 
     public void SaveNodes(IEnumerable<Node> nodes)
     {
-        var yaml = _serializer.Serialize(nodes.ToList());
-        File.WriteAllText(_nodesPath, yaml);
+        var list = nodes.ToList();
+        EncryptNodes(list);
+        try
+        {
+            var yaml = _serializer.Serialize(list);
+            File.WriteAllText(_nodesPath, yaml);
+        }
+        finally
+        {
+            DecryptNodes(list);
+        }
     }
 
     public List<Credential> LoadCredentials()
@@ -70,7 +81,9 @@ public class StorageService
         {
             var yaml = File.ReadAllText(_credentialsPath);
             var list = _deserializer.Deserialize<List<Credential>>(yaml);
-            return list ?? new List<Credential>();
+            var result = list ?? new List<Credential>();
+            DecryptCredentials(result);
+            return result;
         }
         catch (Exception ex)
         {
@@ -81,8 +94,17 @@ public class StorageService
 
     public void SaveCredentials(IEnumerable<Credential> credentials)
     {
-        var yaml = _serializer.Serialize(credentials.ToList());
-        File.WriteAllText(_credentialsPath, yaml);
+        var list = credentials.ToList();
+        EncryptCredentials(list);
+        try
+        {
+            var yaml = _serializer.Serialize(list);
+            File.WriteAllText(_credentialsPath, yaml);
+        }
+        finally
+        {
+            DecryptCredentials(list);
+        }
     }
 
     public List<Tunnel> LoadTunnels()
@@ -92,7 +114,9 @@ public class StorageService
         {
             var yaml = File.ReadAllText(_tunnelsPath);
             var list = _deserializer.Deserialize<List<Tunnel>>(yaml);
-            return list ?? new List<Tunnel>();
+            var result = list ?? new List<Tunnel>();
+            DecryptTunnels(result);
+            return result;
         }
         catch (Exception ex)
         {
@@ -103,8 +127,17 @@ public class StorageService
 
     public void SaveTunnels(IEnumerable<Tunnel> tunnels)
     {
-        var yaml = _serializer.Serialize(tunnels.ToList());
-        File.WriteAllText(_tunnelsPath, yaml);
+        var list = tunnels.ToList();
+        EncryptTunnels(list);
+        try
+        {
+            var yaml = _serializer.Serialize(list);
+            File.WriteAllText(_tunnelsPath, yaml);
+        }
+        finally
+        {
+            DecryptTunnels(list);
+        }
     }
 
     public AppSettings LoadAppSettings()
@@ -127,5 +160,103 @@ public class StorageService
     {
         var yaml = _serializer.Serialize(settings);
         File.WriteAllText(_settingsPath, yaml);
+    }
+
+    private static void DecryptNodes(List<Node> list)
+    {
+        foreach (var node in list)
+        {
+            if (node.Config != null)
+                DecryptConnectionConfig(node.Config);
+        }
+    }
+
+    private static void EncryptNodes(List<Node> list)
+    {
+        foreach (var node in list)
+        {
+            if (node.Config != null)
+                EncryptConnectionConfig(node.Config);
+        }
+    }
+
+    private static void DecryptConnectionConfig(ConnectionConfig c)
+    {
+        c.Password = SecretService.Decrypt(c.Password);
+        c.KeyPassphrase = SecretService.Decrypt(c.KeyPassphrase);
+        if (c.Tunnel != null)
+        {
+            foreach (var hop in c.Tunnel)
+                DecryptTunnelHop(hop);
+        }
+    }
+
+    private static void EncryptConnectionConfig(ConnectionConfig c)
+    {
+        c.Password = SecretService.Encrypt(c.Password);
+        c.KeyPassphrase = SecretService.Encrypt(c.KeyPassphrase);
+        if (c.Tunnel != null)
+        {
+            foreach (var hop in c.Tunnel)
+                EncryptTunnelHop(hop);
+        }
+    }
+
+    private static void DecryptTunnelHop(TunnelHop h)
+    {
+        h.Password = SecretService.Decrypt(h.Password);
+        h.KeyPassphrase = SecretService.Decrypt(h.KeyPassphrase);
+    }
+
+    private static void EncryptTunnelHop(TunnelHop h)
+    {
+        h.Password = SecretService.Encrypt(h.Password);
+        h.KeyPassphrase = SecretService.Encrypt(h.KeyPassphrase);
+    }
+
+    private static void DecryptCredentials(List<Credential> list)
+    {
+        foreach (var cred in list)
+        {
+            cred.Password = SecretService.Decrypt(cred.Password);
+            cred.KeyPassphrase = SecretService.Decrypt(cred.KeyPassphrase);
+            if (cred.Tunnel != null)
+            {
+                foreach (var hop in cred.Tunnel)
+                    DecryptTunnelHop(hop);
+            }
+        }
+    }
+
+    private static void EncryptCredentials(List<Credential> list)
+    {
+        foreach (var cred in list)
+        {
+            cred.Password = SecretService.Encrypt(cred.Password);
+            cred.KeyPassphrase = SecretService.Encrypt(cred.KeyPassphrase);
+            if (cred.Tunnel != null)
+            {
+                foreach (var hop in cred.Tunnel)
+                    EncryptTunnelHop(hop);
+            }
+        }
+    }
+
+    private static void DecryptTunnels(List<Tunnel> list)
+    {
+        foreach (var t in list)
+        {
+            t.Password = SecretService.Decrypt(t.Password);
+            t.KeyPassphrase = SecretService.Decrypt(t.KeyPassphrase);
+        }
+    }
+
+    private static void EncryptTunnels(List<Tunnel> list)
+    {
+        foreach (var t in list)
+        {
+            t.Password = SecretService.Encrypt(t.Password);
+            t.KeyPassphrase = SecretService.Encrypt(t.KeyPassphrase);
+        }
     }
 }
