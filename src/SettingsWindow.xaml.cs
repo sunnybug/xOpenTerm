@@ -12,6 +12,9 @@ public partial class SettingsWindow : Window
 {
     private readonly StorageService _storage = new();
     private readonly AppSettings _settings;
+    private readonly string _initialFont;
+    private readonly string _initialSize;
+    private bool _closingConfirmed;
 
     public SettingsWindow(Window owner)
     {
@@ -39,12 +42,29 @@ public partial class SettingsWindow : Window
 
         InterfaceFontCombo.Text = _settings.InterfaceFontFamily;
         InterfaceSizeCombo.Text = _settings.InterfaceFontSize.ToString("0");
+        _initialFont = InterfaceFontCombo.Text?.Trim() ?? "";
+        _initialSize = InterfaceSizeCombo.Text ?? "";
 
         InterfaceFontCombo.SelectionChanged += FontCombo_Changed;
         InterfaceFontCombo.LostFocus += FontCombo_Changed;
         InterfaceSizeCombo.SelectionChanged += FontCombo_Changed;
+        Closing += SettingsWindow_Closing;
 
         UpdatePreview();
+    }
+
+    private bool IsDirty()
+    {
+        var font = InterfaceFontCombo.Text?.Trim() ?? "";
+        var size = InterfaceSizeCombo.Text ?? "";
+        return font != _initialFont || size != _initialSize;
+    }
+
+    private void SettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closingConfirmed) return;
+        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            e.Cancel = true;
     }
 
     private void FontCombo_Changed(object sender, EventArgs e)
@@ -80,12 +100,17 @@ public partial class SettingsWindow : Window
         _settings.InterfaceFontSize = uiSize;
 
         _storage.SaveAppSettings(_settings);
+        _closingConfirmed = true;
         DialogResult = true;
         Close();
     }
 
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
+        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        _closingConfirmed = true;
+        DialogResult = false;
         Close();
     }
 

@@ -1,5 +1,6 @@
 # 项目规范：发布与生成物
 dist/
+var/
 bin/debug/
 bin/release/
 bin/log/

@@ -180,7 +180,16 @@ public partial class MainWindow
 
     private void ServerTree_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        _contextMenuNode = (FindClickedNode(e.OriginalSource)?.Tag as Node);
+        var tvi = FindClickedNode(e.OriginalSource);
+        _contextMenuNode = tvi?.Tag as Node;
+        if (tvi != null)
+            tvi.IsSelected = true;
+        else
+        {
+            var current = ServerTree.SelectedItem;
+            if (current != null && ServerTree.ItemContainerGenerator.ContainerFromItem(current) is TreeViewItem container)
+                container.IsSelected = false;
+        }
     }
 
     private void ServerTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)

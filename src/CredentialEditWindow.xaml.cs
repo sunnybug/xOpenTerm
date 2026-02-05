@@ -10,6 +10,12 @@ public partial class CredentialEditWindow : Window
     private readonly Credential _cred;
     private readonly List<Credential> _all;
     private readonly StorageService _storage;
+    private readonly string _initialName;
+    private readonly string _initialUsername;
+    private readonly int _initialAuthIndex;
+    private readonly string _initialPassword;
+    private readonly string _initialKeyPath;
+    private bool _closingConfirmed;
 
     public CredentialEditWindow(Credential cred, List<Credential> all, StorageService storage, bool isNew)
     {
@@ -26,8 +32,30 @@ public partial class CredentialEditWindow : Window
         UsernameBox.Text = _cred.Username;
         PasswordBox.Password = _cred.Password ?? "";
         KeyPathBox.Text = _cred.KeyPath ?? "";
+        _initialName = NameBox.Text ?? "";
+        _initialUsername = UsernameBox.Text ?? "";
+        _initialAuthIndex = AuthCombo.SelectedIndex;
+        _initialPassword = PasswordBox.Password ?? "";
+        _initialKeyPath = KeyPathBox.Text ?? "";
         AuthCombo.SelectionChanged += (_, _) => UpdateAuthVisibility();
         UpdateAuthVisibility();
+        Closing += CredentialEditWindow_Closing;
+    }
+
+    private bool IsDirty()
+    {
+        return (NameBox.Text ?? "") != _initialName
+            || (UsernameBox.Text ?? "") != _initialUsername
+            || AuthCombo.SelectedIndex != _initialAuthIndex
+            || PasswordBox.Password != _initialPassword
+            || (KeyPathBox.Text ?? "") != _initialKeyPath;
+    }
+
+    private void CredentialEditWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closingConfirmed) return;
+        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            e.Cancel = true;
     }
 
     private void UpdateAuthVisibility()
@@ -53,9 +81,17 @@ public partial class CredentialEditWindow : Window
         if (idx >= 0) list[idx] = _cred;
         else list.Add(_cred);
         _storage.SaveCredentials(list);
+        _closingConfirmed = true;
         DialogResult = true;
         Close();
     }
 
-    private void CancelBtn_Click(object sender, RoutedEventArgs e) { DialogResult = false; Close(); }
+    private void CancelBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        _closingConfirmed = true;
+        DialogResult = false;
+        Close();
+    }
 }

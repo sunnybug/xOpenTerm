@@ -92,6 +92,7 @@ public partial class MainWindow
 
     private void RemoteFileList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
+        RemoteFileList.SelectedItem = null;
         var dep = e.OriginalSource as DependencyObject;
         while (dep != null)
         {

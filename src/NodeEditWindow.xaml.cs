@@ -13,6 +13,20 @@ public partial class NodeEditWindow : Window
     private readonly List<Credential> _credentials;
     private readonly List<Tunnel> _tunnels;
     private readonly StorageService _storage;
+    private readonly string _initialName;
+    private readonly int _initialTypeIndex;
+    private readonly string _initialHost;
+    private readonly string _initialPort;
+    private readonly string _initialUsername;
+    private readonly string _initialPassword;
+    private readonly string _initialKeyPath;
+    private readonly string _initialDomain;
+    private readonly int _initialAuthIndex;
+    private readonly string? _initialCredentialId;
+    private readonly bool _initialTunnelUseParent;
+    private readonly HashSet<string> _initialTunnelIds;
+    private readonly int _initialProtocolIndex;
+    private bool _closingConfirmed;
 
     public Node? SavedNode { get; private set; }
 
@@ -84,6 +98,48 @@ public partial class NodeEditWindow : Window
         UpdateAuthSourceVisibility();
         if (node.Config != null)
             UpdateTunnelListEnabled();
+
+        _initialName = NameBox.Text ?? "";
+        _initialTypeIndex = TypeCombo.SelectedIndex;
+        _initialHost = HostBox.Text ?? "";
+        _initialPort = PortBox.Text ?? "";
+        _initialUsername = UsernameBox.Text ?? "";
+        _initialPassword = PasswordBox.Password ?? "";
+        _initialKeyPath = KeyPathBox.Text ?? "";
+        _initialDomain = DomainBox.Text ?? "";
+        _initialAuthIndex = AuthCombo.SelectedIndex;
+        _initialCredentialId = CredentialCombo.SelectedValue as string;
+        _initialTunnelUseParent = TunnelUseParentCheckBox.IsChecked == true;
+        _initialTunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToHashSet();
+        _initialProtocolIndex = ProtocolCombo.SelectedIndex;
+        Closing += NodeEditWindow_Closing;
+    }
+
+    private bool IsDirty()
+    {
+        if ((NameBox.Text ?? "") != _initialName) return true;
+        if (TypeCombo.SelectedIndex != _initialTypeIndex) return true;
+        if ((HostBox.Text ?? "") != _initialHost) return true;
+        if ((PortBox.Text ?? "") != _initialPort) return true;
+        if ((UsernameBox.Text ?? "") != _initialUsername) return true;
+        if (PasswordBox.Password != _initialPassword) return true;
+        if ((KeyPathBox.Text ?? "") != _initialKeyPath) return true;
+        if ((DomainBox.Text ?? "") != _initialDomain) return true;
+        if (AuthCombo.SelectedIndex != _initialAuthIndex) return true;
+        var credNow = CredentialCombo.SelectedValue as string;
+        if (!string.Equals(credNow, _initialCredentialId, StringComparison.Ordinal)) return true;
+        if ((TunnelUseParentCheckBox.IsChecked == true) != _initialTunnelUseParent) return true;
+        var tunnelIdsNow = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToHashSet();
+        if (!_initialTunnelIds.SetEquals(tunnelIdsNow)) return true;
+        if (ProtocolCombo.SelectedIndex != _initialProtocolIndex) return true;
+        return false;
+    }
+
+    private void NodeEditWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closingConfirmed) return;
+        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            e.Cancel = true;
     }
 
     private void TunnelUseParentCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -275,12 +331,16 @@ public partial class NodeEditWindow : Window
             _node.Config = null;
         }
         SavedNode = _node;
+        _closingConfirmed = true;
         DialogResult = true;
         Close();
     }
 
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
+        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        _closingConfirmed = true;
         DialogResult = false;
         Close();
     }

@@ -11,6 +11,14 @@ public partial class TunnelEditWindow : Window
     private readonly List<Tunnel> _all;
     private readonly List<Credential> _credentials;
     private readonly StorageService _storage;
+    private readonly string _initialName;
+    private readonly string _initialHost;
+    private readonly string _initialPort;
+    private readonly string _initialUsername;
+    private readonly int _initialAuthIndex;
+    private readonly string _initialPassword;
+    private readonly string _initialKeyPath;
+    private bool _closingConfirmed;
 
     public TunnelEditWindow(Tunnel tunnel, List<Tunnel> all, List<Credential> credentials, StorageService storage, bool isNew)
     {
@@ -30,8 +38,34 @@ public partial class TunnelEditWindow : Window
         UsernameBox.Text = _tunnel.Username ?? "";
         PasswordBox.Password = _tunnel.Password ?? "";
         KeyPathBox.Text = _tunnel.KeyPath ?? "";
+        _initialName = NameBox.Text ?? "";
+        _initialHost = HostBox.Text ?? "";
+        _initialPort = PortBox.Text ?? "";
+        _initialUsername = UsernameBox.Text ?? "";
+        _initialAuthIndex = AuthCombo.SelectedIndex;
+        _initialPassword = PasswordBox.Password ?? "";
+        _initialKeyPath = KeyPathBox.Text ?? "";
         AuthCombo.SelectionChanged += (_, _) => UpdateAuthVisibility();
         UpdateAuthVisibility();
+        Closing += TunnelEditWindow_Closing;
+    }
+
+    private bool IsDirty()
+    {
+        return (NameBox.Text ?? "") != _initialName
+            || (HostBox.Text ?? "") != _initialHost
+            || (PortBox.Text ?? "") != _initialPort
+            || (UsernameBox.Text ?? "") != _initialUsername
+            || AuthCombo.SelectedIndex != _initialAuthIndex
+            || PasswordBox.Password != _initialPassword
+            || (KeyPathBox.Text ?? "") != _initialKeyPath;
+    }
+
+    private void TunnelEditWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closingConfirmed) return;
+        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            e.Cancel = true;
     }
 
     private void UpdateAuthVisibility()
@@ -78,9 +112,17 @@ public partial class TunnelEditWindow : Window
         if (idx >= 0) list[idx] = _tunnel;
         else list.Add(_tunnel);
         _storage.SaveTunnels(list);
+        _closingConfirmed = true;
         DialogResult = true;
         Close();
     }
 
-    private void CancelBtn_Click(object sender, RoutedEventArgs e) { DialogResult = false; Close(); }
+    private void CancelBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        _closingConfirmed = true;
+        DialogResult = false;
+        Close();
+    }
 }

@@ -1,4 +1,5 @@
 using System.Windows.Media;
+using xOpenTerm.Services;
 
 namespace xOpenTerm.Models;
 
@@ -35,10 +36,18 @@ public class RemoteFileItem
     public string DisplaySize => IsDirectory ? "" : FormatFileSize(Length);
     /// <summary>用于列表显示：修改时间，无则为空</summary>
     public string DisplayModifiedTime => LastWriteTime.HasValue ? LastWriteTime.Value.ToString("yyyy-MM-dd HH:mm") : "";
-    /// <summary>Segoe MDL2 Assets 图标：按类型/扩展名返回对应字形</summary>
+    /// <summary>Segoe MDL2 Assets 图标：按类型/扩展名返回对应字形（系统图标不可用时回退）</summary>
     public string IconGlyph => GetIconGlyphForItem();
     /// <summary>图标前景色（按文件类型区分）</summary>
     public Brush IconForeground => GetIconForegroundForItem();
+    /// <summary>Windows Shell 文件/文件夹图标（与资源管理器一致），获取失败时为 null 则用 IconGlyph</summary>
+    public ImageSource? IconImage => GetIconImageForItem();
+
+    private ImageSource? GetIconImageForItem()
+    {
+        if (IsDirectory) return ShellIconService.GetFolderIcon();
+        return ShellIconService.GetFileIcon(GetExtension());
+    }
 
     private string GetIconGlyphForItem()
     {
