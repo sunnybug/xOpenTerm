@@ -1,6 +1,6 @@
-using xOpenTerm2.Models;
+using xOpenTerm.Models;
 
-namespace xOpenTerm2.Services;
+namespace xOpenTerm.Services;
 
 /// <summary>单跳跳板机的连接参数（用于多跳隧道链）</summary>
 public record JumpHop(string Host, ushort Port, string Username, string? Password, string? KeyPath, string? KeyPassphrase, bool UseAgent = false);

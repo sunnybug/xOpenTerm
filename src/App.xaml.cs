@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Threading;
-using xOpenTerm2.Services;
+using xOpenTerm.Services;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 public partial class App : Application
 {
@@ -21,7 +21,7 @@ public partial class App : Application
         ExceptionLog.Write(e.Exception, "DispatcherUnhandledException");
         MessageBox.Show(
             "程序发生未处理的错误，详情已写入日志。\n\n" + e.Exception.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
-            "xOpenTerm2",
+            "xOpenTerm",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
         e.Handled = true;

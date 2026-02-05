@@ -1,4 +1,4 @@
-namespace xOpenTerm2.Models;
+namespace xOpenTerm.Models;
 
 public enum NodeType
 {

@@ -11,7 +11,7 @@ trap {
 }
 
 $Root = Join-Path $PSScriptRoot ".."
-$ProjectPath = Join-Path $Root "src\xOpenTerm2.csproj"
+$ProjectPath = Join-Path $Root "src\xOpenTerm.csproj"
 $DistDir = Join-Path $Root "dist"
 
 # 构建 Release
@@ -22,7 +22,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $Version = (Select-String -Path $ProjectPath -Pattern '<Version>(.+?)</Version>').Matches.Groups[1].Value.Trim()
 if (-not $Version) { $Version = "0.0.0" }
 
-$ReleaseName = "xOpenTerm2-v$Version"
+$ReleaseName = "xOpenTerm-v$Version"
 $ReleaseDir = Join-Path $DistDir $ReleaseName
 $BinRelease = Join-Path $Root "bin\release"
 

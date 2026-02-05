@@ -4,9 +4,9 @@ using System.IO;
 using System.IO.Pipes;
 using System.Text;
 using System.Windows.Forms;
-using xOpenTerm2.Native;
+using xOpenTerm.Native;
 
-namespace xOpenTerm2.Controls;
+namespace xOpenTerm.Controls;
 
 /// <summary>
 /// 采用 mRemoteNG 方式：嵌入 PuTTY/PuTTY NG 窗口显示 SSH 终端。
@@ -51,7 +51,7 @@ public sealed class SshPuttyHostControl : Panel
             arguments.AddRange(["-l", username]);
         if (!string.IsNullOrEmpty(password))
         {
-            var pipeName = "xOpenTerm2Pipe" + Guid.NewGuid().ToString("n")[..8];
+            var pipeName = "xOpenTermPipe" + Guid.NewGuid().ToString("n")[..8];
             var thread = new Thread(() => CreatePipeServer(pipeName, password));
             thread.Start();
             arguments.AddRange(["-pwfile", $"\\\\.\\PIPE\\{pipeName}"]);

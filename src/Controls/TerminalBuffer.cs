@@ -1,6 +1,6 @@
 using System.Windows.Media;
 
-namespace xOpenTerm2.Controls;
+namespace xOpenTerm.Controls;
 
 /// <summary>
 /// 终端一格：字符 + 前景/背景/粗体。

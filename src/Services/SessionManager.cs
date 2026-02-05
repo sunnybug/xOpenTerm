@@ -3,9 +3,9 @@ using System.Diagnostics;
 using System.Text;
 using Renci.SshNet;
 using SshNet.Agent;
-using xOpenTerm2.Models;
+using xOpenTerm.Models;
 
-namespace xOpenTerm2.Services;
+namespace xOpenTerm.Services;
 
 /// <summary>管理 SSH 与本地终端会话，向 UI 推送输出</summary>
 public class SessionManager

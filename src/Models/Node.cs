@@ -1,6 +1,6 @@
 using YamlDotNet.Serialization;
 
-namespace xOpenTerm2.Models;
+namespace xOpenTerm.Models;
 
 public class Node
 {

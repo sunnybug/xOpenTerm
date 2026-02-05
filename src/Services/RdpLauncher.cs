@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.IO;
-using xOpenTerm2.Models;
+using xOpenTerm.Models;
 
-namespace xOpenTerm2.Services;
+namespace xOpenTerm.Services;
 
 /// <summary>启动 Windows 远程桌面（mstsc）：临时 .rdp 文件 + 可选 cmdkey 写入凭据</summary>
 public static class RdpLauncher
@@ -50,7 +50,7 @@ public static class RdpLauncher
             rdpContent += $"domain:s:{domain}\n";
 
         var tempDir = Path.GetTempPath();
-        var rdpPath = Path.Combine(tempDir, $"xopenterm2_{node.Id.Replace("-", "_")}.rdp");
+        var rdpPath = Path.Combine(tempDir, $"xOpenTerm_{node.Id.Replace("-", "_")}.rdp");
         File.WriteAllText(rdpPath, rdpContent);
 
         Process.Start(new ProcessStartInfo

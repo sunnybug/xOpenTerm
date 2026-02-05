@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
-using xOpenTerm2.Models;
-using xOpenTerm2.Services;
+using xOpenTerm.Models;
+using xOpenTerm.Services;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 public partial class CredentialEditWindow : Window
 {
@@ -42,7 +42,7 @@ public partial class CredentialEditWindow : Window
     private void SaveBtn_Click(object sender, RoutedEventArgs e)
     {
         _cred.Name = NameBox.Text?.Trim() ?? "";
-        if (string.IsNullOrEmpty(_cred.Name)) { MessageBox.Show("请输入名称。", "xOpenTerm2"); return; }
+        if (string.IsNullOrEmpty(_cred.Name)) { MessageBox.Show("请输入名称。", "xOpenTerm"); return; }
         _cred.Username = UsernameBox.Text?.Trim() ?? "";
         var authIdx = AuthCombo.SelectedIndex;
         _cred.AuthType = authIdx switch { 1 => AuthType.key, 2 => AuthType.agent, _ => AuthType.password };

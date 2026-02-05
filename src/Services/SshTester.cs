@@ -1,7 +1,7 @@
 using Renci.SshNet;
-using xOpenTerm2.Models;
+using xOpenTerm.Models;
 
-namespace xOpenTerm2.Services;
+namespace xOpenTerm.Services;
 
 /// <summary>SSH 连接测试（用于节点/凭证/隧道中的“测试连接”按钮）</summary>
 public static class SshTester

@@ -1,4 +1,4 @@
-<Window x:Class="xOpenTerm2.TunnelManagerWindow"
+<Window x:Class="xOpenTerm.TunnelManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="隧道管理" Height="420" Width="560" WindowStartupLocation="CenterOwner"

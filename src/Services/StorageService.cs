@@ -1,9 +1,9 @@
 using System.IO;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using xOpenTerm2.Models;
+using xOpenTerm.Models;
 
-namespace xOpenTerm2.Services;
+namespace xOpenTerm.Services;
 
 /// <summary>节点、凭证、隧道的 YAML 持久化</summary>
 public class StorageService
@@ -52,7 +52,7 @@ public class StorageService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[xOpenTerm2] 加载节点失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载节点失败: {ex.Message}");
             return new List<Node>();
         }
     }
@@ -74,7 +74,7 @@ public class StorageService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[xOpenTerm2] 加载凭证失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载凭证失败: {ex.Message}");
             return new List<Credential>();
         }
     }
@@ -96,7 +96,7 @@ public class StorageService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[xOpenTerm2] 加载隧道失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载隧道失败: {ex.Message}");
             return new List<Tunnel>();
         }
     }
@@ -118,7 +118,7 @@ public class StorageService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[xOpenTerm2] 加载设置失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载设置失败: {ex.Message}");
             return new AppSettings();
         }
     }

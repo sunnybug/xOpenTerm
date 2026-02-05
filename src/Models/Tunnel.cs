@@ -1,6 +1,6 @@
 using YamlDotNet.Serialization;
 
-namespace xOpenTerm2.Models;
+namespace xOpenTerm.Models;
 
 /// <summary>SSH 隧道（单跳跳板机）</summary>
 public class Tunnel

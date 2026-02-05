@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
-namespace xOpenTerm2.Native;
+namespace xOpenTerm.Native;
 
 /// <summary>Win32 P/Invoke，用于嵌入 PuTTY 窗口（与 mRemoteNG 一致）。</summary>
 [SupportedOSPlatform("windows")]

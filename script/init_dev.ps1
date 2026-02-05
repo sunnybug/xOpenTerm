@@ -11,7 +11,7 @@ trap {
 }
 
 $Root = Join-Path $PSScriptRoot ".."
-$ProjectPath = Join-Path $Root "src\xOpenTerm2.csproj"
+$ProjectPath = Join-Path $Root "src\xOpenTerm.csproj"
 
 Write-Host "还原 NuGet 包..." -ForegroundColor Cyan
 dotnet restore $ProjectPath

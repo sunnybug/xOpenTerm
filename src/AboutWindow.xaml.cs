@@ -3,7 +3,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Navigation;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 /// <summary>关于弹窗：版本号、作者、GitHub 链接</summary>
 public partial class AboutWindow : Window

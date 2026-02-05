@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace xOpenTerm2.Controls;
+namespace xOpenTerm.Controls;
 
 /// <summary>
 /// 自定义绘制终端内容：仅绘制可见行，使用 FormattedText 按段着色。

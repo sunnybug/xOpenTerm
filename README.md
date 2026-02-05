@@ -1,4 +1,4 @@
-# xOpenTerm2
+# xOpenTerm
 
 参考 [xOpenTerm](https://github.com/your-org/xOpenTerm) 实现的 **C# WPF** 版本：Windows 下 SSH / 本地终端批量管理工具。
 
@@ -47,7 +47,7 @@
 .\script\publish.ps1
 ```
 
-或使用 Visual Studio 打开 `xOpenTerm2.sln` 后 F5 运行。
+或使用 Visual Studio 打开 `xOpenTerm.sln` 后 F5 运行。
 
 ## 配置目录
 

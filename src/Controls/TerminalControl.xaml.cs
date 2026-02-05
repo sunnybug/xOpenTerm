@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
-namespace xOpenTerm2.Controls;
+namespace xOpenTerm.Controls;
 
 public partial class TerminalControl : UserControl
 {

@@ -4,7 +4,7 @@ using RoyalApps.Community.Rdp.WinForms.Configuration;
 using RoyalApps.Community.Rdp.WinForms.Controls;
 using SensitiveString = RoyalApps.Community.Rdp.WinForms.Configuration.SensitiveString;
 
-namespace xOpenTerm2.Controls;
+namespace xOpenTerm.Controls;
 
 /// <summary>在 WinForms 中承载 RDP 控件并连接，供 WPF 通过 WindowsFormsHost 嵌入标签页。基于 RoyalApps.Community.Rdp.WinForms（MsRdpEx）。</summary>
 [SupportedOSPlatform("windows")]

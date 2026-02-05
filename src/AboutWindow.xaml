@@ -1,11 +1,11 @@
-<Window x:Class="xOpenTerm2.AboutWindow"
+<Window x:Class="xOpenTerm.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="关于" Height="280" Width="380" WindowStartupLocation="CenterOwner"
         Background="#1a1a2e" ResizeMode="NoResize">
     <Grid Margin="16">
         <StackPanel>
-            <TextBlock x:Name="AppNameText" Text="xOpenTerm2" FontSize="18" FontWeight="SemiBold" Foreground="#e2e8f0" Margin="0,0,0,8"/>
+            <TextBlock x:Name="AppNameText" Text="xOpenTerm" FontSize="18" FontWeight="SemiBold" Foreground="#e2e8f0" Margin="0,0,0,8"/>
             <TextBlock Text="版本：" Foreground="#94a3b8" Margin="0,0,0,2"/>
             <TextBlock x:Name="VersionText" Foreground="#e2e8f0" Margin="0,0,0,12"/>
             <TextBlock Text="作者" Foreground="#94a3b8" Margin="0,0,0,2"/>

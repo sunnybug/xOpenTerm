@@ -1,8 +1,8 @@
 using System.IO;
 using Renci.SshNet;
-using xOpenTerm2.Models;
+using xOpenTerm.Models;
 
-namespace xOpenTerm2.Services;
+namespace xOpenTerm.Services;
 
 /// <summary>远程文件列表与传输：用 SFTP 列目录，用 SCP 传输。</summary>
 public static class RemoteFileService

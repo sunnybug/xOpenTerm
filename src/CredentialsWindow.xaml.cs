@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
-using xOpenTerm2.Models;
-using xOpenTerm2.Services;
+using xOpenTerm.Models;
+using xOpenTerm.Services;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 /// <summary>登录凭证管理窗口：列表、新增、编辑、删除</summary>
 public partial class CredentialsWindow : Window
@@ -67,7 +67,7 @@ public partial class CredentialsWindow : Window
     {
         if (CredList.SelectedIndex < 0 || CredList.SelectedIndex >= _credentials.Count) return;
         var cred = _credentials[CredList.SelectedIndex];
-        if (MessageBox.Show($"确定删除凭证「{cred.Name}」？", "xOpenTerm2", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show($"确定删除凭证「{cred.Name}」？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _credentials.RemoveAll(c => c.Id == cred.Id);
         _storage.SaveCredentials(_credentials);

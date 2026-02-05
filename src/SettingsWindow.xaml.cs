@@ -2,11 +2,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
-using xOpenTerm2.Controls;
-using xOpenTerm2.Models;
-using xOpenTerm2.Services;
+using xOpenTerm.Controls;
+using xOpenTerm.Models;
+using xOpenTerm.Services;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 public partial class SettingsWindow : Window
 {
@@ -94,7 +94,7 @@ public partial class SettingsWindow : Window
         var puttyPath = SshPuttyHostControl.DefaultPuttyPath;
         if (string.IsNullOrWhiteSpace(puttyPath) || !File.Exists(puttyPath))
         {
-            MessageBox.Show("未找到 PuTTY 程序，请确保已安装 PuTTY 或 PuTTY NG。", "xOpenTerm2");
+            MessageBox.Show("未找到 PuTTY 程序，请确保已安装 PuTTY 或 PuTTY NG。", "xOpenTerm");
             return;
         }
         try
@@ -108,7 +108,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show("无法启动 PuTTY：" + ex.Message, "xOpenTerm2");
+            MessageBox.Show("无法启动 PuTTY：" + ex.Message, "xOpenTerm");
         }
     }
 }

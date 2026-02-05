@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
-using xOpenTerm2.Models;
-using xOpenTerm2.Services;
+using xOpenTerm.Models;
+using xOpenTerm.Services;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 public partial class TunnelEditWindow : Window
 {
@@ -46,10 +46,10 @@ public partial class TunnelEditWindow : Window
     private void TestBtn_Click(object sender, RoutedEventArgs e)
     {
         var host = HostBox.Text?.Trim();
-        if (string.IsNullOrEmpty(host)) { MessageBox.Show("请填写主机。", "xOpenTerm2"); return; }
+        if (string.IsNullOrEmpty(host)) { MessageBox.Show("请填写主机。", "xOpenTerm"); return; }
         if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
         var username = UsernameBox.Text?.Trim() ?? "";
-        if (string.IsNullOrEmpty(username)) { MessageBox.Show("请填写用户名。", "xOpenTerm2"); return; }
+        if (string.IsNullOrEmpty(username)) { MessageBox.Show("请填写用户名。", "xOpenTerm"); return; }
         string? password = null;
         string? keyPath = null;
         string? keyPassphrase = null;

@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
-using xOpenTerm2.Models;
-using xOpenTerm2.Services;
+using xOpenTerm.Models;
+using xOpenTerm.Services;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 public partial class NodeEditWindow : Window
 {
@@ -159,14 +159,14 @@ public partial class NodeEditWindow : Window
     private void TestConnectionBtn_Click(object sender, RoutedEventArgs e)
     {
         var host = HostBox.Text?.Trim();
-        if (string.IsNullOrEmpty(host)) { MessageBox.Show("请填写主机。", "xOpenTerm2"); return; }
+        if (string.IsNullOrEmpty(host)) { MessageBox.Show("请填写主机。", "xOpenTerm"); return; }
         if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
         string username; string? password = null; string? keyPath = null; string? keyPassphrase = null;
         var useAgent = AuthCombo.SelectedIndex == 3;
         if (AuthCombo.SelectedIndex == 4 && CredentialCombo.SelectedValue is string cid)
         {
             var cred = _credentials.FirstOrDefault(c => c.Id == cid);
-            if (cred == null) { MessageBox.Show("请选择登录凭证。", "xOpenTerm2"); return; }
+            if (cred == null) { MessageBox.Show("请选择登录凭证。", "xOpenTerm"); return; }
             username = cred.Username;
             if (cred.AuthType == AuthType.password) password = cred.Password;
             else { keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; }
@@ -183,10 +183,10 @@ public partial class NodeEditWindow : Window
         }
         else
         {
-            MessageBox.Show("同父节点请保存后在实际连接时验证。", "xOpenTerm2");
+            MessageBox.Show("同父节点请保存后在实际连接时验证。", "xOpenTerm");
             return;
         }
-        if (string.IsNullOrEmpty(username)) { MessageBox.Show("请填写用户名。", "xOpenTerm2"); return; }
+        if (string.IsNullOrEmpty(username)) { MessageBox.Show("请填写用户名。", "xOpenTerm"); return; }
         var ok = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
         MessageBox.Show(ok ? "连接成功" : "连接失败", "测试连接");
     }
@@ -199,7 +199,7 @@ public partial class NodeEditWindow : Window
             name = HostBox.Text!.Trim();
         if (string.IsNullOrEmpty(name))
         {
-            MessageBox.Show("请输入名称。", "xOpenTerm2");
+            MessageBox.Show("请输入名称。", "xOpenTerm");
             return;
         }
         _node.Name = name;

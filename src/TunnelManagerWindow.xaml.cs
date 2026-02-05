@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
-using xOpenTerm2.Models;
-using xOpenTerm2.Services;
+using xOpenTerm.Models;
+using xOpenTerm.Services;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 /// <summary>隧道（跳板机）管理窗口</summary>
 public partial class TunnelManagerWindow : Window
@@ -67,7 +67,7 @@ public partial class TunnelManagerWindow : Window
     {
         if (TunnelList.SelectedIndex < 0 || TunnelList.SelectedIndex >= _tunnels.Count) return;
         var t = _tunnels[TunnelList.SelectedIndex];
-        if (MessageBox.Show($"确定删除跳板机「{t.Name}」？", "xOpenTerm2", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show($"确定删除跳板机「{t.Name}」？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _tunnels.RemoveAll(x => x.Id == t.Id);
         _storage.SaveTunnels(_tunnels);

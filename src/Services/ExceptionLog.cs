@@ -2,11 +2,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace xOpenTerm2.Services;
+namespace xOpenTerm.Services;
 
 /// <summary>
 /// 将未捕获异常写入日志文件，便于排查崩溃。
-/// 日志目录：%LocalAppData%\xOpenTerm2\logs\ 或当前进程目录下的 logs 子目录。
+/// 日志目录：%LocalAppData%\xOpenTerm\logs\ 或当前进程目录下的 logs 子目录。
 /// </summary>
 public static class ExceptionLog
 {
@@ -23,7 +23,7 @@ public static class ExceptionLog
                 var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                 if (string.IsNullOrEmpty(baseDir))
                     baseDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName) ?? ".";
-                _logDir = Path.Combine(baseDir, "xOpenTerm2", "logs");
+                _logDir = Path.Combine(baseDir, "xOpenTerm", "logs");
                 if (!Directory.Exists(_logDir))
                     Directory.CreateDirectory(_logDir);
             }
@@ -67,7 +67,7 @@ public static class ExceptionLog
             }
             catch
             {
-                try { Trace.WriteLine("[xOpenTerm2] ExceptionLog write failed: " + content); } catch { }
+                try { Trace.WriteLine("[xOpenTerm] ExceptionLog write failed: " + content); } catch { }
             }
         }
     }

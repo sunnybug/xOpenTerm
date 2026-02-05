@@ -1,6 +1,6 @@
 using YamlDotNet.Serialization;
 
-namespace xOpenTerm2.Models;
+namespace xOpenTerm.Models;
 
 /// <summary>应用界面字体等设置</summary>
 public class AppSettings

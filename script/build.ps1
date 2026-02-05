@@ -1,4 +1,4 @@
-# 功能说明：构建 xOpenTerm2 项目，默认 Debug，传参 --release 时构建 Release
+# 功能说明：构建 xOpenTerm 项目，默认 Debug，传参 --release 时构建 Release
 
 param(
     [switch]$Release
@@ -13,7 +13,7 @@ trap {
 }
 
 $Root = Join-Path $PSScriptRoot ".."
-$ProjectPath = Join-Path $Root "src\xOpenTerm2.csproj"
+$ProjectPath = Join-Path $Root "src\xOpenTerm.csproj"
 $Config = if ($Release) { "Release" } else { "Debug" }
 
 Write-Host "构建配置: $Config" -ForegroundColor Cyan

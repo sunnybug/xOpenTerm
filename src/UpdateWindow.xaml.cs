@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Windows;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 /// <summary>从 GitHub Releases 检查更新</summary>
 public partial class UpdateWindow : Window
@@ -54,7 +54,7 @@ public partial class UpdateWindow : Window
         try
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "xOpenTerm2");
+            client.DefaultRequestHeaders.Add("User-Agent", "xOpenTerm");
             var resp = await client.GetAsync(GitHubReleasesUrl);
             if (!resp.IsSuccessStatusCode)
             {

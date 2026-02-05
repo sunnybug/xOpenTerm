@@ -1,6 +1,6 @@
 using YamlDotNet.Serialization;
 
-namespace xOpenTerm2.Models;
+namespace xOpenTerm.Models;
 
 /// <summary>登录凭证：可被多个节点复用的认证配置</summary>
 public class Credential

@@ -1,6 +1,6 @@
 using YamlDotNet.Serialization;
 
-namespace xOpenTerm2.Models;
+namespace xOpenTerm.Models;
 
 /// <summary>单跳隧道配置（ProxyJump 的一跳）</summary>
 public class TunnelHop

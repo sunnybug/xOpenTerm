@@ -1,4 +1,4 @@
-namespace xOpenTerm2.Models;
+namespace xOpenTerm.Models;
 
 /// <summary>远程文件/目录项，用于列表展示</summary>
 public class RemoteFileItem

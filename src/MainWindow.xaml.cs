@@ -4,11 +4,11 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Forms.Integration;
-using xOpenTerm2.Controls;
-using xOpenTerm2.Models;
-using xOpenTerm2.Services;
+using xOpenTerm.Controls;
+using xOpenTerm.Models;
+using xOpenTerm.Services;
 
-namespace xOpenTerm2;
+namespace xOpenTerm;
 
 public partial class MainWindow : Window
 {
@@ -438,7 +438,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show("PuTTY 启动失败：" + ex.Message, "xOpenTerm2");
+            MessageBox.Show("PuTTY 启动失败：" + ex.Message, "xOpenTerm");
             CloseTab(tabId);
         }
     }
@@ -524,7 +524,7 @@ public partial class MainWindow : Window
             var (host, port, username, domain, password) = ConfigResolver.ResolveRdp(node, _nodes, _credentials);
             if (string.IsNullOrWhiteSpace(host))
             {
-                MessageBox.Show("请填写 RDP 主机地址。", "xOpenTerm2");
+                MessageBox.Show("请填写 RDP 主机地址。", "xOpenTerm");
                 return;
             }
 
@@ -536,7 +536,7 @@ public partial class MainWindow : Window
             var rdpControl = new RdpHostControl(host, port, username, domain, password);
             rdpControl.ErrorOccurred += (_, msg) =>
             {
-                Dispatcher.Invoke(() => MessageBox.Show(msg, "xOpenTerm2"));
+                Dispatcher.Invoke(() => MessageBox.Show(msg, "xOpenTerm"));
             };
             rdpControl.Disconnected += (_, _) =>
             {
@@ -568,7 +568,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "xOpenTerm2");
+            MessageBox.Show(ex.Message, "xOpenTerm");
         }
     }
 

@@ -1,7 +1,7 @@
 using System.Text;
 using System.Windows.Media;
 
-namespace xOpenTerm2.Controls;
+namespace xOpenTerm.Controls;
 
 /// <summary>
 /// VT100/ANSI 流式解析器：SGR（颜色/粗体）、CSI 光标/擦除、ESC E（NEL）、BEL 等。
