@@ -1,0 +1,30 @@
+using System.Windows.Media;
+using xOpenTerm.Models;
+
+namespace xOpenTerm;
+
+/// <summary>服务器树节点图标与颜色等 UI 辅助。</summary>
+public static class ServerTreeItemBuilder
+{
+    public static string NodeIcon(Node n, bool isGroupExpanded = true)
+    {
+        return n.Type switch
+        {
+            NodeType.group => isGroupExpanded ? "📂" : "📁",
+            NodeType.ssh => "\uE756",
+            NodeType.rdp => "\uE7C4",
+            _ => "⌨"
+        };
+    }
+
+    public static Brush NodeColor(Node n)
+    {
+        return n.Type switch
+        {
+            NodeType.group => Brushes.Gold,
+            NodeType.ssh => new SolidColorBrush(Color.FromRgb(0x60, 0xa5, 0xfa)),
+            NodeType.rdp => new SolidColorBrush(Color.FromRgb(0xc0, 0x84, 0xfc)),
+            _ => Brushes.LightGreen
+        };
+    }
+}
