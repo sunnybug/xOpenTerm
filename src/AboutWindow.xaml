@@ -1,6 +1,7 @@
 <Window x:Class="xOpenTerm.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:hc="https://handyorg.github.io/handycontrol"
         Title="关于" Height="280" Width="380" WindowStartupLocation="CenterOwner"
         Background="#1a1a2e" ResizeMode="NoResize">
     <Grid Margin="16">
