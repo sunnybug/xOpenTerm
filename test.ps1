@@ -1,8 +1,11 @@
-# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
+﻿# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
 
 param(
     [switch]$Release
 )
+
+# PowerShell 不会把 --release 绑定到 -Release，显式识别
+if ($args -contains "--release") { $Release = $true }
 
 $ErrorActionPreference = "Stop"
 trap {
@@ -13,10 +16,11 @@ trap {
 }
 
 $BuildScript = Join-Path $PSScriptRoot "script\build.ps1"
-$BuildArgs = @()
-if ($Release) { $BuildArgs += "-Release" }
-
-& $BuildScript @BuildArgs
+if ($Release) {
+    & $BuildScript -Release
+} else {
+    & $BuildScript
+}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $Root = $PSScriptRoot

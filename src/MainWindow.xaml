@@ -100,9 +100,19 @@
                                 </ListView.ContextMenu>
                                 <ListView.View>
                                     <GridView>
-                                        <GridViewColumn Header="名称" Width="140" DisplayMemberBinding="{Binding Name}"/>
+                                        <GridViewColumn Header="名称" Width="200">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding IconGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                                                  Foreground="{Binding IconForeground}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
                                         <GridViewColumn Header="大小" Width="80" DisplayMemberBinding="{Binding DisplaySize}"/>
-                                        <GridViewColumn Header="类型" Width="60" DisplayMemberBinding="{Binding DisplayType}"/>
+                                        <GridViewColumn Header="修改时间" Width="130" DisplayMemberBinding="{Binding DisplayModifiedTime}"/>
                                     </GridView>
                                 </ListView.View>
                             </ListView>

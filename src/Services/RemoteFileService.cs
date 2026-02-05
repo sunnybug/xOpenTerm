@@ -65,7 +65,8 @@ public static class RemoteFileService
                         Name = e.Name,
                         IsDirectory = e.IsDirectory,
                         Length = e.Length,
-                        FullName = e.FullName
+                        FullName = e.FullName,
+                        LastWriteTime = e.LastWriteTime
                     });
                 }
                 return list.OrderBy(x => !x.IsDirectory).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();

@@ -1,8 +1,10 @@
-# 功能说明：构建 xOpenTerm 项目，默认 Debug，传参 --release 时构建 Release
+﻿# 功能说明：构建 xOpenTerm 项目，默认 Debug，传参 --release 时构建 Release
 
 param(
     [switch]$Release
 )
+
+if ($args -contains "--release") { $Release = $true }
 
 $ErrorActionPreference = "Stop"
 trap {
