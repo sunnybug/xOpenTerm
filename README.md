@@ -61,13 +61,10 @@
 
 ### 配置中的密码加密与多机共用
 
-- 节点/凭证/隧道 YAML 根节点包含 `version` 字段，不同版本可绑定不同加密算法与密钥。
+- 节点/凭证/隧道 YAML 根节点包含 `version` 字段，不同版本使用不同的写死密钥与算法。
 - 密码、密钥口令等敏感字段会加密后再写入 YAML（明文不再保存）。
-- **多机共用同一配置文件**：在各机器上设置相同的环境变量（版本 1：`XOPENTERM_MASTER_KEY`；版本 2：`XOPENTERM_MASTER_KEY_V2`），值为 32 字节密钥的 Base64。程序按配置版本选用对应密钥做 AES 加密，同一份配置可在多台机器上解密。
-- 生成主密钥示例（PowerShell）：  
-  `[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])`  
-  将输出设为环境变量后，在每台机器上设为相同值即可。
-- 版本 1 未设置 `XOPENTERM_MASTER_KEY` 时，使用 Windows DPAPI 加密（仅当前机器、当前用户可解密）。
+- 各版本密钥在程序内按版本号派生（固定种子），同一份配置文件可在任意机器上解密，无需配置环境变量。
+- 旧版曾用 Windows DPAPI 的密文（前缀 xot1）仍可解密（仅限原机器当前用户）。
 
 ## 与 xOpenTerm 的差异
 

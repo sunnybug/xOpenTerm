@@ -4,8 +4,7 @@ namespace xOpenTerm.Services;
 
 /// <summary>
 /// 配置中密码等敏感字段的加密存储，按配置版本号选择加密算法与密钥。
-/// 版本 1：优先环境变量 XOPENTERM_MASTER_KEY（AES），否则 Windows DPAPI。
-/// 更高版本可绑定不同环境变量与算法（如版本 2 使用 XOPENTERM_MASTER_KEY_V2 等）。
+/// 各版本使用写死的派生密钥（同一版本在所有机器上可解密同一配置）。
 /// </summary>
 public static class SecretService
 {
@@ -14,8 +13,7 @@ public static class SecretService
 
     private const string PrefixDpapi = "xot1:";
     private const string PrefixAesV1 = "xot2:";
-    private const string EnvMasterKeyV1 = "XOPENTERM_MASTER_KEY";
-    private const string EnvMasterKeyV2 = "XOPENTERM_MASTER_KEY_V2";
+    private const string KeySeedPrefix = "xOpenTerm.secret.v";
     private const int AesKeySizeBytes = 32;
     private const int AesBlockSizeBytes = 16;
 
@@ -34,17 +32,15 @@ public static class SecretService
         }
     }
 
-    /// <summary>解密。根据密文前缀自动选择算法与密钥（xot1=DPAPI，xot2=版本1 主密钥，xot3=版本2 主密钥）。</summary>
+    /// <summary>解密。根据密文前缀自动选择算法与密钥（xot1=DPAPI 兼容旧配置，xot2=版本1，xot3=版本2）。</summary>
     public static string? Decrypt(string? value)
     {
         if (string.IsNullOrEmpty(value)) return value;
         if (value.StartsWith(PrefixAesV1, StringComparison.Ordinal))
         {
-            var key = GetMasterKey(1);
-            if (key == null) return value;
             try
             {
-                return DecryptAes(value.Substring(PrefixAesV1.Length), key);
+                return DecryptAes(value.Substring(PrefixAesV1.Length), GetMasterKey(1));
             }
             catch
             {
@@ -53,11 +49,9 @@ public static class SecretService
         }
         if (value.StartsWith("xot3:", StringComparison.Ordinal))
         {
-            var key = GetMasterKey(2);
-            if (key == null) return value;
             try
             {
-                return DecryptAes(value.Substring(5), key);
+                return DecryptAes(value.Substring(5), GetMasterKey(2));
             }
             catch
             {
@@ -81,50 +75,19 @@ public static class SecretService
         return value;
     }
 
-    /// <summary>生成新的 32 字节主密钥的 Base64，可用于环境变量。</summary>
-    public static string GenerateMasterKeyBase64()
+    /// <summary>按版本返回写死的 32 字节密钥（由固定种子派生），同一版本在所有机器上一致。</summary>
+    private static byte[] GetMasterKey(int version)
     {
-        var key = new byte[AesKeySizeBytes];
-        RandomNumberGenerator.Fill(key);
-        return Convert.ToBase64String(key);
-    }
-
-    /// <summary>读取指定版本的主密钥（Base64，32 字节）。版本 1→XOPENTERM_MASTER_KEY，2→XOPENTERM_MASTER_KEY_V2。</summary>
-    public static byte[]? GetMasterKey(int version)
-    {
-        var envName = version == 2 ? EnvMasterKeyV2 : EnvMasterKeyV1;
-        var raw = Environment.GetEnvironmentVariable(envName);
-        if (string.IsNullOrWhiteSpace(raw)) return null;
-        try
-        {
-            var key = Convert.FromBase64String(raw.Trim());
-            return key.Length == AesKeySizeBytes ? key : null;
-        }
-        catch
-        {
-            return null;
-        }
+        var seed = KeySeedPrefix + version;
+        var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(seed));
+        return hash; // 32 bytes
     }
 
     private static string? EncryptV1(string plain)
     {
-        var key = GetMasterKey(1);
-        if (key != null)
-        {
-            try
-            {
-                return PrefixAesV1 + EncryptAes(plain, key);
-            }
-            catch
-            {
-                // fallback to DPAPI
-            }
-        }
         try
         {
-            var bytes = System.Text.Encoding.UTF8.GetBytes(plain);
-            var protectedBytes = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
-            return PrefixDpapi + Convert.ToBase64String(protectedBytes);
+            return PrefixAesV1 + EncryptAes(plain, GetMasterKey(1));
         }
         catch
         {
@@ -134,11 +97,9 @@ public static class SecretService
 
     private static string? EncryptV2(string plain)
     {
-        var key = GetMasterKey(2);
-        if (key == null) return plain;
         try
         {
-            return "xot3:" + EncryptAes(plain, key);
+            return "xot3:" + EncryptAes(plain, GetMasterKey(2));
         }
         catch
         {
