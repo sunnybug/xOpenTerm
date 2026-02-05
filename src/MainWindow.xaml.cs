@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -106,6 +108,19 @@ public partial class MainWindow : Window
         win.ShowDialog();
         LoadData();
         BuildTree();
+    }
+
+    private void MenuOpenConfigDir_Click(object sender, RoutedEventArgs e)
+    {
+        var configDir = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
+            "config");
+        Directory.CreateDirectory(configDir);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = configDir,
+            UseShellExecute = true
+        });
     }
 
     private void MenuAbout_Click(object sender, RoutedEventArgs e)
