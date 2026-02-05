@@ -26,6 +26,10 @@ public partial class MainWindow : Window
     private Node? _contextMenuNode;
     private Node? _draggedNode;
     private Point _dragStartPoint;
+    /// <summary>多选时选中的节点 ID 集合（Ctrl/Shift）</summary>
+    private readonly HashSet<string> _selectedNodeIds = new();
+    /// <summary>Shift 范围选择时的锚点节点 ID</summary>
+    private string? _lastSelectedNodeId;
     /// <summary>远程文件列表当前对应的 SSH 节点 ID</summary>
     private string? _remoteFileNodeId;
     /// <summary>远程文件当前路径</summary>

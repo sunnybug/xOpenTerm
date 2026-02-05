@@ -80,8 +80,19 @@ public partial class MainWindow
         foreach (var child in children)
             if (MatchesSearch(child))
                 item.Items.Add(CreateTreeItem(child));
+        SetIsMultiSelected(item, _selectedNodeIds.Contains(node.Id));
         return item;
     }
+
+    #region 多选附加属性
+
+    public static readonly DependencyProperty IsMultiSelectedProperty = DependencyProperty.RegisterAttached(
+        "IsMultiSelected", typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+
+    public static void SetIsMultiSelected(DependencyObject d, bool value) => d.SetValue(IsMultiSelectedProperty, value);
+    public static bool GetIsMultiSelected(DependencyObject d) => (bool)d.GetValue(IsMultiSelectedProperty);
+
+    #endregion
 
     private void ServerTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
@@ -371,8 +382,100 @@ public partial class MainWindow
     private void ServerTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var item = FindClickedNode(e.OriginalSource);
-        _draggedNode = item?.Tag as Node;
+        var node = item?.Tag as Node;
+        _draggedNode = node;
         _dragStartPoint = e.GetPosition(null);
+
+        if (node != null)
+        {
+            var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+            var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            if (ctrl)
+            {
+                if (_selectedNodeIds.Contains(node.Id))
+                    _selectedNodeIds.Remove(node.Id);
+                else
+                    _selectedNodeIds.Add(node.Id);
+                if (_selectedNodeIds.Count == 0)
+                    _lastSelectedNodeId = null;
+                else
+                    _lastSelectedNodeId = node.Id;
+            }
+            else if (shift)
+            {
+                if (string.IsNullOrEmpty(_lastSelectedNodeId))
+                {
+                    _selectedNodeIds.Clear();
+                    _selectedNodeIds.Add(node.Id);
+                }
+                else
+                {
+                    var ordered = GetNodesInDisplayOrder();
+                    var idxClick = ordered.FindIndex(n => n.Id == node.Id);
+                    var idxAnchor = ordered.FindIndex(n => n.Id == _lastSelectedNodeId);
+                    if (idxClick >= 0 && idxAnchor >= 0)
+                    {
+                        _selectedNodeIds.Clear();
+                        var (i0, i1) = idxClick <= idxAnchor ? (idxClick, idxAnchor) : (idxAnchor, idxClick);
+                        for (var i = i0; i <= i1; i++)
+                            _selectedNodeIds.Add(ordered[i].Id);
+                    }
+                    else
+                    {
+                        _selectedNodeIds.Clear();
+                        _selectedNodeIds.Add(node.Id);
+                    }
+                }
+                _lastSelectedNodeId = node.Id;
+            }
+            else
+            {
+                _selectedNodeIds.Clear();
+                _selectedNodeIds.Add(node.Id);
+                _lastSelectedNodeId = node.Id;
+            }
+            if (item != null)
+                item.IsSelected = true;
+            UpdateTreeSelectionVisuals();
+        }
+    }
+
+    /// <summary>树节点按界面显示顺序（深度优先）</summary>
+    private List<Node> GetNodesInDisplayOrder()
+    {
+        var list = new List<Node>();
+        void Add(Node n)
+        {
+            if (!MatchesSearch(n)) return;
+            list.Add(n);
+            foreach (var c in _nodes.Where(x => x.ParentId == n.Id).OrderBy(x => x.Name))
+                Add(c);
+        }
+        foreach (var root in _nodes.Where(n => string.IsNullOrEmpty(n.ParentId)).OrderBy(n => n.Name))
+            Add(root);
+        return list;
+    }
+
+    private void UpdateTreeSelectionVisuals()
+    {
+        foreach (var tvi in EnumerateTreeViewItems(ServerTree))
+        {
+            if (tvi.Tag is Node n)
+                SetIsMultiSelected(tvi, _selectedNodeIds.Contains(n.Id));
+        }
+    }
+
+    private static IEnumerable<TreeViewItem> EnumerateTreeViewItems(ItemsControl parent)
+    {
+        for (var i = 0; i < parent.Items.Count; i++)
+        {
+            if (parent.ItemContainerGenerator.ContainerFromIndex(i) is TreeViewItem tvi)
+            {
+                yield return tvi;
+                foreach (var child in EnumerateTreeViewItems(tvi))
+                    yield return child;
+            }
+        }
     }
 
     private void ServerTree_PreviewMouseMove(object sender, MouseEventArgs e)
@@ -382,7 +485,11 @@ public partial class MainWindow
         if (Math.Abs(pos.X - _dragStartPoint.X) < 4 && Math.Abs(pos.Y - _dragStartPoint.Y) < 4) return;
         try
         {
-            DragDrop.DoDragDrop(ServerTree, _draggedNode.Id, DragDropEffects.Move);
+            var idsToDrag = _selectedNodeIds.Contains(_draggedNode.Id) && _selectedNodeIds.Count > 0
+                ? _selectedNodeIds.ToList()
+                : new List<string> { _draggedNode.Id };
+            var payload = string.Join(",", idsToDrag);
+            DragDrop.DoDragDrop(ServerTree, payload, DragDropEffects.Move);
         }
         finally
         {
@@ -394,10 +501,13 @@ public partial class MainWindow
     {
         e.Effects = DragDropEffects.None;
         if (!e.Data.GetDataPresent(DataFormats.Text)) return;
-        var draggedId = e.Data.GetData(DataFormats.Text) as string;
-        if (string.IsNullOrEmpty(draggedId)) return;
+        var payload = e.Data.GetData(DataFormats.Text) as string;
+        if (string.IsNullOrEmpty(payload)) return;
+        var draggedIds = payload.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+        if (draggedIds.Count == 0) return;
         var target = GetNodeAtPosition(ServerTree, e.GetPosition(ServerTree));
-        if (target == null || target.Type != NodeType.group || target.Id == draggedId || IsDescendant(target.Id, draggedId))
+        if (target == null || target.Type != NodeType.group) return;
+        if (draggedIds.Any(id => id == target.Id || IsDescendant(target.Id, id)))
             return;
         e.Effects = DragDropEffects.Move;
         e.Handled = true;
@@ -406,15 +516,26 @@ public partial class MainWindow
     private void ServerTree_Drop(object sender, DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(DataFormats.Text)) return;
-        var draggedId = e.Data.GetData(DataFormats.Text) as string;
-        if (string.IsNullOrEmpty(draggedId)) return;
+        var payload = e.Data.GetData(DataFormats.Text) as string;
+        if (string.IsNullOrEmpty(payload)) return;
+        var draggedIds = payload.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+        if (draggedIds.Count == 0) return;
         var target = GetNodeAtPosition(ServerTree, e.GetPosition(ServerTree));
-        if (target == null || target.Type != NodeType.group || target.Id == draggedId || IsDescendant(target.Id, draggedId))
+        if (target == null || target.Type != NodeType.group) return;
+        if (draggedIds.Any(id => id == target.Id || IsDescendant(target.Id, id)))
             return;
-        var idx = _nodes.FindIndex(n => n.Id == draggedId);
-        if (idx >= 0)
+        var modified = false;
+        foreach (var id in draggedIds)
         {
-            _nodes[idx].ParentId = target.Id;
+            var idx = _nodes.FindIndex(n => n.Id == id);
+            if (idx >= 0)
+            {
+                _nodes[idx].ParentId = target.Id;
+                modified = true;
+            }
+        }
+        if (modified)
+        {
             _storage.SaveNodes(_nodes);
             BuildTree();
         }
