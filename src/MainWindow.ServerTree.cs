@@ -225,6 +225,8 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("新建分组", () => AddNode(NodeType.group, node.Id)));
             menu.Items.Add(CreateMenuItem("新建主机", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("设置", () => EditGroupSettings(node)));
+            menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除（含子节点）", () => DeleteNodeRecursive(node)));
@@ -349,6 +351,18 @@ public partial class MainWindow
             var idx = _nodes.FindIndex(n => n.Id == dlg.SavedNode.Id);
             if (idx >= 0) _nodes[idx] = dlg.SavedNode;
             else _nodes.Add(dlg.SavedNode);
+            _storage.SaveNodes(_nodes);
+            BuildTree();
+        }
+    }
+
+    private void EditGroupSettings(Node groupNode)
+    {
+        var dlg = new GroupSettingsWindow(groupNode, _nodes, _credentials, _tunnels, _storage);
+        if (dlg.ShowDialog() == true)
+        {
+            var idx = _nodes.FindIndex(n => n.Id == groupNode.Id);
+            if (idx >= 0) _nodes[idx] = groupNode;
             _storage.SaveNodes(_nodes);
             BuildTree();
         }
