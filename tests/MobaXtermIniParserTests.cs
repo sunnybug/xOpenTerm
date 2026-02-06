@@ -1,3 +1,4 @@
+using System.Text;
 using NUnit.Framework;
 using xOpenTerm.Services;
 
@@ -34,7 +35,14 @@ public class MobaXtermIniParserTests
         if (sessions.Count > 0)
             Assert.That(folderTree.Count, Is.GreaterThan(0), "有会话时目录树应至少有一项（根目录或子目录）");
 
-        // 输出：导入的目录总数、每个目录下包含的服务器节点数
+        // 断言解码无乱码：不应出现替换符 U+FFFD（错误解码时会产生）
+        if (sessions.Count > 0)
+        {
+            AssertNoReplacementChar(folderTree, sessions);
+        }
+
+        // 输出：导入的目录总数、每个目录下包含的服务器节点数（控制台 UTF-8 时中文正常显示）
+        try { Console.OutputEncoding = Encoding.UTF8; } catch { /* 忽略 */ }
         var dirCount = CountFoldersRecursive(folderTree);
         TestContext.WriteLine($"导入目录数: {dirCount}");
         TestContext.WriteLine($"服务器节点总数: {sessions.Count}");
@@ -56,6 +64,21 @@ public class MobaXtermIniParserTests
             var displayName = string.IsNullOrEmpty(f.FullPath) ? "(根目录)" : f.Name;
             TestContext.WriteLine($"{indent}{displayName}: 本目录 {f.Sessions.Count} 个节点, 含子目录共 {f.TotalSessionCount} 个节点");
             WriteFolderStats(f.SubFolders, indent + "  ");
+        }
+    }
+
+    private static void AssertNoReplacementChar(List<MobaFolderNode> roots, List<MobaXtermSessionItem> sessions)
+    {
+        foreach (var f in roots)
+        {
+            Assert.That(f.Name, Does.Not.Contain('\uFFFD'), "目录名不应含解码替换符（乱码）");
+            Assert.That(f.FullPath, Does.Not.Contain('\uFFFD'), "目录路径不应含解码替换符（乱码）");
+            AssertNoReplacementChar(f.SubFolders, []);
+        }
+        foreach (var s in sessions)
+        {
+            Assert.That(s.SessionName ?? "", Does.Not.Contain('\uFFFD'), "会话名不应含解码替换符（乱码）");
+            Assert.That(s.FolderPath ?? "", Does.Not.Contain('\uFFFD'), "文件夹路径不应含解码替换符（乱码）");
         }
     }
 

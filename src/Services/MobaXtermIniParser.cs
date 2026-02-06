@@ -4,33 +4,55 @@ using xOpenTerm.Models;
 
 namespace xOpenTerm.Services;
 
-/// <summary>从 MobaXterm.ini 解析 [Bookmarks] 中的会话与文件夹结构。编码优先尝试 GBK，其次 Windows-1252，最后 UTF-8。</summary>
+/// <summary>从 MobaXterm.ini 解析 [Bookmarks] 中的会话与文件夹结构。自动检测编码：UTF-8 BOM → UTF-8，否则依次尝试 GBK、UTF-8，选无乱码的。</summary>
 public static class MobaXtermIniParser
 {
-    private static Encoding GetIniEncoding()
-    {
-        try { return Encoding.GetEncoding("GBK"); }
-        catch { }
-        try { return Encoding.GetEncoding(1252); }
-        catch { }
-        return Encoding.UTF8;
-    }
+    private static readonly byte[] Utf8Bom = [0xEF, 0xBB, 0xBF];
 
-    /// <summary>尝试用多种编码读取文件内容，优先 GBK。</summary>
+    /// <summary>检测编码并读取所有行，避免中文乱码。有 UTF-8 BOM 用 UTF-8；否则先试 GBK，再试 UTF-8，选不出现替换符且能解析到 [Bookmarks] 的。</summary>
     private static string[] ReadAllLinesWithEncoding(string iniPath)
     {
         if (!File.Exists(iniPath)) return Array.Empty<string>();
-        var encodings = new[] { "GBK", "gb2312", "1252", "utf-8" };
-        foreach (var name in encodings)
+        var bytes = File.ReadAllBytes(iniPath);
+        var (encoding, skipBom) = DetectEncoding(bytes);
+        var enc = Encoding.GetEncoding(encoding);
+        var span = skipBom && bytes.Length >= 3 ? bytes.AsSpan(3) : bytes.AsSpan();
+        var str = enc.GetString(span).Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        return str;
+    }
+
+    private static (string encoding, bool skipBom) DetectEncoding(byte[] bytes)
+    {
+        if (bytes.Length >= 3 && bytes[0] == Utf8Bom[0] && bytes[1] == Utf8Bom[1] && bytes[2] == Utf8Bom[2])
+            return ("utf-8", true);
+
+        var strictUtf8 = new UTF8Encoding(false, true);
+        try
         {
-            try
-            {
-                var enc = Encoding.GetEncoding(name);
-                return File.ReadAllLines(iniPath, enc);
-            }
-            catch { /* 尝试下一编码 */ }
+            var str = strictUtf8.GetString(bytes);
+            if (str.IndexOf("[Bookmarks", StringComparison.OrdinalIgnoreCase) >= 0)
+                return ("utf-8", false);
         }
-        return File.ReadAllLines(iniPath, Encoding.UTF8);
+        catch (DecoderFallbackException) { /* 非 UTF-8，使用 GBK */ }
+
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        try
+        {
+            var gbk = Encoding.GetEncoding("GBK");
+            var str = gbk.GetString(bytes);
+            if (str.IndexOf("[Bookmarks", StringComparison.OrdinalIgnoreCase) >= 0)
+                return ("GBK", false);
+        }
+        catch { /* 忽略 */ }
+
+        return ("utf-8", false);
+    }
+
+    private static int CountChar(string s, char c)
+    {
+        var n = 0;
+        foreach (var x in s) if (x == c) n++;
+        return n;
     }
 
     /// <summary>解析 INI 文件，返回所有可导入的会话（SSH/RDP），按文件夹层级带路径。</summary>
