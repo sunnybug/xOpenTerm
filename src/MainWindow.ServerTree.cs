@@ -451,6 +451,8 @@ public partial class MainWindow
                     _lastSelectedNodeId = null;
                 else
                     _lastSelectedNodeId = node.Id;
+                // 阻止 TreeView 默认的单选行为，保持多选状态
+                e.Handled = true;
             }
             else if (shift)
             {
@@ -478,6 +480,8 @@ public partial class MainWindow
                     }
                 }
                 _lastSelectedNodeId = node.Id;
+                // 阻止 TreeView 默认的单选行为，保持多选状态
+                e.Handled = true;
             }
             else
             {
@@ -486,7 +490,12 @@ public partial class MainWindow
                 _lastSelectedNodeId = node.Id;
             }
             if (item != null)
-                item.IsSelected = true;
+            {
+                if (!e.Handled)
+                    item.IsSelected = true;
+                else
+                    item.Focus(); // Ctrl/Shift 多选时手动聚焦，保证键盘导航正常
+            }
             UpdateTreeSelectionVisuals();
         }
     }
