@@ -103,7 +103,19 @@ public partial class MainWindow
 
     private void ServerTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        // 单击仅选中，不打开
+        // 当 TreeView 内部因点击触发选中变化时，确保多选视觉同步
+        if (_suppressTreeViewSelection) return;
+        // 若不是 Ctrl/Shift 操作且有新选中项，同步多选高亮
+        if (e.NewValue is TreeViewItem tvi && tvi.Tag is Node node)
+        {
+            var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+            var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            if (!ctrl && !shift)
+            {
+                // 普通选中时，刷新视觉保持一致
+                UpdateTreeSelectionVisuals();
+            }
+        }
     }
 
     private void ServerTree_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -430,6 +442,9 @@ public partial class MainWindow
         BuildTree();
     }
 
+    /// <summary>标记是否正在处理多选逻辑，用于抑制 SelectedItemChanged 中的干扰</summary>
+    private bool _suppressTreeViewSelection;
+
     private void ServerTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var item = FindClickedNode(e.OriginalSource);
@@ -437,67 +452,87 @@ public partial class MainWindow
         _draggedNode = node;
         _dragStartPoint = e.GetPosition(null);
 
-        if (node != null)
+        if (node == null) return;
+
+        var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+        var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+        if (ctrl)
         {
-            var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
-            var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
-            if (ctrl)
+            if (_selectedNodeIds.Contains(node.Id))
+                _selectedNodeIds.Remove(node.Id);
+            else
+                _selectedNodeIds.Add(node.Id);
+            if (_selectedNodeIds.Count == 0)
+                _lastSelectedNodeId = null;
+            else
+                _lastSelectedNodeId = node.Id;
+            // 阻止 TreeView 默认的单选行为，保持多选状态
+            e.Handled = true;
+        }
+        else if (shift)
+        {
+            if (string.IsNullOrEmpty(_lastSelectedNodeId))
             {
-                if (_selectedNodeIds.Contains(node.Id))
-                    _selectedNodeIds.Remove(node.Id);
-                else
-                    _selectedNodeIds.Add(node.Id);
-                if (_selectedNodeIds.Count == 0)
-                    _lastSelectedNodeId = null;
-                else
-                    _lastSelectedNodeId = node.Id;
-                // 阻止 TreeView 默认的单选行为，保持多选状态
-                e.Handled = true;
+                _selectedNodeIds.Clear();
+                _selectedNodeIds.Add(node.Id);
             }
-            else if (shift)
+            else
             {
-                if (string.IsNullOrEmpty(_lastSelectedNodeId))
+                var ordered = GetNodesInDisplayOrder();
+                var idxClick = ordered.FindIndex(n => n.Id == node.Id);
+                var idxAnchor = ordered.FindIndex(n => n.Id == _lastSelectedNodeId);
+                if (idxClick >= 0 && idxAnchor >= 0)
+                {
+                    _selectedNodeIds.Clear();
+                    var (i0, i1) = idxClick <= idxAnchor ? (idxClick, idxAnchor) : (idxAnchor, idxClick);
+                    for (var i = i0; i <= i1; i++)
+                        _selectedNodeIds.Add(ordered[i].Id);
+                }
+                else
                 {
                     _selectedNodeIds.Clear();
                     _selectedNodeIds.Add(node.Id);
                 }
-                else
-                {
-                    var ordered = GetNodesInDisplayOrder();
-                    var idxClick = ordered.FindIndex(n => n.Id == node.Id);
-                    var idxAnchor = ordered.FindIndex(n => n.Id == _lastSelectedNodeId);
-                    if (idxClick >= 0 && idxAnchor >= 0)
-                    {
-                        _selectedNodeIds.Clear();
-                        var (i0, i1) = idxClick <= idxAnchor ? (idxClick, idxAnchor) : (idxAnchor, idxClick);
-                        for (var i = i0; i <= i1; i++)
-                            _selectedNodeIds.Add(ordered[i].Id);
-                    }
-                    else
-                    {
-                        _selectedNodeIds.Clear();
-                        _selectedNodeIds.Add(node.Id);
-                    }
-                }
-                _lastSelectedNodeId = node.Id;
-                // 阻止 TreeView 默认的单选行为，保持多选状态
-                e.Handled = true;
+            }
+            _lastSelectedNodeId = node.Id;
+            // 阻止 TreeView 默认的单选行为，保持多选状态
+            e.Handled = true;
+        }
+        else
+        {
+            // 普通点击（无修饰键）：单选
+            _selectedNodeIds.Clear();
+            _selectedNodeIds.Add(node.Id);
+            _lastSelectedNodeId = node.Id;
+        }
+
+        if (item != null)
+        {
+            if (e.Handled)
+            {
+                // Ctrl/Shift 多选：手动聚焦但不触发 TreeView 的 SelectedItemChanged
+                item.Focus();
+                // 手动切换分组节点的展开/折叠（因为 e.Handled 阻止了默认行为）
+                if (node.Type == NodeType.group && IsClickOnItemHeader(item, e))
+                    item.IsExpanded = !item.IsExpanded;
             }
             else
             {
-                _selectedNodeIds.Clear();
-                _selectedNodeIds.Add(node.Id);
-                _lastSelectedNodeId = node.Id;
+                _suppressTreeViewSelection = true;
+                item.IsSelected = true;
+                _suppressTreeViewSelection = false;
             }
-            if (item != null)
-            {
-                if (!e.Handled)
-                    item.IsSelected = true;
-                else
-                    item.Focus(); // Ctrl/Shift 多选时手动聚焦，保证键盘导航正常
-            }
-            UpdateTreeSelectionVisuals();
         }
+        UpdateTreeSelectionVisuals();
+    }
+
+    /// <summary>检查点击是否在 TreeViewItem 的 header 区域（而非展开箭头区域外）</summary>
+    private static bool IsClickOnItemHeader(TreeViewItem item, MouseButtonEventArgs e)
+    {
+        // 只要点击位置在 TreeViewItem 内即可，展开箭头的处理由默认行为控制
+        // 由于我们已 e.Handled，需要手动判断
+        var pos = e.GetPosition(item);
+        return pos.X >= 0 && pos.Y >= 0 && pos.X <= item.ActualWidth && pos.Y <= item.ActualHeight;
     }
 
     /// <summary>树节点按界面显示顺序（深度优先）</summary>
@@ -518,10 +553,16 @@ public partial class MainWindow
 
     private void UpdateTreeSelectionVisuals()
     {
+        var selBg = (Brush)FindResource("SelectionBg");
         foreach (var tvi in EnumerateTreeViewItems(ServerTree))
         {
             if (tvi.Tag is Node n)
-                SetIsMultiSelected(tvi, _selectedNodeIds.Contains(n.Id));
+            {
+                var selected = _selectedNodeIds.Contains(n.Id);
+                SetIsMultiSelected(tvi, selected);
+                // 直接设置 Background 以覆盖 HandyControl 模板的默认视觉
+                tvi.Background = selected ? selBg : Brushes.Transparent;
+            }
         }
     }
 
