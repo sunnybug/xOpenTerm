@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -6,19 +7,22 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm;
 
-/// <summary>选择 MobaXterm.ini 并多选要导入的会话，确定后由主窗口将选中项导入到当前父节点下。</summary>
+/// <summary>选择 MobaXterm.ini 并按目录多选要导入的会话，确定后由主窗口按目录结构导入到当前父节点下。</summary>
 public partial class ImportMobaXtermWindow : Window
 {
-    private List<MobaXtermSessionItem> _allItems = new();
+    private List<MobaFolderNode> _folderRoots = new();
 
-    /// <summary>用户点击确定时选中的会话；取消或未选则为空。</summary>
+    /// <summary>用户点击确定时选中的会话（来自勾选的目录）；取消或未选则为空。</summary>
     public List<MobaXtermSessionItem> SelectedSessions { get; private set; } = new();
 
-    public ImportMobaXtermWindow(Window owner)
+    public ImportMobaXtermWindow(Window owner, string? initialIniPath = null)
     {
         InitializeComponent();
         Owner = owner;
-        SuggestInitialPath();
+        if (!string.IsNullOrWhiteSpace(initialIniPath))
+            IniPathBox.Text = initialIniPath;
+        else
+            SuggestInitialPath();
         Loaded += (_, _) => LoadIfPathSet();
     }
 
@@ -53,25 +57,35 @@ public partial class ImportMobaXtermWindow : Window
         var path = IniPathBox.Text?.Trim();
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
         {
-            _allItems = new List<MobaXtermSessionItem>();
-            SessionList.ItemsSource = null;
+            _folderRoots = new List<MobaFolderNode>();
+            FolderTree.ItemsSource = null;
             OkBtn.IsEnabled = false;
             return;
         }
-        _allItems = MobaXtermIniParser.Parse(path!);
-        SessionList.ItemsSource = _allItems;
-        OkBtn.IsEnabled = _allItems.Count > 0;
+        var sessions = MobaXtermIniParser.Parse(path!);
+        _folderRoots = MobaXtermIniParser.BuildFolderTree(sessions);
+        FolderTree.ItemsSource = _folderRoots;
+        OkBtn.IsEnabled = _folderRoots.Count > 0;
     }
 
     private void OkBtn_Click(object sender, RoutedEventArgs e)
     {
         var selected = new List<MobaXtermSessionItem>();
-        foreach (var item in SessionList.SelectedItems)
-            if (item is MobaXtermSessionItem si)
-                selected.Add(si);
+        foreach (var root in _folderRoots)
+            CollectSessionsFromSelectedFolders(root, selected, hasSelectedAncestor: false);
         SelectedSessions = selected;
         DialogResult = true;
         Close();
+    }
+
+    /// <summary>从勾选的目录收集会话，仅从“最顶层”勾选目录收集，避免重复。</summary>
+    private static void CollectSessionsFromSelectedFolders(MobaFolderNode node, List<MobaXtermSessionItem> into, bool hasSelectedAncestor)
+    {
+        if (node.IsSelected && !hasSelectedAncestor)
+            node.CollectAllSessions(into);
+        var ancestorSelected = hasSelectedAncestor || node.IsSelected;
+        foreach (var sub in node.SubFolders)
+            CollectSessionsFromSelectedFolders(sub, into, ancestorSelected);
     }
 
     /// <summary>若已设置路径，可调用此方法加载会话列表（如打开时自动加载）。</summary>

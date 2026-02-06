@@ -4,26 +4,40 @@ using xOpenTerm.Models;
 
 namespace xOpenTerm.Services;
 
-/// <summary>从 MobaXterm.ini 解析 [Bookmarks] 中的会话与文件夹结构。编码为 Windows-1252，不可用时回退为 UTF-8。</summary>
+/// <summary>从 MobaXterm.ini 解析 [Bookmarks] 中的会话与文件夹结构。编码优先尝试 GBK，其次 Windows-1252，最后 UTF-8。</summary>
 public static class MobaXtermIniParser
 {
     private static Encoding GetIniEncoding()
     {
-        try
+        try { return Encoding.GetEncoding("GBK"); }
+        catch { }
+        try { return Encoding.GetEncoding(1252); }
+        catch { }
+        return Encoding.UTF8;
+    }
+
+    /// <summary>尝试用多种编码读取文件内容，优先 GBK。</summary>
+    private static string[] ReadAllLinesWithEncoding(string iniPath)
+    {
+        if (!File.Exists(iniPath)) return Array.Empty<string>();
+        var encodings = new[] { "GBK", "gb2312", "1252", "utf-8" };
+        foreach (var name in encodings)
         {
-            return Encoding.GetEncoding(1252);
+            try
+            {
+                var enc = Encoding.GetEncoding(name);
+                return File.ReadAllLines(iniPath, enc);
+            }
+            catch { /* 尝试下一编码 */ }
         }
-        catch
-        {
-            return Encoding.UTF8;
-        }
+        return File.ReadAllLines(iniPath, Encoding.UTF8);
     }
 
     /// <summary>解析 INI 文件，返回所有可导入的会话（SSH/RDP），按文件夹层级带路径。</summary>
     public static List<MobaXtermSessionItem> Parse(string iniPath)
     {
         if (!File.Exists(iniPath)) return new List<MobaXtermSessionItem>();
-        var lines = File.ReadAllLines(iniPath, GetIniEncoding());
+        var lines = ReadAllLinesWithEncoding(iniPath);
         var items = new List<MobaXtermSessionItem>();
         var currentFolderPath = ""; // 当前 [Bookmarks*] 的 SubRep，即 "Folder" 或 "Folder1\\Folder2"
 
@@ -61,6 +75,43 @@ public static class MobaXtermIniParser
         }
 
         return items;
+    }
+
+    /// <summary>将扁平会话列表按 FolderPath 构建为目录树，用于按目录多选导入。</summary>
+    public static List<MobaFolderNode> BuildFolderTree(List<MobaXtermSessionItem> sessions)
+    {
+        var root = new MobaFolderNode { Name = "", FullPath = "" };
+        foreach (var s in sessions)
+        {
+            var path = s.FolderPath ?? "";
+            var parts = string.IsNullOrEmpty(path) ? Array.Empty<string>() : path.Split(new[] { " / " }, StringSplitOptions.None);
+            var current = root;
+            var currentPath = "";
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var segment = parts[i].Trim();
+                if (string.IsNullOrEmpty(segment)) continue;
+                currentPath = string.IsNullOrEmpty(currentPath) ? segment : currentPath + " / " + segment;
+                var child = current.SubFolders.FirstOrDefault(f => f.FullPath == currentPath);
+                if (child == null)
+                {
+                    child = new MobaFolderNode { Name = segment, FullPath = currentPath };
+                    current.SubFolders.Add(child);
+                }
+                current = child;
+            }
+            current.Sessions.Add(s);
+        }
+        root.SortSubFoldersRecursive();
+        var result = new List<MobaFolderNode>();
+        if (root.Sessions.Count > 0)
+        {
+            var rootNode = new MobaFolderNode { Name = "(根目录)", FullPath = "" };
+            rootNode.Sessions.AddRange(root.Sessions);
+            result.Add(rootNode);
+        }
+        result.AddRange(root.SubFolders);
+        return result;
     }
 
     private static MobaXtermSessionItem? ParseSessionLine(string sessionName, string value, string folderPath)
@@ -103,6 +154,38 @@ public static class MobaXtermIniParser
             KeyPath = keyPath,
             IsRdp = sessionType == "4"
         };
+    }
+}
+
+/// <summary>按目录组织的节点，用于树形多选（以目录为单位）。</summary>
+public class MobaFolderNode
+{
+    public string Name { get; set; } = "";
+    public string FullPath { get; set; } = "";
+    public List<MobaFolderNode> SubFolders { get; } = new();
+    public List<MobaXtermSessionItem> Sessions { get; } = new();
+    /// <summary>是否被勾选导入（用于树形多选）。</summary>
+    public bool IsSelected { get; set; }
+
+    /// <summary>递归统计本目录及子目录下的会话总数。</summary>
+    public int TotalSessionCount => Sessions.Count + SubFolders.Sum(f => f.TotalSessionCount);
+
+    /// <summary>树节点显示：目录名 (会话数)。</summary>
+    public string DisplayText => TotalSessionCount > 0 ? $"{Name} ({TotalSessionCount})" : Name;
+
+    /// <summary>递归收集本目录及子目录下全部会话，保持原有 FolderPath。</summary>
+    public void CollectAllSessions(List<MobaXtermSessionItem> into)
+    {
+        into.AddRange(Sessions);
+        foreach (var sub in SubFolders)
+            sub.CollectAllSessions(into);
+    }
+
+    internal void SortSubFoldersRecursive()
+    {
+        SubFolders.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+        foreach (var sub in SubFolders)
+            sub.SortSubFoldersRecursive();
     }
 }
 

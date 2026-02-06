@@ -1,6 +1,7 @@
 <Window x:Class="xOpenTerm.ImportMobaXtermWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svc="clr-namespace:xOpenTerm.Services"
         Title="导入 MobaXterm 会话" Height="420" Width="620" WindowStartupLocation="CenterOwner"
         Background="{StaticResource BgDark}" ResizeMode="CanResize">
     <Grid Margin="16">
@@ -16,12 +17,20 @@
                      BorderBrush="{StaticResource BorderBrush}" VerticalAlignment="Center"/>
             <Button x:Name="BrowseBtn" Content="选择 MobaXterm.ini…" Padding="8,4" Click="BrowseBtn_Click"/>
         </StackPanel>
-        <TextBlock Grid.Row="1" Text="支持 Shift/Ctrl 多选，选择要导入的会话后点击确定。" 
+        <TextBlock Grid.Row="1" Text="以目录为单位勾选要导入的会话，确定后将按 MobaXterm 中的目录结构导入。" 
                    Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-        <ListBox x:Name="SessionList" Grid.Row="2" SelectionMode="Extended"
-                 Background="{StaticResource BgSidebar}" Foreground="{StaticResource TextPrimary}"
-                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                 DisplayMemberPath="DisplayText"/>
+        <TreeView x:Name="FolderTree" Grid.Row="2"
+                  Background="{StaticResource BgSidebar}" Foreground="{StaticResource TextPrimary}"
+                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate DataType="{x:Type svc:MobaFolderNode}" ItemsSource="{Binding SubFolders}">
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="{Binding DisplayText}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button x:Name="OkBtn" Content="确定" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="OkBtn_Click" IsEnabled="False"/>
             <Button Content="取消" Width="80" Padding="8,4" IsCancel="True"/>

@@ -387,10 +387,37 @@ public partial class MainWindow
     {
         var dlg = new ImportMobaXtermWindow(this);
         if (dlg.ShowDialog() != true || dlg.SelectedSessions.Count == 0) return;
-        foreach (var item in dlg.SelectedSessions)
+        // 按目录结构创建父节点：path -> 已创建的分组 Node
+        var pathToGroupId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [""] = parentNode.Id };
+        foreach (var item in dlg.SelectedSessions.OrderBy(s => s.FolderPath ?? ""))
         {
-            var node = item.ToNode(parentNode.Id);
-            _nodes.Add(node);
+            var path = item.FolderPath ?? "";
+            var parts = string.IsNullOrEmpty(path) ? Array.Empty<string>() : path.Split(new[] { " / " }, StringSplitOptions.None);
+            var currentParentId = parentNode.Id;
+            var currentPath = "";
+            foreach (var segment in parts)
+            {
+                var name = segment.Trim();
+                if (string.IsNullOrEmpty(name)) continue;
+                currentPath = string.IsNullOrEmpty(currentPath) ? name : currentPath + " / " + name;
+                if (!pathToGroupId.TryGetValue(currentPath, out var groupId))
+                {
+                    var group = new Node
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        ParentId = currentParentId,
+                        Type = NodeType.group,
+                        Name = name,
+                        Config = null
+                    };
+                    _nodes.Add(group);
+                    pathToGroupId[currentPath] = group.Id;
+                    groupId = group.Id;
+                }
+                currentParentId = groupId;
+            }
+            var sessionNode = item.ToNode(currentParentId);
+            _nodes.Add(sessionNode);
         }
         _storage.SaveNodes(_nodes);
         BuildTree();
