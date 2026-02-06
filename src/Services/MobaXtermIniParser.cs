@@ -117,17 +117,17 @@ public static class MobaXtermIniParser
     private static MobaXtermSessionItem? ParseSessionLine(string sessionName, string value, string folderPath)
     {
         var parts = value.Split('#');
-        if (parts.Length < 4) return null;
-        // parts[0]="", [1]=icon, [2]=?, [3]= 第一组 % 分隔
-        var firstGroup = parts[3];
-        var fields = firstGroup.Split('%');
-        if (fields.Length < 3) return null;
+        // 格式: #图标#类型%host%port%username%... 仅 3 段: "", icon, "类型%host%port%..."
+        if (parts.Length < 3) return null;
+        var typeAndRest = parts[2];
+        var fields = typeAndRest.Split('%');
+        if (fields.Length < 4) return null;
 
-        var sessionType = fields.Length > 0 ? fields[0] : "";
+        var sessionType = fields[0].Trim();
         // 0=SSH, 4=RDP
         if (sessionType != "0" && sessionType != "4") return null;
 
-        var host = fields.Length > 1 ? fields[1].Trim() : "";
+        var host = fields[1].Trim();
         if (string.IsNullOrEmpty(host) || host == "<<default>>") return null;
 
         var portStr = fields.Length > 2 ? fields[2] : "22";

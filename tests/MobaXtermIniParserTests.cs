@@ -33,6 +33,30 @@ public class MobaXtermIniParserTests
 
         if (sessions.Count > 0)
             Assert.That(folderTree.Count, Is.GreaterThan(0), "有会话时目录树应至少有一项（根目录或子目录）");
+
+        // 输出：导入的目录总数、每个目录下包含的服务器节点数
+        var dirCount = CountFoldersRecursive(folderTree);
+        TestContext.WriteLine($"导入目录数: {dirCount}");
+        TestContext.WriteLine($"服务器节点总数: {sessions.Count}");
+        WriteFolderStats(folderTree, indent: "");
+    }
+
+    private static int CountFoldersRecursive(List<MobaFolderNode> roots)
+    {
+        var n = roots.Count;
+        foreach (var r in roots)
+            n += CountFoldersRecursive(r.SubFolders);
+        return n;
+    }
+
+    private static void WriteFolderStats(List<MobaFolderNode> roots, string indent)
+    {
+        foreach (var f in roots)
+        {
+            var displayName = string.IsNullOrEmpty(f.FullPath) ? "(根目录)" : f.Name;
+            TestContext.WriteLine($"{indent}{displayName}: 本目录 {f.Sessions.Count} 个节点, 含子目录共 {f.TotalSessionCount} 个节点");
+            WriteFolderStats(f.SubFolders, indent + "  ");
+        }
     }
 
     [Test]
