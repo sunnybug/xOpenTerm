@@ -59,9 +59,15 @@
                     <TabItem Header="服务器">
                         <Grid>
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TreeView x:Name="ServerTree" Grid.Row="0" Margin="4,8,4,8"
+                            <TextBox x:Name="ServerSearchBox" Grid.Row="0" Margin="8,8,8,4" Padding="8,6"
+                                     Foreground="{StaticResource TextPrimary}" Background="{StaticResource BgInput}"
+                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                     TextChanged="ServerSearchBox_TextChanged"
+                                     ToolTip="按节点名称、主机地址、用户名快速过滤"/>
+                            <TreeView x:Name="ServerTree" Grid.Row="1" Margin="4,4,4,8"
                                       Background="Transparent" Foreground="{StaticResource TextPrimary}"
                                       BorderThickness="0" SelectedItemChanged="ServerTree_SelectedItemChanged"
                                       MouseDoubleClick="ServerTree_MouseDoubleClick" MouseRightButtonDown="ServerTree_MouseRightButtonDown"

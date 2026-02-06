@@ -24,7 +24,14 @@ public partial class MainWindow
         var term = _searchTerm.Trim().ToLowerInvariant();
         if (node.Name.ToLowerInvariant().Contains(term)) return true;
         if (node.Config?.Host?.ToLowerInvariant().Contains(term) == true) return true;
+        if (node.Config?.Username?.ToLowerInvariant().Contains(term) == true) return true;
         return _nodes.Where(n => n.ParentId == node.Id).Any(MatchesSearch);
+    }
+
+    private void ServerSearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        _searchTerm = ServerSearchBox?.Text ?? "";
+        BuildTree();
     }
 
     private TreeViewItem CreateTreeItem(Node node)
