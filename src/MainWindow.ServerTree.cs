@@ -225,7 +225,13 @@ public partial class MainWindow
     private void ServerTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         var node = _contextMenuNode;
-        if (node == null)
+        // Ctrl/Shift 多选时，若右键点在已选中的某一项上，则显示多选菜单：删除/连接
+        if (node != null && _selectedNodeIds.Count > 1 && _selectedNodeIds.Contains(node.Id))
+        {
+            var selectedNodes = _nodes.Where(n => _selectedNodeIds.Contains(n.Id)).ToList();
+            _treeContextMenu = BuildContextMenuMultiSelect(selectedNodes);
+        }
+        else if (node == null)
             _treeContextMenu = BuildContextMenu(null);
         else
             _treeContextMenu = BuildContextMenu(node);
@@ -239,6 +245,58 @@ public partial class MainWindow
             if (p is TreeViewItem tvi)
                 return tvi;
         return null;
+    }
+
+    private ContextMenu BuildContextMenuMultiSelect(List<Node> selectedNodes)
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(CreateMenuItem("连接", () => ConnectSelected(selectedNodes)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateMenuItem("删除", () => DeleteSelected(selectedNodes)));
+        return menu;
+    }
+
+    private void ConnectSelected(List<Node> selectedNodes)
+    {
+        foreach (var n in selectedNodes)
+        {
+            if (n.Type == NodeType.ssh || n.Type == NodeType.rdp)
+                OpenTab(n);
+        }
+    }
+
+    private void DeleteSelected(List<Node> selectedNodes)
+    {
+        if (selectedNodes.Count == 0) return;
+        if (MessageBox.Show($"确定删除选中的 {selectedNodes.Count} 个节点？此操作不可恢复。", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        // 按深度从大到小删除，先子后父，避免重复移除
+        var byDepth = selectedNodes.OrderByDescending(n => NodeDepth(n.Id)).ToList();
+        foreach (var n in byDepth)
+        {
+            if (!_nodes.Any(x => x.Id == n.Id)) continue;
+            if (n.Type == NodeType.group)
+                RemoveNodeRecursive(n.Id);
+            else
+                _nodes.RemoveAll(x => x.Id == n.Id);
+        }
+        _storage.SaveNodes(_nodes);
+        _selectedNodeIds.Clear();
+        BuildTree();
+        UpdateTreeSelectionVisuals();
+    }
+
+    private int NodeDepth(string nodeId)
+    {
+        var d = 0;
+        var id = nodeId;
+        while (true)
+        {
+            var n = _nodes.FirstOrDefault(x => x.Id == id);
+            if (n == null || string.IsNullOrEmpty(n.ParentId)) return d;
+            id = n.ParentId;
+            d++;
+        }
     }
 
     private ContextMenu BuildContextMenu(Node? node)
@@ -471,29 +529,28 @@ public partial class MainWindow
         }
         else if (shift)
         {
-            if (string.IsNullOrEmpty(_lastSelectedNodeId))
+            // Shift 多选只对同一级（兄弟）节点有效，其他层级一律取消多选
+            var siblings = _nodes.Where(n => n.ParentId == node.ParentId).OrderBy(n => n.Name).ToList();
+            var anchorNode = string.IsNullOrEmpty(_lastSelectedNodeId) ? null : _nodes.FirstOrDefault(n => n.Id == _lastSelectedNodeId);
+            var anchorInSameLevel = anchorNode != null && anchorNode.ParentId == node.ParentId;
+
+            _selectedNodeIds.Clear();
+            if (anchorInSameLevel)
             {
-                _selectedNodeIds.Clear();
-                _selectedNodeIds.Add(node.Id);
-            }
-            else
-            {
-                var ordered = GetNodesInDisplayOrder();
-                var idxClick = ordered.FindIndex(n => n.Id == node.Id);
-                var idxAnchor = ordered.FindIndex(n => n.Id == _lastSelectedNodeId);
+                var idxClick = siblings.FindIndex(n => n.Id == node.Id);
+                var idxAnchor = siblings.FindIndex(n => n.Id == _lastSelectedNodeId);
                 if (idxClick >= 0 && idxAnchor >= 0)
                 {
-                    _selectedNodeIds.Clear();
                     var (i0, i1) = idxClick <= idxAnchor ? (idxClick, idxAnchor) : (idxAnchor, idxClick);
                     for (var i = i0; i <= i1; i++)
-                        _selectedNodeIds.Add(ordered[i].Id);
+                        AddNodeWithDescendants(siblings[i].Id);
                 }
                 else
-                {
-                    _selectedNodeIds.Clear();
                     _selectedNodeIds.Add(node.Id);
-                }
             }
+            else
+                _selectedNodeIds.Add(node.Id);
+
             _lastSelectedNodeId = node.Id;
             // 阻止 TreeView 默认的单选行为，保持多选状态
             e.Handled = true;
@@ -533,6 +590,14 @@ public partial class MainWindow
         // 由于我们已 e.Handled，需要手动判断
         var pos = e.GetPosition(item);
         return pos.X >= 0 && pos.Y >= 0 && pos.X <= item.ActualWidth && pos.Y <= item.ActualHeight;
+    }
+
+    /// <summary>将节点及其所有子节点加入多选集合。</summary>
+    private void AddNodeWithDescendants(string nodeId)
+    {
+        _selectedNodeIds.Add(nodeId);
+        foreach (var child in _nodes.Where(n => n.ParentId == nodeId))
+            AddNodeWithDescendants(child.Id);
     }
 
     /// <summary>树节点按界面显示顺序（深度优先）</summary>

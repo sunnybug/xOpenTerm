@@ -430,3 +430,6 @@ rdp默认端口3389 用户名默认administrator 不用域 名称未填写时用
 父节点右键菜单中增加导入。导入为子菜单，包含导入Mobaxterm，用于读取MobaXterm.ini中的节点配置。当触发导入Mobaxterm时，读取MobaXterm.ini中的节点配置，显示其中配置的节点结构，选择（可多选，支持shift/ctrl多选）后点击确定，则将选中的节点导入到当前父节点下。选择时以目录为单位,导入后按目录名和子目录名创建父节点，按照在mobaxterm中的结构来导入,导入后要保持在mobaxterm中的结构和条数.写个单元测试，测试导入d:\xsw\Dropbox\tool\net\MobaXterm\MobaXterm.ini。注意ini可能为GBK。
 导入Mobaxterm时，若为密码认证，则改为SSH Agent认证。
 服务器tab下加置顶快速搜索edit，会快速过滤节点数中所有节点名称，主机地址，用户名
+ctrl/shift下多选后，右键菜单应当是多选右键菜单：删除/连接
+shift多选时，只对当前同一级节点有效，其他层级的节点取消多选，若同级有父节点，则其子节点也被选中
+保存窗口/tab大小，重启有效

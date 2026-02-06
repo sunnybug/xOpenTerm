@@ -11,6 +11,10 @@ namespace xOpenTerm;
 
 public partial class MainWindow : Window
 {
+    private const double MinWindowWidth = 400;
+    private const double MinWindowHeight = 300;
+    private const double MinLeftPanelWidth = 180;
+    private const double MaxLeftPanelWidth = 800;
     private readonly StorageService _storage = new();
     private AppSettings _appSettings = new();
     private readonly SessionManager _sessionManager = new();
@@ -38,13 +42,65 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        ApplyAppSettings(_storage.LoadAppSettings());
+        var settings = _storage.LoadAppSettings();
+        ApplyAppSettings(settings);
+        ApplyWindowAndLayout(settings);
         LoadData();
         BuildTree();
         _sessionManager.DataReceived += OnSessionDataReceived;
         _sessionManager.SessionClosed += OnSessionClosed;
         _sessionManager.SessionConnected += OnSessionConnected;
         RemotePathBox.Text = ".";
+        Closing += MainWindow_Closing;
+    }
+
+    private void ApplyWindowAndLayout(AppSettings settings)
+    {
+        var w = Math.Max(MinWindowWidth, Math.Min(settings.WindowWidth, SystemParameters.VirtualScreenWidth));
+        var h = Math.Max(MinWindowHeight, Math.Min(settings.WindowHeight, SystemParameters.VirtualScreenHeight));
+        Width = w;
+        Height = h;
+        if (settings.WindowLeft is double left && settings.WindowTop is double top)
+        {
+            var workLeft = SystemParameters.VirtualScreenLeft;
+            var workTop = SystemParameters.VirtualScreenTop;
+            var workW = SystemParameters.VirtualScreenWidth;
+            var workH = SystemParameters.VirtualScreenHeight;
+            if (left >= workLeft && top >= workTop && left + w <= workLeft + workW && top + h <= workTop + workH)
+            {
+                Left = left;
+                Top = top;
+            }
+        }
+        LeftColumn.Width = new GridLength(
+            Math.Max(MinLeftPanelWidth, Math.Min(settings.LeftPanelWidth, MaxLeftPanelWidth)),
+            GridLengthUnitType.Pixel);
+        if (settings.WindowState >= 0 && settings.WindowState <= 2)
+            WindowState = (WindowState)settings.WindowState;
+    }
+
+    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        var s = _storage.LoadAppSettings();
+        if (WindowState == WindowState.Maximized)
+        {
+            var r = RestoreBounds;
+            s.WindowLeft = r.Left;
+            s.WindowTop = r.Top;
+            s.WindowWidth = r.Width;
+            s.WindowHeight = r.Height;
+        }
+        else
+        {
+            s.WindowLeft = Left;
+            s.WindowTop = Top;
+            s.WindowWidth = Width;
+            s.WindowHeight = Height;
+        }
+        s.WindowState = (int)WindowState;
+        if (LeftColumn.ActualWidth >= MinLeftPanelWidth && LeftColumn.ActualWidth <= MaxLeftPanelWidth)
+            s.LeftPanelWidth = LeftColumn.ActualWidth;
+        _storage.SaveAppSettings(s);
     }
 
     private void ApplyAppSettings(AppSettings settings)
