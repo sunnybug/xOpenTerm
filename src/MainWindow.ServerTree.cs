@@ -675,7 +675,7 @@ public partial class MainWindow
             Title = "导出 YAML",
             Filter = "YAML 文件 (*.yaml)|*.yaml|所有文件 (*.*)|*.*",
             DefaultExt = "yaml",
-            FileName = "nodes-export.yaml"
+            FileName = $"nodes-export-{DateTime.Now:MMyy-HHmm}.yaml"
         };
         if (dlg.ShowDialog() != true) return;
         try

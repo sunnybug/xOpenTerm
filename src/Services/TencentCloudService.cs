@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
+using TencentCloud.Common;
 using TencentCloud.Cvm.V20170312;
 using TencentCloud.Cvm.V20170312.Models;
-using TencentCloud.Common;
+using TencentCloud.Tag.V20180813;
+using TencentCloud.Tag.V20180813.Models;
 
 namespace xOpenTerm.Services;
 
@@ -11,6 +13,7 @@ public record TencentCvmInstance(
     string Region,
     string RegionName,
     int ProjectId,
+    string? ProjectName,
     string InstanceId,
     string InstanceName,
     string? PublicIp,
@@ -36,7 +39,40 @@ public static class TencentCloudService
         ("na-siliconvalley", "硅谷"),
     };
 
-    /// <summary>拉取所有地域的实例，报告进度并支持取消。</summary>
+    /// <summary>拉取项目 ID→名称 映射（用于节点树显示项目名）。失败时返回空字典，不影响实例拉取。</summary>
+    private static Dictionary<ulong, string> GetProjectIdToName(string secretId, string secretKey, System.Threading.CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<ulong, string>();
+        try
+        {
+            var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
+            var client = new TagClient(cred, "ap-guangzhou");
+            var offset = 0;
+            const int limit = 1000;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var req = new DescribeProjectsRequest { AllList = 0UL, Limit = (ulong)limit, Offset = (ulong)offset };
+                var resp = client.DescribeProjectsSync(req);
+                if (resp.Projects == null) break;
+                foreach (var p in resp.Projects)
+                {
+                    if (p.ProjectId.HasValue && !string.IsNullOrEmpty(p.ProjectName))
+                        map[p.ProjectId.Value] = p.ProjectName;
+                }
+                var projectCount = resp.Projects.Count();
+                if (projectCount < limit) break;
+                offset += limit;
+            }
+        }
+        catch
+        {
+            // 忽略：无权限或 Tag 未开通时仍可显示项目 ID
+        }
+        return map;
+    }
+
+    /// <summary>拉取所有地域的实例，报告进度并支持取消。实例会附带项目名称（若拉取到）。</summary>
     public static List<TencentCvmInstance> ListInstances(
         string secretId,
         string secretKey,
@@ -44,6 +80,9 @@ public static class TencentCloudService
         System.Threading.CancellationToken cancellationToken = default)
     {
         var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
+        progress?.Report(("正在拉取项目列表…", 0, 1));
+        var projectIdToName = GetProjectIdToName(secretId, secretKey, cancellationToken);
+
         var list = new List<TencentCvmInstance>();
         var totalRegions = Regions.Length;
         var current = 0;
@@ -74,10 +113,12 @@ public static class TencentCloudService
                     var publicIp = ins.PublicIpAddresses?.FirstOrDefault();
                     var privateIp = ins.PrivateIpAddresses?.FirstOrDefault();
                     var projectId = (int)(ins.Placement?.ProjectId ?? 0);
+                    projectIdToName.TryGetValue((ulong)projectId, out var projectName);
                     list.Add(new TencentCvmInstance(
                         region,
                         regionName,
                         projectId,
+                        projectName,
                         ins.InstanceId ?? "",
                         ins.InstanceName ?? ins.InstanceId ?? "",
                         publicIp,

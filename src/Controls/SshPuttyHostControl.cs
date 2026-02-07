@@ -51,10 +51,19 @@ public sealed class SshPuttyHostControl : Panel
             arguments.AddRange(["-l", username]);
         if (!string.IsNullOrEmpty(password))
         {
-            var pipeName = "xOpenTermPipe" + Guid.NewGuid().ToString("n")[..8];
-            var thread = new Thread(() => CreatePipeServer(pipeName, password));
-            thread.Start();
-            arguments.AddRange(["-pwfile", $"\\\\.\\PIPE\\{pipeName}"]);
+            if (_isPuttyNg)
+            {
+                // PuTTYNG 部分构建不支持 -pwfile，改用 -pw（密码会出现在进程参数中，建议优先使用密钥认证）
+                arguments.Add("-pw");
+                arguments.Add(password);
+            }
+            else
+            {
+                var pipeName = "xOpenTermPipe" + Guid.NewGuid().ToString("n")[..8];
+                var thread = new Thread(() => CreatePipeServer(pipeName, password));
+                thread.Start();
+                arguments.AddRange(["-pwfile", $"\\\\.\\PIPE\\{pipeName}"]);
+            }
         }
         if (!string.IsNullOrEmpty(keyPath) && File.Exists(keyPath))
             arguments.AddRange(["-i", keyPath]);
@@ -68,10 +77,11 @@ public sealed class SshPuttyHostControl : Panel
         var startInfo = new ProcessStartInfo
         {
             FileName = puttyPath,
-            Arguments = string.Join(" ", arguments.Select(a => a.Contains(' ') ? "\"" + a + "\"" : a)),
             UseShellExecute = false,
             WorkingDirectory = string.IsNullOrEmpty(puttyDir) ? Environment.CurrentDirectory : puttyDir
         };
+        foreach (var a in arguments)
+            startInfo.ArgumentList.Add(a);
 
         _puttyProcess = new Process { StartInfo = startInfo };
         _puttyProcess.EnableRaisingEvents = true;

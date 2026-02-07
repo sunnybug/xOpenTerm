@@ -26,6 +26,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, SshPuttyHostControl> _tabIdToPuttyControl = new();
     private readonly Dictionary<string, string> _tabIdToNodeId = new();
     private readonly Dictionary<string, RdpHostControl> _tabIdToRdpControl = new();
+    /// <summary>仅断开（未关闭）的 PuTTY tab，用于右键重连。</summary>
+    private readonly HashSet<string> _disconnectedPuttyTabIds = new();
     private ContextMenu? _treeContextMenu;
     private Node? _contextMenuNode;
     private Node? _draggedNode;

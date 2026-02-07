@@ -193,11 +193,11 @@ public partial class MainWindow
     private ContextMenu CreateTabContextMenu(string tabId)
     {
         var menu = new ContextMenu();
-        var reconnectItem = new MenuItem { Header = "重连" };
+        var reconnectItem = new MenuItem { Header = "[R] 重连" };
         reconnectItem.Click += (_, _) => ReconnectTab(tabId);
-        var disconnectItem = new MenuItem { Header = "断开" };
+        var disconnectItem = new MenuItem { Header = "[D] 断开" };
         disconnectItem.Click += (_, _) => DisconnectTab(tabId);
-        var closeItem = new MenuItem { Header = "关闭" };
+        var closeItem = new MenuItem { Header = "[W] 关闭" };
         closeItem.Click += (_, _) => CloseTab(tabId);
         menu.Items.Add(reconnectItem);
         menu.Items.Add(disconnectItem);
@@ -214,10 +214,97 @@ public partial class MainWindow
         }
         if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
         {
+            if (TryGetTabItem(tabId) is not TabItem tabItem)
+                return;
+            _tabIdToPuttyControl.Remove(tabId);
+            if (_tabIdToNodeId.TryGetValue(tabId, out var nid) && nid == _remoteFileNodeId)
+            {
+                _remoteFileNodeId = null;
+                RemoteFileList.ItemsSource = null;
+                RemoteFileTitle.Text = "远程文件";
+            }
+            tabItem.Content = CreateDisconnectedPlaceholder();
+            _disconnectedPuttyTabIds.Add(tabId);
             putty.Close();
             return;
         }
         _sessionManager.CloseSession(tabId);
+    }
+
+    private static Border CreateDisconnectedPlaceholder()
+    {
+        var border = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x1e, 0x29, 0x3b)),
+            Child = new TextBlock
+            {
+                Text = "连接已断开。右键选择「重连」或「关闭」。",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8)),
+                FontSize = 14,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center
+            }
+        };
+        return border;
+    }
+
+    private TabItem? TryGetTabItem(string tabId)
+    {
+        foreach (var item in TabsControl.Items)
+            if (item is TabItem ti && ti.Tag is string id && id == tabId)
+                return ti;
+        return null;
+    }
+
+    private void ReconnectPuttyTabInPlace(string tabId, Node node)
+    {
+        try
+        {
+            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
+                ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
+            if (jumpChain != null && jumpChain.Count > 0)
+            {
+                CloseTab(tabId);
+                OpenTab(node);
+                return;
+            }
+
+            if (TryGetTabItem(tabId) is not TabItem tabItem)
+                return;
+
+            var puttyControl = new SshPuttyHostControl();
+            puttyControl.Closed += (_, _) =>
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (_tabIdToPuttyControl.ContainsKey(tabId))
+                        CloseTab(tabId);
+                });
+            };
+            puttyControl.Connected += (_, _) =>
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    _remoteFileNodeId = node.Id;
+                    _remoteFilePath = ".";
+                    RemotePathBox.Text = ".";
+                    RemoteFileTitle.Text = "远程文件 - " + node.Name;
+                    LeftTabControl.SelectedIndex = 1;
+                    LoadRemoteFileList();
+                });
+            };
+
+            tabItem.Content = new WindowsFormsHost { Child = puttyControl };
+            _tabIdToPuttyControl[tabId] = puttyControl;
+            _disconnectedPuttyTabIds.Remove(tabId);
+            TabsControl.SelectedItem = tabItem;
+
+            puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("重连失败：" + ex.Message, "xOpenTerm");
+        }
     }
 
     private void ReconnectTab(string tabId)
@@ -231,6 +318,11 @@ public partial class MainWindow
         if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
         {
             rdp.Connect();
+            return;
+        }
+        if (_disconnectedPuttyTabIds.Contains(tabId))
+        {
+            ReconnectPuttyTabInPlace(tabId, node);
             return;
         }
         if (_tabIdToPuttyControl.TryGetValue(tabId, out var _))
@@ -355,6 +447,13 @@ public partial class MainWindow
 
     private void CloseTab(string tabId)
     {
+        if (_disconnectedPuttyTabIds.Contains(tabId))
+        {
+            _disconnectedPuttyTabIds.Remove(tabId);
+            _tabIdToNodeId.Remove(tabId);
+            RemoveTabItem(tabId);
+            return;
+        }
         if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
         {
             rdp.Disconnect();
@@ -388,14 +487,26 @@ public partial class MainWindow
 
     private void RemoveTabItem(string tabId)
     {
+        var removedIndex = -1;
         for (var i = 0; i < TabsControl.Items.Count; i++)
         {
             if (TabsControl.Items[i] is TabItem ti && ti.Tag is string id && id == tabId)
             {
+                removedIndex = i;
                 TabsControl.Items.RemoveAt(i);
                 break;
             }
         }
+        if (removedIndex < 0) return;
+
+        if (TabsControl.Items.Count == 0)
+        {
+            if (LeftTabControl.SelectedIndex != 0)
+                LeftTabControl.SelectedIndex = 0;
+            return;
+        }
+        var nextIndex = Math.Max(0, removedIndex - 1);
+        TabsControl.SelectedIndex = nextIndex;
     }
 
     private void OnSessionDataReceived(object? sender, (string SessionId, string Data) e)
