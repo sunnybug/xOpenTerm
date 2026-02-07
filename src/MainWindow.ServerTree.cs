@@ -66,8 +66,6 @@ public partial class MainWindow
             Margin = new Thickness(0, 0, 6, 0),
             Foreground = ServerTreeItemBuilder.NodeColor(node)
         };
-        if (node.Type == NodeType.ssh || node.Type == NodeType.rdp)
-            iconBlock.FontFamily = new FontFamily("Segoe MDL2 Assets");
         header.Children.Add(iconBlock);
         var displayName = node.Type == NodeType.rdp && string.IsNullOrEmpty(node.Name) && !string.IsNullOrEmpty(node.Config?.Host)
             ? node.Config!.Host!

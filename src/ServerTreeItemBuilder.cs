@@ -11,8 +11,8 @@ public static class ServerTreeItemBuilder
         return n.Type switch
         {
             NodeType.group => isGroupExpanded ? "📂" : "📁",
-            NodeType.ssh => "\uE756",
-            NodeType.rdp => "\uE7C4",
+            NodeType.ssh => "\u276F",  // ❯ 命令行提示符风格（不用 MDL2）
+            NodeType.rdp => "🖥️",
             _ => "⌨"
         };
     }
@@ -22,7 +22,7 @@ public static class ServerTreeItemBuilder
         return n.Type switch
         {
             NodeType.group => Brushes.Gold,
-            NodeType.ssh => new SolidColorBrush(Color.FromRgb(0x60, 0xa5, 0xfa)),
+            NodeType.ssh => new SolidColorBrush(Color.FromRgb(0x50, 0x50, 0x50)),  // 深灰，偏黑白
             NodeType.rdp => new SolidColorBrush(Color.FromRgb(0xc0, 0x84, 0xfc)),
             _ => Brushes.LightGreen
         };
