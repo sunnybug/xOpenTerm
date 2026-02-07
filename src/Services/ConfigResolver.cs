@@ -36,18 +36,31 @@ public static class ConfigResolver
         return (host, port, username, domain, password);
     }
 
+    /// <summary>从节点向上查找第一个带 Config 的分组或腾讯云组节点。</summary>
+    private static Node? FindAncestorGroupWithConfig(string? parentId, List<Node> allNodes)
+    {
+        var id = parentId;
+        while (!string.IsNullOrEmpty(id))
+        {
+            var p = allNodes.FirstOrDefault(n => n.Id == id);
+            if (p == null) return null;
+            if ((p.Type == NodeType.group || p.Type == NodeType.tencentCloudGroup) && p.Config != null)
+                return p;
+            id = p.ParentId;
+        }
+        return null;
+    }
+
     private static ConnectionConfig ResolveEffectiveRdpConfig(Node rdpNode, List<Node> allNodes)
     {
         var config = rdpNode.Config;
         if (config == null) return new ConnectionConfig();
         if (config.AuthSource != AuthSource.parent) return config;
 
-        var parentId = rdpNode.ParentId;
-        if (string.IsNullOrEmpty(parentId)) return config;
-        var parent = allNodes.FirstOrDefault(n => n.Id == parentId);
-        if (parent?.Type != NodeType.group || parent.Config == null) return config;
+        var parent = FindAncestorGroupWithConfig(rdpNode.ParentId, allNodes);
+        if (parent == null) return config;
 
-        var rdpCredId = parent.Config.RdpCredentialId ?? parent.Config.CredentialId ?? config.CredentialId;
+        var rdpCredId = parent.Config!.RdpCredentialId ?? parent.Config.CredentialId ?? config.CredentialId;
         return new ConnectionConfig
         {
             Host = config.Host ?? parent.Config.Host,
@@ -161,9 +174,8 @@ public static class ConfigResolver
         var config = sshNode.Config;
         if (config == null) return new ConnectionConfig();
 
-        var parentId = sshNode.ParentId;
-        var parent = string.IsNullOrEmpty(parentId) ? null : allNodes.FirstOrDefault(n => n.Id == parentId);
-        var parentIsGroupWithConfig = parent?.Type == NodeType.group && parent.Config != null;
+        var parent = FindAncestorGroupWithConfig(sshNode.ParentId, allNodes);
+        var parentIsGroupWithConfig = parent != null;
 
         if (config.AuthSource == AuthSource.parent && parentIsGroupWithConfig)
         {

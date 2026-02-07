@@ -59,4 +59,16 @@ public class ConnectionConfig
 
     [YamlMember(Alias = "domain")]
     public string? Domain { get; set; }
+
+    /// <summary>腾讯云等云厂商的实例资源 ID，用于唯一标记服务器、做同步时比对。</summary>
+    [YamlMember(Alias = "resourceId")]
+    public string? ResourceId { get; set; }
+
+    /// <summary>腾讯云组节点：API 密钥 SecretId（加密存储）。</summary>
+    [YamlMember(Alias = "tencentSecretId")]
+    public string? TencentSecretId { get; set; }
+
+    /// <summary>腾讯云组节点：API 密钥 SecretKey（加密存储）。</summary>
+    [YamlMember(Alias = "tencentSecretKey")]
+    public string? TencentSecretKey { get; set; }
 }
