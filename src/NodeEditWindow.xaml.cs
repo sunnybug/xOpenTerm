@@ -93,6 +93,7 @@ public partial class NodeEditWindow : Window
 
         TypeCombo.SelectionChanged += (_, _) => UpdateConfigVisibility();
         AuthCombo.SelectionChanged += (_, _) => { UpdateAuthVisibility(); UpdateAuthSourceVisibility(); };
+        RefreshAuthComboForType();
         UpdateConfigVisibility();
         UpdateAuthVisibility();
         UpdateAuthSourceVisibility();
@@ -173,7 +174,41 @@ public partial class NodeEditWindow : Window
 
     private void UpdateAuthSourceVisibility()
     {
+        if (TypeCombo.SelectedIndex == 3) return; // RDP 的凭证行由 UpdateAuthVisibility 控制
         CredentialRow.Visibility = AuthCombo.SelectedIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RefreshAuthComboForType()
+    {
+        var isRdp = TypeCombo.SelectedIndex == 3;
+        var count = AuthCombo.Items.Count;
+        var oldIdx = AuthCombo.SelectedIndex;
+        if (isRdp)
+        {
+            if (count != 3)
+            {
+                var newIdx = (oldIdx >= 0 && oldIdx <= 2) ? oldIdx : 2;
+                AuthCombo.Items.Clear();
+                AuthCombo.Items.Add("同父节点");
+                AuthCombo.Items.Add("登录凭证");
+                AuthCombo.Items.Add("密码");
+                AuthCombo.SelectedIndex = newIdx >= 0 ? newIdx : 0;
+            }
+        }
+        else if (TypeCombo.SelectedIndex != 2) // SSH
+        {
+            if (count != 5)
+            {
+                var newIdx = (oldIdx >= 0 && oldIdx <= 2) ? oldIdx : 2;
+                AuthCombo.Items.Clear();
+                AuthCombo.Items.Add("同父节点");
+                AuthCombo.Items.Add("登录凭证");
+                AuthCombo.Items.Add("密码");
+                AuthCombo.Items.Add("私钥");
+                AuthCombo.Items.Add("SSH Agent");
+                AuthCombo.SelectedIndex = newIdx >= 0 ? newIdx : 0;
+            }
+        }
     }
 
     private void UpdateConfigVisibility()
@@ -206,16 +241,15 @@ public partial class NodeEditWindow : Window
             HostBox.Visibility = Visibility.Visible;
             PortBox.Visibility = Visibility.Visible;
             UsernameBox.Visibility = Visibility.Visible;
-            AuthCombo.Visibility = (isRdp || isLocal) ? Visibility.Collapsed : Visibility.Visible;
+            AuthCombo.Visibility = isLocal ? Visibility.Collapsed : Visibility.Visible;
             PasswordRow.Visibility = Visibility.Collapsed;
             KeyRow.Visibility = Visibility.Collapsed;
             ProtocolRow.Visibility = isLocal ? Visibility.Visible : Visibility.Collapsed;
+            RefreshAuthComboForType();
             if (isRdp)
             {
                 if (string.IsNullOrEmpty(PortBox.Text) || PortBox.Text == "22") PortBox.Text = "3389";
                 if (string.IsNullOrEmpty(UsernameBox.Text)) UsernameBox.Text = "administrator";
-                PasswordRow.Visibility = Visibility.Visible;
-                KeyRow.Visibility = Visibility.Collapsed;
             }
             UpdateAuthVisibility();
             UpdateAuthSourceVisibility();
@@ -224,11 +258,17 @@ public partial class NodeEditWindow : Window
 
     private void UpdateAuthVisibility()
     {
-        if (TypeCombo.SelectedIndex == 3) return; // RDP
         var idx = AuthCombo.SelectedIndex;
-        var showPassword = idx == 2;
+        if (TypeCombo.SelectedIndex == 3) // RDP：同父节点(0)、登录凭证(1)、密码(2)
+        {
+            CredentialRow.Visibility = idx == 1 ? Visibility.Visible : Visibility.Collapsed;
+            PasswordRow.Visibility = idx == 2 ? Visibility.Visible : Visibility.Collapsed;
+            KeyRow.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var showPasswordSsh = idx == 2;
         var showKey = idx == 3;
-        PasswordRow.Visibility = showPassword ? Visibility.Visible : Visibility.Collapsed;
+        PasswordRow.Visibility = showPasswordSsh ? Visibility.Visible : Visibility.Collapsed;
         KeyRow.Visibility = showKey ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -272,8 +312,8 @@ public partial class NodeEditWindow : Window
             return;
         }
         if (string.IsNullOrEmpty(username)) { MessageBox.Show("请填写用户名。", "xOpenTerm"); return; }
-        var ok = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
-        MessageBox.Show(ok ? "连接成功" : "连接失败", "测试连接");
+        var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
+        MessageBox.Show(result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
     }
 
     private void SaveBtn_Click(object sender, RoutedEventArgs e)
@@ -301,7 +341,10 @@ public partial class NodeEditWindow : Window
                 _node.Config.Port = ushort.TryParse(PortBox.Text, out var pr) && pr > 0 ? pr : (ushort)3389;
                 _node.Config.Username = UsernameBox.Text?.Trim() ?? "administrator";
                 _node.Config.Domain = ""; // RDP 不用域
-                _node.Config.Password = PasswordBox.Password;
+                var authIdx = AuthCombo.SelectedIndex;
+                _node.Config.AuthSource = authIdx switch { 0 => AuthSource.parent, 1 => AuthSource.credential, _ => AuthSource.inline };
+                _node.Config.CredentialId = authIdx == 1 && CredentialCombo.SelectedValue is string rdpCid ? rdpCid : null;
+                _node.Config.Password = authIdx != 0 && authIdx != 1 ? PasswordBox.Password : null;
             }
             else
             {

@@ -47,6 +47,7 @@ public static class ConfigResolver
         var parent = allNodes.FirstOrDefault(n => n.Id == parentId);
         if (parent?.Type != NodeType.group || parent.Config == null) return config;
 
+        var rdpCredId = parent.Config.RdpCredentialId ?? parent.Config.CredentialId ?? config.CredentialId;
         return new ConnectionConfig
         {
             Host = config.Host ?? parent.Config.Host,
@@ -57,7 +58,7 @@ public static class ConfigResolver
             KeyPath = parent.Config.KeyPath ?? config.KeyPath,
             KeyPassphrase = parent.Config.KeyPassphrase ?? config.KeyPassphrase,
             AuthSource = parent.Config.AuthSource,
-            CredentialId = parent.Config.CredentialId ?? config.CredentialId,
+            CredentialId = rdpCredId,
             Domain = parent.Config.Domain ?? config.Domain
         };
     }
@@ -166,17 +167,18 @@ public static class ConfigResolver
 
         if (config.AuthSource == AuthSource.parent && parentIsGroupWithConfig)
         {
+            var sshCredId = parent!.Config!.SshCredentialId ?? parent.Config.CredentialId ?? config.CredentialId;
             return new ConnectionConfig
             {
                 Host = config.Host,
                 Port = config.Port,
-                Username = parent!.Config!.Username ?? config.Username,
+                Username = parent.Config.Username ?? config.Username,
                 AuthType = parent.Config.AuthType ?? config.AuthType,
                 Password = parent.Config.Password ?? config.Password,
                 KeyPath = parent.Config.KeyPath ?? config.KeyPath,
                 KeyPassphrase = parent.Config.KeyPassphrase ?? config.KeyPassphrase,
                 AuthSource = parent.Config.AuthSource,
-                CredentialId = parent.Config.CredentialId ?? config.CredentialId,
+                CredentialId = sshCredId,
                 TunnelSource = parent.Config.TunnelSource ?? config.TunnelSource,
                 TunnelIds = parent.Config.TunnelIds ?? config.TunnelIds,
                 TunnelId = parent.Config.TunnelId ?? config.TunnelId,

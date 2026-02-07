@@ -9,13 +9,31 @@ namespace xOpenTerm;
 /// <summary>主窗口：服务器树、节点 CRUD、拖拽排序。</summary>
 public partial class MainWindow
 {
-    private void BuildTree()
+    private void BuildTree(bool expandNodes = true)
     {
+        // 重建前收集当前已展开的分组节点 ID，避免新增/编辑/删除后其它父节点被意外展开
+        var expandedIds = CollectExpandedGroupNodeIds(ServerTree);
         ServerTree.Items.Clear();
         var roots = _nodes.Where(n => string.IsNullOrEmpty(n.ParentId)).ToList();
         foreach (var node in roots)
             if (MatchesSearch(node))
-                ServerTree.Items.Add(CreateTreeItem(node));
+                ServerTree.Items.Add(CreateTreeItem(node, expandedIds, expandNodes));
+    }
+
+    private static HashSet<string>? CollectExpandedGroupNodeIds(ItemsControl tree)
+    {
+        var set = new HashSet<string>();
+        foreach (var tvi in EnumerateTreeViewItems(tree))
+            if (tvi.IsExpanded && tvi.Tag is Node n && n.Type == NodeType.group)
+                set.Add(n.Id);
+        return set.Count == 0 ? null : set;
+    }
+
+    private static bool ShouldExpand(Node node, HashSet<string>? expandedIds, bool defaultExpand)
+    {
+        if (node.Type != NodeType.group) return true;
+        if (expandedIds != null) return expandedIds.Contains(node.Id);
+        return defaultExpand;
     }
 
     private bool MatchesSearch(Node node)
@@ -34,14 +52,15 @@ public partial class MainWindow
         BuildTree();
     }
 
-    private TreeViewItem CreateTreeItem(Node node)
+    private TreeViewItem CreateTreeItem(Node node, HashSet<string>? expandedIds, bool defaultExpand)
     {
+        var expand = ShouldExpand(node, expandedIds, defaultExpand);
         var textPrimary = (Brush)FindResource("TextPrimary");
         var textSecondary = (Brush)FindResource("TextSecondary");
         var header = new StackPanel { Orientation = Orientation.Horizontal };
         var iconBlock = new TextBlock
         {
-            Text = ServerTreeItemBuilder.NodeIcon(node, isGroupExpanded: true),
+            Text = ServerTreeItemBuilder.NodeIcon(node, isGroupExpanded: expand),
             Margin = new Thickness(0, 0, 6, 0),
             Foreground = ServerTreeItemBuilder.NodeColor(node)
         };
@@ -72,7 +91,7 @@ public partial class MainWindow
         {
             Header = header,
             Tag = node,
-            IsExpanded = true
+            IsExpanded = expand
         };
         if (node.Type == NodeType.group)
         {
@@ -86,7 +105,7 @@ public partial class MainWindow
         var children = _nodes.Where(n => n.ParentId == node.Id).ToList();
         foreach (var child in children)
             if (MatchesSearch(child))
-                item.Items.Add(CreateTreeItem(child));
+                item.Items.Add(CreateTreeItem(child, expandedIds, defaultExpand));
         SetIsMultiSelected(item, _selectedNodeIds.Contains(node.Id));
         return item;
     }
@@ -100,6 +119,12 @@ public partial class MainWindow
     public static bool GetIsMultiSelected(DependencyObject d) => (bool)d.GetValue(IsMultiSelectedProperty);
 
     #endregion
+
+    private void ServerTree_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+    {
+        // 禁止选中节点时自动横向滚动到最右边，保持当前滚动位置
+        e.Handled = true;
+    }
 
     private void ServerTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
@@ -497,7 +522,7 @@ public partial class MainWindow
             _nodes.Add(sessionNode);
         }
         _storage.SaveNodes(_nodes);
-        BuildTree();
+        BuildTree(expandNodes: false); // 导入后不自动展开节点
     }
 
     /// <summary>标记是否正在处理多选逻辑，用于抑制 SelectedItemChanged 中的干扰</summary>

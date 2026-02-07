@@ -74,7 +74,7 @@ public partial class MainWindow : Window
         }
         LeftColumn.Width = new GridLength(
             Math.Max(MinLeftPanelWidth, Math.Min(settings.LeftPanelWidth, MaxLeftPanelWidth)),
-            GridLengthUnitType.Pixel);
+            GridUnitType.Pixel);
         if (settings.WindowState >= 0 && settings.WindowState <= 2)
             WindowState = (WindowState)settings.WindowState;
     }

@@ -35,6 +35,10 @@
             <TextBlock Text="认证" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
             <ComboBox x:Name="AuthCombo" Width="120" Padding="4"/>
         </StackPanel>
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
+            <TextBlock Text="登录凭证" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+            <ComboBox x:Name="CredentialCombo" Width="280" Padding="6" Background="#1e293b" Foreground="#e2e8f0" DisplayMemberPath="Name" SelectedValuePath="Id"/>
+        </StackPanel>
         <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,8" x:Name="PasswordRow">
             <TextBlock Text="密码" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
             <PasswordBox x:Name="PasswordBox" Width="280" Padding="6" Background="#1e293b" Foreground="#e2e8f0"/>

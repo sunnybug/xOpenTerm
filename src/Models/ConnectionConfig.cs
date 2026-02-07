@@ -37,6 +37,14 @@ public class ConnectionConfig
     [YamlMember(Alias = "credentialId")]
     public string? CredentialId { get; set; }
 
+    /// <summary>分组节点：子节点选「同父节点」且为 SSH 时使用的默认凭证。</summary>
+    [YamlMember(Alias = "sshCredentialId")]
+    public string? SshCredentialId { get; set; }
+
+    /// <summary>分组节点：子节点选「同父节点」且为 RDP 时使用的默认凭证。</summary>
+    [YamlMember(Alias = "rdpCredentialId")]
+    public string? RdpCredentialId { get; set; }
+
     [YamlMember(Alias = "tunnelSource")]
     public AuthSource? TunnelSource { get; set; }
 

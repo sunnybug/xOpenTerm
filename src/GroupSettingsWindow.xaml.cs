@@ -25,13 +25,18 @@ public partial class GroupSettingsWindow : Window
         _storage = storage;
 
         Title = $"分组默认设置 - {groupNode.Name}";
-        CredentialCombo.DisplayMemberPath = "Name";
-        CredentialCombo.SelectedValuePath = "Id";
-        CredentialCombo.ItemsSource = _credentials.OrderBy(c => c.AuthType).ThenBy(c => c.Name).ToList();
+        var credList = _credentials.OrderBy(c => c.AuthType).ThenBy(c => c.Name).ToList();
+        foreach (var combo in new[] { SshCredentialCombo, RdpCredentialCombo })
+        {
+            combo.DisplayMemberPath = "Name";
+            combo.SelectedValuePath = "Id";
+            combo.ItemsSource = credList;
+        }
 
         if (_groupNode.Config != null)
         {
-            CredentialCombo.SelectedValue = _groupNode.Config.CredentialId;
+            SshCredentialCombo.SelectedValue = _groupNode.Config.SshCredentialId ?? _groupNode.Config.CredentialId;
+            RdpCredentialCombo.SelectedValue = _groupNode.Config.RdpCredentialId ?? _groupNode.Config.CredentialId;
             RefreshTunnelList(_groupNode.Config.TunnelIds);
         }
         else
@@ -63,18 +68,22 @@ public partial class GroupSettingsWindow : Window
 
     private void SaveBtn_Click(object sender, RoutedEventArgs e)
     {
-        var credId = CredentialCombo.SelectedValue as string;
+        var sshCredId = SshCredentialCombo.SelectedValue as string;
+        var rdpCredId = RdpCredentialCombo.SelectedValue as string;
         var tunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => t.AuthType).ThenBy(t => t.Name).Select(t => t.Id).ToList();
 
-        if (string.IsNullOrEmpty(credId) && (tunnelIds == null || tunnelIds.Count == 0))
+        var hasCred = !string.IsNullOrEmpty(sshCredId) || !string.IsNullOrEmpty(rdpCredId);
+        if (!hasCred && (tunnelIds == null || tunnelIds.Count == 0))
         {
             _groupNode.Config = null;
         }
         else
         {
             _groupNode.Config ??= new ConnectionConfig();
-            _groupNode.Config.AuthSource = string.IsNullOrEmpty(credId) ? null : AuthSource.credential;
-            _groupNode.Config.CredentialId = string.IsNullOrEmpty(credId) ? null : credId;
+            _groupNode.Config.SshCredentialId = string.IsNullOrEmpty(sshCredId) ? null : sshCredId;
+            _groupNode.Config.RdpCredentialId = string.IsNullOrEmpty(rdpCredId) ? null : rdpCredId;
+            _groupNode.Config.CredentialId = _groupNode.Config.SshCredentialId ?? _groupNode.Config.RdpCredentialId;
+            _groupNode.Config.AuthSource = hasCred ? AuthSource.credential : null;
             _groupNode.Config.TunnelIds = tunnelIds.Count == 0 ? null : tunnelIds;
             _groupNode.Config.TunnelSource = null;
         }
