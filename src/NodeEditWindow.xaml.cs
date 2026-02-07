@@ -315,6 +315,44 @@ public partial class NodeEditWindow : Window
         {
             username = UsernameBox.Text?.Trim() ?? "";
         }
+        else if (AuthCombo.SelectedIndex == 0) // 同父节点：从父节点解析凭证后测试
+        {
+            if (string.IsNullOrEmpty(_node.ParentId))
+            {
+                MessageBox.Show("同父节点请保存后在实际连接时验证。", "xOpenTerm");
+                return;
+            }
+            var tempNode = new Node
+            {
+                ParentId = _node.ParentId,
+                Type = NodeType.ssh,
+                Config = new ConnectionConfig
+                {
+                    Host = host,
+                    Port = port,
+                    AuthSource = AuthSource.parent,
+                    TunnelSource = TunnelUseParentCheckBox.IsChecked == true ? AuthSource.parent : null,
+                    TunnelIds = TunnelUseParentCheckBox.IsChecked != true
+                        ? TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => t.AuthType).ThenBy(t => t.Name).Select(t => t.Id).ToList()
+                        : null
+                }
+            };
+            try
+            {
+                var resolved = ConfigResolver.ResolveSsh(tempNode, _nodes, _credentials, _tunnels);
+                username = resolved.username ?? "";
+                password = resolved.password;
+                keyPath = resolved.keyPath;
+                keyPassphrase = resolved.keyPassphrase;
+                useAgent = resolved.useAgent;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("解析父节点凭证失败：\n" + ex.Message, "xOpenTerm");
+                return;
+            }
+            if (string.IsNullOrEmpty(username)) { MessageBox.Show("父节点未配置 SSH 默认凭证，请先在分组设置中配置。", "xOpenTerm"); return; }
+        }
         else
         {
             MessageBox.Show("同父节点请保存后在实际连接时验证。", "xOpenTerm");
