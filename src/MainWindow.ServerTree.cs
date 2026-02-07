@@ -22,11 +22,13 @@ public partial class MainWindow
 
     private static HashSet<string>? CollectExpandedGroupNodeIds(ItemsControl tree)
     {
+        // 树为空（如首次加载）时返回 null，沿用 defaultExpand；有节点时返回集合（可为空），空集合表示全部折叠
+        if (tree.Items.Count == 0) return null;
         var set = new HashSet<string>();
         foreach (var tvi in EnumerateTreeViewItems(tree))
             if (tvi.IsExpanded && tvi.Tag is Node n && n.Type == NodeType.group)
                 set.Add(n.Id);
-        return set.Count == 0 ? null : set;
+        return set;
     }
 
     private static bool ShouldExpand(Node node, HashSet<string>? expandedIds, bool defaultExpand)
@@ -697,7 +699,14 @@ public partial class MainWindow
         var draggedIds = payload.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
         if (draggedIds.Count == 0) return;
         var target = GetNodeAtPosition(ServerTree, e.GetPosition(ServerTree));
-        if (target == null || target.Type != NodeType.group) return;
+        // 拖到空白处视为拖到根节点
+        if (target == null)
+        {
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+            return;
+        }
+        if (target.Type != NodeType.group) return;
         if (draggedIds.Any(id => id == target.Id || IsDescendant(target.Id, id)))
             return;
         e.Effects = DragDropEffects.Move;
@@ -712,16 +721,26 @@ public partial class MainWindow
         var draggedIds = payload.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
         if (draggedIds.Count == 0) return;
         var target = GetNodeAtPosition(ServerTree, e.GetPosition(ServerTree));
-        if (target == null || target.Type != NodeType.group) return;
-        if (draggedIds.Any(id => id == target.Id || IsDescendant(target.Id, id)))
-            return;
+        string? parentId;
+        if (target == null)
+        {
+            // 拖到空白处视为拖到根节点
+            parentId = null;
+        }
+        else
+        {
+            if (target.Type != NodeType.group) return;
+            if (draggedIds.Any(id => id == target.Id || IsDescendant(target.Id, id)))
+                return;
+            parentId = target.Id;
+        }
         var modified = false;
         foreach (var id in draggedIds)
         {
             var idx = _nodes.FindIndex(n => n.Id == id);
             if (idx >= 0)
             {
-                _nodes[idx].ParentId = target.Id;
+                _nodes[idx].ParentId = parentId;
                 modified = true;
             }
         }
