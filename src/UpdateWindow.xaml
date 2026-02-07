@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:hc="https://handyorg.github.io/handycontrol"
         Title="检查更新" Height="260" Width="400" WindowStartupLocation="CenterOwner"
-        Background="#1a1a2e" ResizeMode="NoResize">
+        ShowInTaskbar="False" Background="#1a1a2e" ResizeMode="NoResize">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

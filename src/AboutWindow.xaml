@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:hc="https://handyorg.github.io/handycontrol"
         Title="关于" Height="280" Width="380" WindowStartupLocation="CenterOwner"
-        Background="#1a1a2e" ResizeMode="NoResize">
+        ShowInTaskbar="False" Background="#1a1a2e" ResizeMode="NoResize">
     <Grid Margin="16">
         <StackPanel>
             <TextBlock x:Name="AppNameText" Text="xOpenTerm" FontSize="18" FontWeight="SemiBold" Foreground="#e2e8f0" Margin="0,0,0,8"/>

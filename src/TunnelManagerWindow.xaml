@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:hc="https://handyorg.github.io/handycontrol"
         Title="隧道管理" Height="420" Width="560" WindowStartupLocation="CenterOwner"
-        Background="{StaticResource BgDark}" ResizeMode="CanResize">
+        ShowInTaskbar="False" Background="{StaticResource BgDark}" ResizeMode="CanResize">
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
