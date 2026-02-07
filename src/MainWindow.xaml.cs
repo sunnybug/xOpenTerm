@@ -52,6 +52,25 @@ public partial class MainWindow : Window
         _sessionManager.SessionConnected += OnSessionConnected;
         RemotePathBox.Text = ".";
         Closing += MainWindow_Closing;
+        Activated += MainWindow_Activated;
+    }
+
+    /// <summary>切回本程序时，若有打开的模态子窗口（设置等），将整条 Owner 链中最顶层的对话框带到前台，避免被主窗口挡住导致无法操作。</summary>
+    private void MainWindow_Activated(object? sender, EventArgs e)
+    {
+        foreach (Window w in Application.Current.Windows)
+        {
+            if (w == this || !w.IsLoaded || !w.IsVisible || w.IsActive) continue;
+            var o = w.Owner;
+            while (o != null) { if (o == this) break; o = o.Owner; }
+            if (o != this) continue;
+            bool isTopmost = true;
+            foreach (Window w2 in Application.Current.Windows)
+            {
+                if (w2 != w && w2.Owner == w && w2.IsLoaded && w2.IsVisible) { isTopmost = false; break; }
+            }
+            if (isTopmost) { w.Activate(); return; }
+        }
     }
 
     private void ApplyWindowAndLayout(AppSettings settings)

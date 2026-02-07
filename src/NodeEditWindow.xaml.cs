@@ -40,11 +40,14 @@ public partial class NodeEditWindow : Window
         _storage = storage;
 
         NameBox.Text = node.Name;
+        // 与 NodeType 枚举顺序一致：group, tencentCloudGroup, ssh, local, rdp
         TypeCombo.Items.Add("分组");
+        TypeCombo.Items.Add("腾讯云组");
         TypeCombo.Items.Add("SSH");
         TypeCombo.Items.Add("本地终端");
         TypeCombo.Items.Add("RDP");
-        TypeCombo.SelectedIndex = (int)node.Type;
+        var typeIndex = (int)node.Type;
+        TypeCombo.SelectedIndex = typeIndex >= 0 && typeIndex < TypeCombo.Items.Count ? typeIndex : 2; // 默认 SSH
 
         AuthCombo.Items.Add("同父节点");
         AuthCombo.Items.Add("登录凭证");
@@ -174,13 +177,13 @@ public partial class NodeEditWindow : Window
 
     private void UpdateAuthSourceVisibility()
     {
-        if (TypeCombo.SelectedIndex == 3) return; // RDP 的凭证行由 UpdateAuthVisibility 控制
+        if (TypeCombo.SelectedIndex == (int)NodeType.rdp) return; // RDP 的凭证行由 UpdateAuthVisibility 控制
         CredentialRow.Visibility = AuthCombo.SelectedIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void RefreshAuthComboForType()
     {
-        var isRdp = TypeCombo.SelectedIndex == 3;
+        var isRdp = TypeCombo.SelectedIndex == (int)NodeType.rdp;
         var count = AuthCombo.Items.Count;
         var oldIdx = AuthCombo.SelectedIndex;
         if (isRdp)
@@ -195,7 +198,7 @@ public partial class NodeEditWindow : Window
                 AuthCombo.SelectedIndex = newIdx >= 0 ? newIdx : 0;
             }
         }
-        else if (TypeCombo.SelectedIndex != 2) // SSH
+        else if (TypeCombo.SelectedIndex != (int)NodeType.ssh) // 非 SSH（分组/腾讯云组/本地终端）
         {
             if (count != 5)
             {
@@ -214,12 +217,14 @@ public partial class NodeEditWindow : Window
     private void UpdateConfigVisibility()
     {
         var idx = TypeCombo.SelectedIndex;
-        var isGroup = idx == 0;
-        var isSsh = idx == 1;
-        var isLocal = idx == 2;
-        var isRdp = idx == 3;
-        ConfigLabel.Visibility = isGroup ? Visibility.Collapsed : Visibility.Visible;
-        ConfigPanel.Visibility = isGroup ? Visibility.Collapsed : Visibility.Visible;
+        var isGroup = idx == (int)NodeType.group;
+        var isTencentGroup = idx == (int)NodeType.tencentCloudGroup;
+        var isSsh = idx == (int)NodeType.ssh;
+        var isLocal = idx == (int)NodeType.local;
+        var isRdp = idx == (int)NodeType.rdp;
+        var hideConfig = isGroup || isTencentGroup;
+        ConfigLabel.Visibility = hideConfig ? Visibility.Collapsed : Visibility.Visible;
+        ConfigPanel.Visibility = hideConfig ? Visibility.Collapsed : Visibility.Visible;
         CredentialRow.Visibility = Visibility.Collapsed;
         TunnelRow.Visibility = isSsh ? Visibility.Visible : Visibility.Collapsed;
         if (isSsh)
@@ -259,7 +264,7 @@ public partial class NodeEditWindow : Window
     private void UpdateAuthVisibility()
     {
         var idx = AuthCombo.SelectedIndex;
-        if (TypeCombo.SelectedIndex == 3) // RDP：同父节点(0)、登录凭证(1)、密码(2)
+        if (TypeCombo.SelectedIndex == (int)NodeType.rdp) // RDP：同父节点(0)、登录凭证(1)、密码(2)
         {
             CredentialRow.Visibility = idx == 1 ? Visibility.Visible : Visibility.Collapsed;
             PasswordRow.Visibility = idx == 2 ? Visibility.Visible : Visibility.Collapsed;
@@ -328,7 +333,7 @@ public partial class NodeEditWindow : Window
             return;
         }
         _node.Name = name;
-        if (_node.Type != NodeType.group)
+        if (_node.Type != NodeType.group && _node.Type != NodeType.tencentCloudGroup)
         {
             _node.Config ??= new ConnectionConfig();
             if (_node.Type == NodeType.local)
@@ -371,7 +376,7 @@ public partial class NodeEditWindow : Window
         }
         else
         {
-            _node.Config = null;
+            _node.Config = null; // 分组、腾讯云组不保存主机配置
         }
         SavedNode = _node;
         _closingConfirmed = true;

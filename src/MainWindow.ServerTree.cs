@@ -334,14 +334,15 @@ public partial class MainWindow
         if (node == null)
         {
             menu.Items.Add(CreateMenuItem("新建分组", () => AddNode(NodeType.group, null)));
+            menu.Items.Add(CreateMenuItem("新建分组 - 腾讯云", () => AddTencentCloudGroup(null)));
             menu.Items.Add(CreateMenuItem("新建主机", () => AddNode(NodeType.ssh, null)));
             return menu;
         }
         if (node.Type == NodeType.group)
         {
             menu.Items.Add(CreateMenuItem("新建分组", () => AddNode(NodeType.group, node.Id)));
+            menu.Items.Add(CreateMenuItem("新建分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
             menu.Items.Add(CreateMenuItem("新建主机", () => AddNode(NodeType.ssh, node.Id)));
-            menu.Items.Add(CreateMenuItem("腾讯云组", () => AddTencentCloudGroup(node.Id)));
             menu.Items.Add(new Separator());
             var importSub = new MenuItem { Header = "导入" };
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm", () => ImportMobaXterm(node)));
@@ -356,6 +357,7 @@ public partial class MainWindow
         else if (node.Type == NodeType.tencentCloudGroup)
         {
             menu.Items.Add(CreateMenuItem("新建分组", () => AddNode(NodeType.group, node.Id)));
+            menu.Items.Add(CreateMenuItem("新建分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
             menu.Items.Add(CreateMenuItem("新建主机", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(new Separator());
             var importSub = new MenuItem { Header = "导入" };
@@ -546,7 +548,7 @@ public partial class MainWindow
         BuildTree(expandNodes: false); // 导入后不自动展开节点
     }
 
-    private void AddTencentCloudGroup(string parentId)
+    private void AddTencentCloudGroup(string? parentId)
     {
         var dlg = new TencentCloudGroupAddWindow { Owner = this };
         if (dlg.ShowDialog() != true) return;

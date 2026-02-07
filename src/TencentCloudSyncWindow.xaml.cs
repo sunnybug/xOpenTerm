@@ -1,10 +1,11 @@
 using System;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace xOpenTerm;
 
-/// <summary>腾讯云同步进度窗口：显示进度并支持取消。</summary>
+/// <summary>腾讯云同步进度窗口：显示进度并支持取消。所有 UI 更新均通过 Dispatcher 切回 UI 线程。</summary>
 public partial class TencentCloudSyncWindow : Window
 {
     private readonly Action? _onCancel;
@@ -16,12 +17,22 @@ public partial class TencentCloudSyncWindow : Window
         _onCancel = onCancel;
     }
 
+    private void UpdateUi(Action action)
+    {
+        var dispatcher = Dispatcher ?? Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+        if (dispatcher.CheckAccess())
+            action();
+        else
+            dispatcher.BeginInvoke(DispatcherPriority.Normal, action);
+    }
+
     public void ReportProgress(string message, int current, int total)
     {
-        if (StatusText == null) return;
-        Dispatcher.Invoke(() =>
+        UpdateUi(() =>
         {
-            StatusText.Text = message;
+            if (StatusText != null)
+                StatusText.Text = message;
             if (total > 0 && ProgressBar != null)
             {
                 ProgressBar.Maximum = total;
@@ -33,7 +44,7 @@ public partial class TencentCloudSyncWindow : Window
     public void ReportResult(string detailMessage, bool success)
     {
         _completed = true;
-        Dispatcher.Invoke(() =>
+        UpdateUi(() =>
         {
             if (DetailText != null)
             {
