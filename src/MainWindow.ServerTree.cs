@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Windows;
@@ -107,12 +108,10 @@ public partial class MainWindow
             Foreground = ServerTreeItemBuilder.NodeColor(node)
         };
         header.Children.Add(iconBlock);
-        var displayName = node.Type == NodeType.rdp && string.IsNullOrEmpty(node.Name) && !string.IsNullOrEmpty(node.Config?.Host)
-            ? node.Config!.Host!
-            : node.Name;
+        var displayName = GetNodeDisplayName(node);
         header.Children.Add(new TextBlock
         {
-            Text = displayName,
+            Text = displayName ?? "",
             Foreground = textPrimary,
             VerticalAlignment = VerticalAlignment.Center
         });
@@ -222,11 +221,21 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>节点显示名：RDP 无名称时用 Host；腾讯云项目节点去掉末尾 " (项目ID)" 仅显示项目名。</summary>
     private static string GetNodeDisplayName(Node node)
     {
-        return node.Type == NodeType.rdp && string.IsNullOrEmpty(node.Name) && !string.IsNullOrEmpty(node.Config?.Host)
+        var raw = node.Type == NodeType.rdp && string.IsNullOrEmpty(node.Name) && !string.IsNullOrEmpty(node.Config?.Host)
             ? node.Config!.Host!
-            : node.Name;
+            : (node.Name ?? "");
+        return StripTrailingProjectIdFromDisplay(raw);
+    }
+
+    /// <summary>显示时去掉末尾 " (数字)"，不显示项目 ID。</summary>
+    private static string StripTrailingProjectIdFromDisplay(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+        var m = System.Text.RegularExpressions.Regex.Match(name, @"^(.+?)\s*\(\d+\)\s*$");
+        return m.Success ? m.Groups[1].Value.TrimEnd() : name;
     }
 
     private void StartInlineRename(TreeViewItem tvi, Node node)
@@ -260,6 +269,10 @@ public partial class MainWindow
                 var newName = textBox.Text?.Trim() ?? "";
                 if (!string.IsNullOrEmpty(newName))
                 {
+                    // 腾讯云项目节点：保留原节点名中的项目 ID，便于同步时匹配
+                    var pid = GetTencentProjectIdFromName(node.Name);
+                    if (pid != "0" && !newName.EndsWith(" (" + pid + ")", StringComparison.Ordinal))
+                        newName = newName + " (" + pid + ")";
                     node.Name = newName;
                     _storage.SaveNodes(_nodes);
                     BuildTree();
@@ -336,9 +349,9 @@ public partial class MainWindow
     private ContextMenu BuildContextMenuMultiSelect(List<Node> selectedNodes)
     {
         var menu = new ContextMenu();
-        menu.Items.Add(CreateMenuItem("连接", () => ConnectSelected(selectedNodes)));
+        menu.Items.Add(CreateMenuItem("[L] 连接", () => ConnectSelected(selectedNodes)));
         menu.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("删除", () => DeleteSelected(selectedNodes)));
+        menu.Items.Add(CreateMenuItem("[D] 删除", () => DeleteSelected(selectedNodes)));
         return menu;
     }
 
@@ -390,51 +403,60 @@ public partial class MainWindow
         var menu = new ContextMenu();
         if (node == null)
         {
-            menu.Items.Add(CreateMenuItem("新建分组", () => AddNode(NodeType.group, null)));
-            menu.Items.Add(CreateMenuItem("新建分组 - 腾讯云", () => AddTencentCloudGroup(null)));
-            menu.Items.Add(CreateMenuItem("新建主机", () => AddNode(NodeType.ssh, null)));
+            menu.Items.Add(CreateMenuItem("[G] 新建分组", () => AddNode(NodeType.group, null)));
+            menu.Items.Add(CreateMenuItem("[T] 新建分组 - 腾讯云", () => AddTencentCloudGroup(null)));
+            menu.Items.Add(CreateMenuItem("[H] 新建主机", () => AddNode(NodeType.ssh, null)));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("导出-yaml", () => ExportYaml()));
+            menu.Items.Add(CreateMenuItem("导入-yaml", () => ImportYaml(null)));
             return menu;
         }
         if (node.Type == NodeType.group)
         {
-            menu.Items.Add(CreateMenuItem("新建分组", () => AddNode(NodeType.group, node.Id)));
-            menu.Items.Add(CreateMenuItem("新建分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
-            menu.Items.Add(CreateMenuItem("新建主机", () => AddNode(NodeType.ssh, node.Id)));
+            menu.Items.Add(CreateMenuItem("[G] 新建分组", () => AddNode(NodeType.group, node.Id)));
+            menu.Items.Add(CreateMenuItem("[T] 新建分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
+            menu.Items.Add(CreateMenuItem("[H] 新建主机", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(new Separator());
-            var importSub = new MenuItem { Header = "导入" };
-            importSub.Items.Add(CreateMenuItem("导入 MobaXterm", () => ImportMobaXterm(node)));
+            var importSub = new MenuItem { Header = "[I] 导入" };
+            importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
             menu.Items.Add(importSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("设置", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("[S] 设置", () => EditGroupSettings(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("连接全部", () => ConnectAll(node.Id)));
+            menu.Items.Add(CreateMenuItem("导出-yaml", () => ExportYaml()));
+            menu.Items.Add(CreateMenuItem("导入-yaml", () => ImportYaml(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("删除（含子节点）", () => DeleteNodeRecursive(node)));
+            menu.Items.Add(CreateMenuItem("[A] 连接全部", () => ConnectAll(node.Id)));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("[X] 删除（含子节点）", () => DeleteNodeRecursive(node)));
         }
         else if (node.Type == NodeType.tencentCloudGroup)
         {
-            menu.Items.Add(CreateMenuItem("新建分组", () => AddNode(NodeType.group, node.Id)));
-            menu.Items.Add(CreateMenuItem("新建分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
-            menu.Items.Add(CreateMenuItem("新建主机", () => AddNode(NodeType.ssh, node.Id)));
+            menu.Items.Add(CreateMenuItem("[G] 新建分组", () => AddNode(NodeType.group, node.Id)));
+            menu.Items.Add(CreateMenuItem("[T] 新建分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
+            menu.Items.Add(CreateMenuItem("[H] 新建主机", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(new Separator());
-            var importSub = new MenuItem { Header = "导入" };
-            importSub.Items.Add(CreateMenuItem("导入 MobaXterm", () => ImportMobaXterm(node)));
+            var importSub = new MenuItem { Header = "[I] 导入" };
+            importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
             menu.Items.Add(importSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("设置", () => EditGroupSettings(node)));
-            menu.Items.Add(CreateMenuItem("同步", () => SyncTencentCloudGroup(node)));
+            menu.Items.Add(CreateMenuItem("[S] 设置", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("[Y] 同步", () => SyncTencentCloudGroup(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("连接全部", () => ConnectAll(node.Id)));
+            menu.Items.Add(CreateMenuItem("导出-yaml", () => ExportYaml()));
+            menu.Items.Add(CreateMenuItem("导入-yaml", () => ImportYaml(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("删除（含子节点）", () => DeleteNodeRecursive(node)));
+            menu.Items.Add(CreateMenuItem("[A] 连接全部", () => ConnectAll(node.Id)));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("[X] 删除（含子节点）", () => DeleteNodeRecursive(node)));
         }
         else
         {
-            menu.Items.Add(CreateMenuItem("连接", () => OpenTab(node)));
-            menu.Items.Add(CreateMenuItem("复制节点", () => DuplicateNode(node)));
-            menu.Items.Add(CreateMenuItem("设置", () => EditNode(node)));
+            menu.Items.Add(CreateMenuItem("[L] 连接", () => OpenTab(node)));
+            menu.Items.Add(CreateMenuItem("[C] 复制节点", () => DuplicateNode(node)));
+            menu.Items.Add(CreateMenuItem("[S] 设置", () => EditNode(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("删除", () => DeleteNode(node)));
+            menu.Items.Add(CreateMenuItem("[D] 删除", () => DeleteNode(node)));
         }
         return menu;
     }
@@ -466,6 +488,15 @@ public partial class MainWindow
     private void ConnectAll(string groupId)
     {
         var leaves = GetLeafNodes(groupId);
+        if (leaves.Count == 0)
+        {
+            MessageBox.Show("该分组下没有可连接的主机。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var groupNode = _nodes.FirstOrDefault(n => n.Id == groupId);
+        var groupName = groupNode != null ? (GetNodeDisplayName(groupNode) ?? groupNode.Name ?? "未命名分组") : "分组";
+        if (MessageBox.Show($"确定要连接分组「{groupName}」下的全部 {leaves.Count} 台主机吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
         foreach (var node in leaves)
             OpenTab(node);
     }
@@ -485,7 +516,8 @@ public partial class MainWindow
 
     private void DeleteNodeRecursive(Node node)
     {
-        var name = string.IsNullOrEmpty(node.Name) ? "未命名分组" : node.Name;
+        var name = string.IsNullOrEmpty(node.Name) ? "未命名分组" : (GetNodeDisplayName(node) ?? node.Name);
+        if (string.IsNullOrWhiteSpace(name)) name = "未命名分组";
         if (MessageBox.Show($"确定删除分组「{name}」及全部子节点？此操作不可恢复。", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
         RemoveNodeRecursive(node.Id);
@@ -502,7 +534,8 @@ public partial class MainWindow
 
     private void DeleteNode(Node node)
     {
-        var name = string.IsNullOrEmpty(node.Name) && node.Config?.Host != null ? node.Config.Host : (node.Name ?? "未命名节点");
+        var name = string.IsNullOrEmpty(node.Name) && node.Config?.Host != null ? node.Config.Host : (GetNodeDisplayName(node) ?? node.Name ?? "未命名节点");
+        if (string.IsNullOrWhiteSpace(name)) name = "未命名节点";
         if (MessageBox.Show($"确定删除节点「{name}」？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _nodes.RemoveAll(n => n.Id == node.Id);
@@ -605,6 +638,154 @@ public partial class MainWindow
         BuildTree(expandNodes: false); // 导入后不自动展开节点
     }
 
+    /// <summary>收集节点树中所有被引用的凭证 ID（Config 与 Tunnel 跳转）。</summary>
+    private static HashSet<string> CollectReferencedCredentialIds(IEnumerable<Node> nodes)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var n in nodes)
+        {
+            var c = n.Config;
+            if (c == null) continue;
+            if (!string.IsNullOrEmpty(c.CredentialId)) ids.Add(c.CredentialId);
+            if (!string.IsNullOrEmpty(c.SshCredentialId)) ids.Add(c.SshCredentialId);
+            if (!string.IsNullOrEmpty(c.RdpCredentialId)) ids.Add(c.RdpCredentialId);
+            if (c.Tunnel != null)
+            {
+                foreach (var h in c.Tunnel)
+                {
+                    if (!string.IsNullOrEmpty(h.CredentialId)) ids.Add(h.CredentialId);
+                }
+            }
+        }
+        return ids;
+    }
+
+    private void ExportYaml()
+    {
+        var refIds = CollectReferencedCredentialIds(_nodes);
+        var credentials = _credentials.Where(c => refIds.Contains(c.Id)).ToList();
+        var data = new ExportYamlRoot
+        {
+            Version = 1,
+            Nodes = _nodes,
+            Credentials = credentials
+        };
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "导出 YAML",
+            Filter = "YAML 文件 (*.yaml)|*.yaml|所有文件 (*.*)|*.*",
+            DefaultExt = "yaml",
+            FileName = "nodes-export.yaml"
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            var yaml = _storage.SerializeExport(data);
+            File.WriteAllText(dlg.FileName, yaml);
+            MessageBox.Show($"已导出 {_nodes.Count} 个节点、{credentials.Count} 个凭证。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"导出失败：{ex.Message}", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ImportYaml(Node? parentNode)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "导入 YAML",
+            Filter = "YAML 文件 (*.yaml)|*.yaml|所有文件 (*.*)|*.*"
+        };
+        if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.FileName)) return;
+        try
+        {
+            var yaml = File.ReadAllText(dlg.FileName);
+            var data = _storage.DeserializeExport(yaml);
+            if (data?.Nodes == null || data.Nodes.Count == 0)
+            {
+                MessageBox.Show("文件中没有节点数据。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            var importedCreds = data.Credentials ?? new List<Credential>();
+            var credIdMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var imp in importedCreds)
+            {
+                if (string.IsNullOrEmpty(imp.Id)) continue;
+                var existing = _credentials.FirstOrDefault(c => CredentialContentEquals(c, imp));
+                if (existing != null)
+                {
+                    credIdMap[imp.Id] = existing.Id;
+                    continue;
+                }
+                var oldCredId = imp.Id;
+                imp.Id = Guid.NewGuid().ToString();
+                _credentials.Add(imp);
+                credIdMap[oldCredId] = imp.Id;
+            }
+            string? parentIdForRoots = parentNode?.Id;
+            var nodeIdMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var n in data.Nodes)
+                nodeIdMap[n.Id] = Guid.NewGuid().ToString();
+            foreach (var n in data.Nodes)
+            {
+                var oldParentId = n.ParentId;
+                n.Id = nodeIdMap[n.Id];
+                n.ParentId = string.IsNullOrEmpty(oldParentId) ? parentIdForRoots : nodeIdMap[oldParentId];
+                RemapCredentialIdsInNode(n, credIdMap);
+                _nodes.Add(n);
+            }
+            _storage.SaveNodes(_nodes);
+            _storage.SaveCredentials(_credentials);
+            BuildTree(expandNodes: false);
+            MessageBox.Show($"已导入 {data.Nodes.Count} 个节点；凭证：相同已忽略，不同已新增。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"导入失败：{ex.Message}", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static bool CredentialContentEquals(Credential a, Credential b)
+    {
+        if (a.Name != b.Name || a.Username != b.Username || a.AuthType != b.AuthType) return false;
+        if ((a.Password ?? "") != (b.Password ?? "")) return false;
+        if ((a.KeyPath ?? "") != (b.KeyPath ?? "")) return false;
+        if ((a.KeyPassphrase ?? "") != (b.KeyPassphrase ?? "")) return false;
+        if ((a.AgentForwarding ?? false) != (b.AgentForwarding ?? false)) return false;
+        if ((a.Tunnel == null) != (b.Tunnel == null)) return false;
+        if (a.Tunnel != null && b.Tunnel != null)
+        {
+            if (a.Tunnel.Count != b.Tunnel.Count) return false;
+            for (var i = 0; i < a.Tunnel.Count; i++)
+            {
+                var ha = a.Tunnel[i];
+                var hb = b.Tunnel[i];
+                if (ha.Host != hb.Host || ha.Username != hb.Username || ha.AuthType != hb.AuthType) return false;
+                if ((ha.Password ?? "") != (hb.Password ?? "")) return false;
+                if ((ha.KeyPath ?? "") != (hb.KeyPath ?? "")) return false;
+                if ((ha.KeyPassphrase ?? "") != (hb.KeyPassphrase ?? "")) return false;
+            }
+        }
+        return true;
+    }
+
+    private static void RemapCredentialIdsInNode(Node node, Dictionary<string, string> credIdMap)
+    {
+        var c = node.Config;
+        if (c == null) return;
+        if (!string.IsNullOrEmpty(c.CredentialId) && credIdMap.TryGetValue(c.CredentialId, out var id1)) c.CredentialId = id1;
+        if (!string.IsNullOrEmpty(c.SshCredentialId) && credIdMap.TryGetValue(c.SshCredentialId, out var id2)) c.SshCredentialId = id2;
+        if (!string.IsNullOrEmpty(c.RdpCredentialId) && credIdMap.TryGetValue(c.RdpCredentialId, out var id3)) c.RdpCredentialId = id3;
+        if (c.Tunnel != null)
+        {
+            foreach (var h in c.Tunnel)
+            {
+                if (!string.IsNullOrEmpty(h.CredentialId) && credIdMap.TryGetValue(h.CredentialId, out var id4)) h.CredentialId = id4;
+            }
+        }
+    }
+
     private void AddTencentCloudGroup(string? parentId)
     {
         var dlg = new TencentCloudGroupAddWindow { Owner = this };
@@ -658,12 +839,15 @@ public partial class MainWindow
             var projectKey = (ins.Region ?? "") + ":" + ins.ProjectId;
             if (!projectKeyToNode.TryGetValue(projectKey, out var projectNode))
             {
+                var projectDisplayName = !string.IsNullOrWhiteSpace(ins.ProjectName)
+                    ? $"{ins.ProjectName} ({ins.ProjectId})"
+                    : "项目 " + ins.ProjectId;
                 projectNode = new Node
                 {
                     Id = Guid.NewGuid().ToString(),
                     ParentId = regionNode.Id,
                     Type = NodeType.group,
-                    Name = "项目 " + ins.ProjectId,
+                    Name = projectDisplayName,
                     Config = null
                 };
                 result.Add(projectNode);
@@ -828,12 +1012,15 @@ public partial class MainWindow
             var projectKey = regionName + ":" + ins.ProjectId;
             if (!projectByKey.TryGetValue(projectKey, out var projectNode))
             {
+                var projectDisplayName = !string.IsNullOrWhiteSpace(ins.ProjectName)
+                    ? $"{ins.ProjectName} ({ins.ProjectId})"
+                    : "项目 " + ins.ProjectId;
                 projectNode = new Node
                 {
                     Id = Guid.NewGuid().ToString(),
                     ParentId = regionNode.Id,
                     Type = NodeType.group,
-                    Name = "项目 " + ins.ProjectId,
+                    Name = projectDisplayName,
                     Config = null
                 };
                 _nodes.Add(projectNode);
@@ -894,8 +1081,14 @@ public partial class MainWindow
         return string.IsNullOrWhiteSpace(msg) ? "拉取失败" : msg.Trim();
     }
 
-    private static string GetTencentProjectIdFromName(string name)
+    /// <summary>从项目节点显示名中解析出项目 ID（支持 "项目 123" 或 "项目名 (123)" 格式）。</summary>
+    private static string GetTencentProjectIdFromName(string? name)
     {
+        if (string.IsNullOrWhiteSpace(name)) return "0";
+        // 匹配末尾 "(数字)" 如 "默认项目 (1000101)"
+        var match = System.Text.RegularExpressions.Regex.Match(name, @"\((\d+)\)\s*$");
+        if (match.Success) return match.Groups[1].Value;
+        // 兼容旧格式 "项目 123"
         var s = name.Replace("项目 ", "", StringComparison.Ordinal).Trim();
         return string.IsNullOrEmpty(s) ? "0" : s;
     }

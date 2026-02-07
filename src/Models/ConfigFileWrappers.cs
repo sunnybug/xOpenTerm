@@ -31,3 +31,16 @@ public class TunnelsFile
     [YamlMember(Alias = "tunnels")]
     public List<Tunnel> Tunnels { get; set; } = new();
 }
+
+/// <summary>导出 YAML 根结构：节点树 + 被引用的登录凭证（明文，便于迁移）。</summary>
+public class ExportYamlRoot
+{
+    [YamlMember(Alias = "version")]
+    public int Version { get; set; } = 1;
+
+    [YamlMember(Alias = "nodes")]
+    public List<Node> Nodes { get; set; } = new();
+
+    [YamlMember(Alias = "credentials")]
+    public List<Credential> Credentials { get; set; } = new();
+}

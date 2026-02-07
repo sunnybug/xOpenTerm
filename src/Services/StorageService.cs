@@ -218,6 +218,18 @@ public class StorageService
         File.WriteAllText(_settingsPath, yaml);
     }
 
+    /// <summary>将导出数据序列化为 YAML 字符串（节点与凭证均为明文）。</summary>
+    public string SerializeExport(ExportYamlRoot data)
+    {
+        return _serializer.Serialize(data);
+    }
+
+    /// <summary>从 YAML 字符串反序列化导出数据。</summary>
+    public ExportYamlRoot? DeserializeExport(string yaml)
+    {
+        return _deserializer.Deserialize<ExportYamlRoot>(yaml);
+    }
+
     private static void DecryptNodes(List<Node> list)
     {
         foreach (var node in list)
