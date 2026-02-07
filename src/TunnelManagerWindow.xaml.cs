@@ -39,7 +39,7 @@ public partial class TunnelManagerWindow : Window
     private void AddBtn_Click(object sender, RoutedEventArgs e)
     {
         var t = new Tunnel { Id = Guid.NewGuid().ToString(), Name = "新跳板机", Port = 22, AuthType = AuthType.password };
-        var win = new TunnelEditWindow(t, _tunnels, _credentials, _storage, isNew: true);
+        var win = new TunnelEditWindow(t, _tunnels, _credentials, _storage, isNew: true) { Owner = this };
         if (win.ShowDialog() == true)
             LoadTunnels();
     }
@@ -59,7 +59,7 @@ public partial class TunnelManagerWindow : Window
     private void OpenEdit(Tunnel t)
     {
         _credentials = _storage.LoadCredentials();
-        var win = new TunnelEditWindow(t, _tunnels, _credentials, _storage, isNew: false);
+        var win = new TunnelEditWindow(t, _tunnels, _credentials, _storage, isNew: false) { Owner = this };
         if (win.ShowDialog() == true)
             LoadTunnels();
     }
@@ -68,7 +68,7 @@ public partial class TunnelManagerWindow : Window
     {
         if (TunnelList.SelectedIndex < 0 || TunnelList.SelectedIndex >= _tunnels.Count) return;
         var t = _tunnels[TunnelList.SelectedIndex];
-        if (MessageBox.Show($"确定删除跳板机「{t.Name}」？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show(this, $"确定删除跳板机「{t.Name}」？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _tunnels.RemoveAll(x => x.Id == t.Id);
         _storage.SaveTunnels(_tunnels);

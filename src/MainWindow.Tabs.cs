@@ -40,7 +40,7 @@ public partial class MainWindow
 
                 if (jumpChain == null || jumpChain.Count == 0)
                 {
-                    OpenSshPuttyTab(tabId, tabTitle, node, host, port, username, password, keyPath);
+                    OpenSshPuttyTab(tabId, tabTitle, node, host, port, username, password, keyPath, useAgent);
                     return;
                 }
 
@@ -69,7 +69,7 @@ public partial class MainWindow
     }
 
     private void OpenSshPuttyTab(string tabId, string tabTitle, Node node,
-        string host, int port, string username, string? password, string? keyPath)
+        string host, int port, string username, string? password, string? keyPath, bool useAgent = false)
     {
         var puttyControl = new SshPuttyHostControl();
         puttyControl.Closed += (_, _) =>
@@ -108,7 +108,7 @@ public partial class MainWindow
 
         try
         {
-            puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath);
+            puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, useAgent);
         }
         catch (Exception ex)
         {
@@ -299,7 +299,7 @@ public partial class MainWindow
             _disconnectedPuttyTabIds.Remove(tabId);
             TabsControl.SelectedItem = tabItem;
 
-            puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath);
+            puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, useAgent);
         }
         catch (Exception ex)
         {

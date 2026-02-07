@@ -72,7 +72,7 @@ public partial class TunnelEditWindow : Window
     private void TunnelEditWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_closingConfirmed) return;
-        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (IsDirty() && MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             e.Cancel = true;
     }
 
@@ -90,10 +90,10 @@ public partial class TunnelEditWindow : Window
     private void TestBtn_Click(object sender, RoutedEventArgs e)
     {
         var host = HostBox.Text?.Trim();
-        if (string.IsNullOrEmpty(host)) { MessageBox.Show("请填写主机。", "xOpenTerm"); return; }
+        if (string.IsNullOrEmpty(host)) { MessageBox.Show(this, "请填写主机。", "xOpenTerm"); return; }
         if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
         var username = UsernameBox.Text?.Trim() ?? "";
-        if (string.IsNullOrEmpty(username)) { MessageBox.Show("请填写用户名。", "xOpenTerm"); return; }
+        if (string.IsNullOrEmpty(username)) { MessageBox.Show(this, "请填写用户名。", "xOpenTerm"); return; }
         string? password = null;
         string? keyPath = null;
         string? keyPassphrase = null;
@@ -102,9 +102,9 @@ public partial class TunnelEditWindow : Window
         if (authIdx == 0)
         {
             if (CredentialCombo.SelectedValue is not string cid)
-            { MessageBox.Show("请选择登录凭证。", "xOpenTerm"); return; }
+            { MessageBox.Show(this, "请选择登录凭证。", "xOpenTerm"); return; }
             var cred = _credentials.FirstOrDefault(c => c.Id == cid);
-            if (cred == null) { MessageBox.Show("请选择登录凭证。", "xOpenTerm"); return; }
+            if (cred == null) { MessageBox.Show(this, "请选择登录凭证。", "xOpenTerm"); return; }
             username = cred.Username ?? username;
             switch (cred.AuthType)
             {
@@ -120,7 +120,7 @@ public partial class TunnelEditWindow : Window
         else
             useAgent = true;
         var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
-        MessageBox.Show(result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
+        MessageBox.Show(this, result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
     }
 
     private void SaveBtn_Click(object sender, RoutedEventArgs e)
@@ -158,7 +158,7 @@ public partial class TunnelEditWindow : Window
 
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (IsDirty() && MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _closingConfirmed = true;
         DialogResult = false;

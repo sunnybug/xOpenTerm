@@ -31,10 +31,11 @@ public sealed class SshPuttyHostControl : Panel
 
     public bool IsRunning => _puttyProcess != null && !_puttyProcess.HasExited;
 
+    /// <param name="useAgent">为 true 时使用 SSH Agent（Pageant），不传 -noagent；为 false 时传 -noagent 避免多密钥导致 "Too many authentication failures"。</param>
     /// <param name="fontName">保留参数，Windows 版 PuTTY 不支持命令行指定字体，仅用于兼容调用方。</param>
     /// <param name="fontSize">保留参数，Windows 版 PuTTY 不支持命令行指定字号，仅用于兼容调用方。</param>
     public void Connect(string host, int port, string username, string? password, string? keyPath, string puttyPath,
-        string? fontName = null, double fontSize = 14)
+        bool useAgent = false, string? fontName = null, double fontSize = 14)
     {
         if (string.IsNullOrWhiteSpace(puttyPath) || !File.Exists(puttyPath))
         {
@@ -46,6 +47,9 @@ public sealed class SshPuttyHostControl : Panel
         var arguments = new List<string>();
         arguments.Add("-ssh");
         arguments.Add("-2");
+        // 仅在使用密码/单密钥时禁用 Pageant，避免多密钥导致 "Too many authentication failures"；使用 Agent 时必须允许 Pageant
+        if (!useAgent)
+            arguments.Add("-noagent");
         // Windows 版 PuTTY 不支持 -fn；字体需在 PuTTY 选项或已保存会话中配置
         if (!string.IsNullOrEmpty(username))
             arguments.AddRange(["-l", username]);

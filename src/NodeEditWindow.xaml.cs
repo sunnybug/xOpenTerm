@@ -142,7 +142,7 @@ public partial class NodeEditWindow : Window
     private void NodeEditWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_closingConfirmed) return;
-        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (IsDirty() && MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             e.Cancel = true;
     }
 
@@ -293,14 +293,14 @@ public partial class NodeEditWindow : Window
     private void TestConnectionBtn_Click(object sender, RoutedEventArgs e)
     {
         var host = HostBox.Text?.Trim();
-        if (string.IsNullOrEmpty(host)) { MessageBox.Show("请填写主机。", "xOpenTerm"); return; }
+        if (string.IsNullOrEmpty(host)) { MessageBox.Show(this, "请填写主机。", "xOpenTerm"); return; }
         if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
         string username; string? password = null; string? keyPath = null; string? keyPassphrase = null;
         var useAgent = AuthCombo.SelectedIndex == 4;
         if (AuthCombo.SelectedIndex == 1 && CredentialCombo.SelectedValue is string cid)
         {
             var cred = _credentials.FirstOrDefault(c => c.Id == cid);
-            if (cred == null) { MessageBox.Show("请选择登录凭证。", "xOpenTerm"); return; }
+            if (cred == null) { MessageBox.Show(this, "请选择登录凭证。", "xOpenTerm"); return; }
             username = cred.Username;
             if (cred.AuthType == AuthType.password) password = cred.Password;
             else { keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; }
@@ -319,7 +319,7 @@ public partial class NodeEditWindow : Window
         {
             if (string.IsNullOrEmpty(_node.ParentId))
             {
-                MessageBox.Show("同父节点请保存后在实际连接时验证。", "xOpenTerm");
+                MessageBox.Show(this, "同父节点请保存后在实际连接时验证。", "xOpenTerm");
                 return;
             }
             var tempNode = new Node
@@ -348,19 +348,19 @@ public partial class NodeEditWindow : Window
             }
             catch (Exception ex)
             {
-                MessageBox.Show("解析父节点凭证失败：\n" + ex.Message, "xOpenTerm");
+                MessageBox.Show(this, "解析父节点凭证失败：\n" + ex.Message, "xOpenTerm");
                 return;
             }
-            if (string.IsNullOrEmpty(username)) { MessageBox.Show("父节点未配置 SSH 默认凭证，请先在分组设置中配置。", "xOpenTerm"); return; }
+            if (string.IsNullOrEmpty(username)) { MessageBox.Show(this, "父节点未配置 SSH 默认凭证，请先在分组设置中配置。", "xOpenTerm"); return; }
         }
         else
         {
-            MessageBox.Show("同父节点请保存后在实际连接时验证。", "xOpenTerm");
+            MessageBox.Show(this, "同父节点请保存后在实际连接时验证。", "xOpenTerm");
             return;
         }
-        if (string.IsNullOrEmpty(username)) { MessageBox.Show("请填写用户名。", "xOpenTerm"); return; }
+        if (string.IsNullOrEmpty(username)) { MessageBox.Show(this, "请填写用户名。", "xOpenTerm"); return; }
         var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
-        MessageBox.Show(result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
+        MessageBox.Show(this, result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
     }
 
     private void SaveBtn_Click(object sender, RoutedEventArgs e)
@@ -371,7 +371,7 @@ public partial class NodeEditWindow : Window
             name = HostBox.Text!.Trim();
         if (string.IsNullOrEmpty(name))
         {
-            MessageBox.Show("请输入名称。", "xOpenTerm");
+            MessageBox.Show(this, "请输入名称。", "xOpenTerm");
             return;
         }
         _node.Name = name;
@@ -427,7 +427,7 @@ public partial class NodeEditWindow : Window
 
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (IsDirty() && MessageBox.Show("是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (IsDirty() && MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _closingConfirmed = true;
         DialogResult = false;

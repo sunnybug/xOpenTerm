@@ -575,7 +575,7 @@ public partial class MainWindow
 
     private void EditNode(Node node)
     {
-        var dlg = new NodeEditWindow(node, _nodes, _credentials, _tunnels, _storage);
+        var dlg = new NodeEditWindow(node, _nodes, _credentials, _tunnels, _storage) { Owner = this };
         if (dlg.ShowDialog() == true && dlg.SavedNode != null)
         {
             var idx = _nodes.FindIndex(n => n.Id == dlg.SavedNode.Id);
@@ -588,7 +588,7 @@ public partial class MainWindow
 
     private void EditGroupSettings(Node groupNode)
     {
-        var dlg = new GroupSettingsWindow(groupNode, _nodes, _credentials, _tunnels, _storage);
+        var dlg = new GroupSettingsWindow(groupNode, _nodes, _credentials, _tunnels, _storage) { Owner = this };
         if (dlg.ShowDialog() == true)
         {
             var idx = _nodes.FindIndex(n => n.Id == groupNode.Id);
