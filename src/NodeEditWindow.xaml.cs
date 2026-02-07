@@ -235,7 +235,7 @@ public partial class NodeEditWindow : Window
         {
             HostBox.Visibility = Visibility.Collapsed;
             PortBox.Visibility = Visibility.Collapsed;
-            UsernameBox.Visibility = Visibility.Collapsed;
+            UsernameRow.Visibility = Visibility.Collapsed;
             AuthCombo.Visibility = Visibility.Collapsed;
             PasswordRow.Visibility = Visibility.Collapsed;
             KeyRow.Visibility = Visibility.Collapsed;
@@ -245,7 +245,7 @@ public partial class NodeEditWindow : Window
         {
             HostBox.Visibility = Visibility.Visible;
             PortBox.Visibility = Visibility.Visible;
-            UsernameBox.Visibility = Visibility.Visible;
+            UsernameRow.Visibility = Visibility.Visible;
             AuthCombo.Visibility = isLocal ? Visibility.Collapsed : Visibility.Visible;
             PasswordRow.Visibility = Visibility.Collapsed;
             KeyRow.Visibility = Visibility.Collapsed;
@@ -264,6 +264,10 @@ public partial class NodeEditWindow : Window
     private void UpdateAuthVisibility()
     {
         var idx = AuthCombo.SelectedIndex;
+        // 同父节点(0)、登录凭证(1) 时不显示用户名，也不使用其值
+        var hideUsername = idx == 0 || idx == 1;
+        UsernameRow.Visibility = hideUsername ? Visibility.Collapsed : Visibility.Visible;
+
         if (TypeCombo.SelectedIndex == (int)NodeType.rdp) // RDP：同父节点(0)、登录凭证(1)、密码(2)
         {
             CredentialRow.Visibility = idx == 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -344,19 +348,18 @@ public partial class NodeEditWindow : Window
             {
                 _node.Config.Host = HostBox.Text?.Trim();
                 _node.Config.Port = ushort.TryParse(PortBox.Text, out var pr) && pr > 0 ? pr : (ushort)3389;
-                _node.Config.Username = UsernameBox.Text?.Trim() ?? "administrator";
-                _node.Config.Domain = ""; // RDP 不用域
                 var authIdx = AuthCombo.SelectedIndex;
                 _node.Config.AuthSource = authIdx switch { 0 => AuthSource.parent, 1 => AuthSource.credential, _ => AuthSource.inline };
                 _node.Config.CredentialId = authIdx == 1 && CredentialCombo.SelectedValue is string rdpCid ? rdpCid : null;
                 _node.Config.Password = authIdx != 0 && authIdx != 1 ? PasswordBox.Password : null;
+                _node.Config.Username = (authIdx == 0 || authIdx == 1) ? null : (UsernameBox.Text?.Trim() ?? "administrator");
             }
             else
             {
                 _node.Config.Host = HostBox.Text?.Trim();
                 _node.Config.Port = ushort.TryParse(PortBox.Text, out var p) && p > 0 ? p : (ushort)22;
-                _node.Config.Username = UsernameBox.Text?.Trim();
                 var authIdx = AuthCombo.SelectedIndex;
+                _node.Config.Username = (authIdx == 0 || authIdx == 1) ? null : UsernameBox.Text?.Trim();
                 _node.Config.AuthSource = authIdx switch { 0 => AuthSource.parent, 1 => AuthSource.credential, 4 => AuthSource.agent, _ => AuthSource.inline };
                 _node.Config.CredentialId = authIdx == 1 && CredentialCombo.SelectedValue is string cid ? cid : null;
                 _node.Config.AuthType = authIdx == 3 ? AuthType.key : AuthType.password;

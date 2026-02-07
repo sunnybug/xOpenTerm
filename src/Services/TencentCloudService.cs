@@ -53,50 +53,43 @@ public static class TencentCloudService
             cancellationToken.ThrowIfCancellationRequested();
             progress?.Report(($"正在拉取 {regionName} ({region})…", current, totalRegions));
 
-            try
-            {
-                var client = new CvmClient(cred, region);
-                var offset = 0;
-                const int limit = 100;
+            var client = new CvmClient(cred, region);
+            var offset = 0;
+            const int limit = 100;
 
-                while (true)
+            while (true)
+            {
+                var req = new DescribeInstancesRequest
                 {
-                    var req = new DescribeInstancesRequest
-                    {
-                        Offset = offset,
-                        Limit = limit
-                    };
-                    var resp = client.DescribeInstancesSync(req);
-                    if (resp.InstanceSet == null) break;
+                    Offset = offset,
+                    Limit = limit
+                };
+                var resp = client.DescribeInstancesSync(req);
+                if (resp.InstanceSet == null) break;
 
-                    foreach (var ins in resp.InstanceSet)
-                    {
-                        var osName = ins.OsName ?? "";
-                        var isWin = osName.Contains("Windows", System.StringComparison.OrdinalIgnoreCase);
-                        var publicIp = ins.PublicIpAddresses?.FirstOrDefault();
-                        var privateIp = ins.PrivateIpAddresses?.FirstOrDefault();
-                        var projectId = (int)(ins.Placement?.ProjectId ?? 0);
-                        list.Add(new TencentCvmInstance(
-                            region,
-                            regionName,
-                            projectId,
-                            ins.InstanceId ?? "",
-                            ins.InstanceName ?? ins.InstanceId ?? "",
-                            publicIp,
-                            privateIp,
-                            osName,
-                            isWin));
-                    }
-
-                    var got = resp.InstanceSet == null ? 0 : resp.InstanceSet.Count();
-                    if (got < limit)
-                        break;
-                    offset += limit;
+                foreach (var ins in resp.InstanceSet)
+                {
+                    var osName = ins.OsName ?? "";
+                    var isWin = osName.Contains("Windows", System.StringComparison.OrdinalIgnoreCase);
+                    var publicIp = ins.PublicIpAddresses?.FirstOrDefault();
+                    var privateIp = ins.PrivateIpAddresses?.FirstOrDefault();
+                    var projectId = (int)(ins.Placement?.ProjectId ?? 0);
+                    list.Add(new TencentCvmInstance(
+                        region,
+                        regionName,
+                        projectId,
+                        ins.InstanceId ?? "",
+                        ins.InstanceName ?? ins.InstanceId ?? "",
+                        publicIp,
+                        privateIp,
+                        osName,
+                        isWin));
                 }
-            }
-            catch (System.Exception)
-            {
-                // 某地域无权限或未开通则跳过
+
+                var got = resp.InstanceSet == null ? 0 : resp.InstanceSet.Count();
+                if (got < limit)
+                    break;
+                offset += limit;
             }
 
             current++;

@@ -17,6 +17,7 @@ public partial class TencentCloudSyncWindow : Window
         _onCancel = onCancel;
     }
 
+    /// <summary>在拥有此窗口的 UI 线程上执行 action；若当前非 UI 线程则同步 Invoke，确保不跨线程访问 UI。</summary>
     private void UpdateUi(Action action)
     {
         var dispatcher = Dispatcher ?? Application.Current?.Dispatcher;
@@ -24,7 +25,7 @@ public partial class TencentCloudSyncWindow : Window
         if (dispatcher.CheckAccess())
             action();
         else
-            dispatcher.BeginInvoke(DispatcherPriority.Normal, action);
+            dispatcher.Invoke(DispatcherPriority.Normal, action);
     }
 
     public void ReportProgress(string message, int current, int total)

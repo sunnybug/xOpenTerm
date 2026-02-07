@@ -75,6 +75,10 @@
                                       AllowDrop="True" PreviewMouseLeftButtonDown="ServerTree_PreviewMouseLeftButtonDown"
                                       PreviewMouseMove="ServerTree_PreviewMouseMove" DragOver="ServerTree_DragOver" Drop="ServerTree_Drop"
                                       PreviewKeyDown="ServerTree_PreviewKeyDown">
+                                <TreeView.ContextMenu>
+                                    <!-- 占位：无此占位时 WPF 在首次右键不会触发 ContextMenuOpening，菜单在 Opening 中动态替换 -->
+                                    <ContextMenu/>
+                                </TreeView.ContextMenu>
                                 <TreeView.ItemContainerStyle>
                                     <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                                         <EventSetter Event="RequestBringIntoView" Handler="ServerTree_RequestBringIntoView"/>

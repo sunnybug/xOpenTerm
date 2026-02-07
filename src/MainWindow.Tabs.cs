@@ -53,7 +53,8 @@ public partial class MainWindow
                 {
                     Header = CreateTabHeader(tabTitle, tabId),
                     Content = terminal,
-                    Tag = tabId
+                    Tag = tabId,
+                    ContextMenu = CreateTabContextMenu(tabId)
                 };
                 TabsControl.Items.Add(tabItem);
                 TabsControl.SelectedItem = tabItem;
@@ -97,7 +98,8 @@ public partial class MainWindow
         {
             Header = CreateTabHeader(tabTitle, tabId),
             Content = hostWpf,
-            Tag = tabId
+            Tag = tabId,
+            ContextMenu = CreateTabContextMenu(tabId)
         };
         TabsControl.Items.Add(tabItem);
         TabsControl.SelectedItem = tabItem;
@@ -125,7 +127,8 @@ public partial class MainWindow
         {
             Header = CreateTabHeader(tabTitle, tabId),
             Content = terminal,
-            Tag = tabId
+            Tag = tabId,
+            ContextMenu = CreateTabContextMenu(tabId)
         };
         TabsControl.Items.Add(tabItem);
         TabsControl.SelectedItem = tabItem;
@@ -187,6 +190,114 @@ public partial class MainWindow
         return panel;
     }
 
+    private ContextMenu CreateTabContextMenu(string tabId)
+    {
+        var menu = new ContextMenu();
+        var reconnectItem = new MenuItem { Header = "重连" };
+        reconnectItem.Click += (_, _) => ReconnectTab(tabId);
+        var disconnectItem = new MenuItem { Header = "断开" };
+        disconnectItem.Click += (_, _) => DisconnectTab(tabId);
+        var closeItem = new MenuItem { Header = "关闭" };
+        closeItem.Click += (_, _) => CloseTab(tabId);
+        menu.Items.Add(reconnectItem);
+        menu.Items.Add(disconnectItem);
+        menu.Items.Add(closeItem);
+        return menu;
+    }
+
+    private void DisconnectTab(string tabId)
+    {
+        if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+        {
+            rdp.Disconnect();
+            return;
+        }
+        if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
+        {
+            putty.Close();
+            return;
+        }
+        _sessionManager.CloseSession(tabId);
+    }
+
+    private void ReconnectTab(string tabId)
+    {
+        if (!_tabIdToNodeId.TryGetValue(tabId, out var nodeId))
+            return;
+        var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
+        if (node == null)
+            return;
+
+        if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+        {
+            rdp.Connect();
+            return;
+        }
+        if (_tabIdToPuttyControl.TryGetValue(tabId, out var _))
+        {
+            CloseTab(tabId);
+            OpenTab(node);
+            return;
+        }
+        if (!_tabIdToTerminal.TryGetValue(tabId, out var terminal))
+            return;
+
+        _sessionManager.CloseSession(tabId);
+        if (node.Type == NodeType.local)
+        {
+            terminal.Append("\x1b[32m正在连接...\x1b[0m\r\n");
+            var protocol = node.Config?.Protocol ?? Protocol.powershell;
+            var protocolStr = protocol == Protocol.cmd ? "cmd" : "powershell";
+            _sessionManager.CreateLocalSession(tabId, node.Id, protocolStr, err =>
+            {
+                Dispatcher.Invoke(() => terminal.Append("\r\n\x1b[31m" + err + "\x1b[0m\r\n"));
+            });
+            return;
+        }
+        if (node.Type == NodeType.ssh)
+        {
+            try
+            {
+                var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
+                    ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
+                if (jumpChain == null || jumpChain.Count == 0)
+                {
+                    CloseTab(tabId);
+                    OpenTab(node);
+                    return;
+                }
+                terminal.Append("\x1b[32m正在连接...\x1b[0m\r\n");
+                var (h, p, u, pw, kp, kpp, jc, ua) = (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent);
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        _sessionManager.CreateSshSession(tabId, node.Id, h, (ushort)p, u, pw, kp, kpp, jc, ua, err =>
+                        {
+                            Dispatcher.BeginInvoke(() => terminal.Append("\r\n\x1b[31m" + err + "\x1b[0m\r\n"));
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.BeginInvoke(() => terminal.Append("\r\n\x1b[31m" + ex.Message + "\x1b[0m\r\n"));
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                terminal.Append("\r\n\x1b[31m" + ex.Message + "\x1b[0m\r\n");
+            }
+            return;
+        }
+        terminal.Append("\x1b[32m正在连接...\x1b[0m\r\n");
+        var protocol2 = node.Config?.Protocol ?? Protocol.powershell;
+        var protocolStr2 = protocol2 == Protocol.cmd ? "cmd" : "powershell";
+        _sessionManager.CreateLocalSession(tabId, node.Id, protocolStr2, err =>
+        {
+            Dispatcher.Invoke(() => terminal.Append("\r\n\x1b[31m" + err + "\x1b[0m\r\n"));
+        });
+    }
+
     private void OpenRdpTab(Node node)
     {
         try
@@ -222,7 +333,8 @@ public partial class MainWindow
             {
                 Header = CreateTabHeader(tabTitle, tabId),
                 Content = hostWpf,
-                Tag = tabId
+                Tag = tabId,
+                ContextMenu = CreateTabContextMenu(tabId)
             };
             TabsControl.Items.Add(tabItem);
             TabsControl.SelectedItem = tabItem;

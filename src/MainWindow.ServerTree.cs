@@ -22,6 +22,42 @@ public partial class MainWindow
         foreach (var node in roots)
             if (MatchesSearch(node))
                 ServerTree.Items.Add(CreateTreeItem(node, expandedIds, expandNodes));
+        // 重建后根据 _selectedNodeIds 恢复 TreeView 的选中项，避免键盘 Delete 误删父节点
+        RestoreSelectionFromSelectedNodeIds();
+    }
+
+    /// <summary>根据 _selectedNodeIds 恢复 TreeView 选中项并展开祖先，使键盘操作作用在正确节点上。</summary>
+    private void RestoreSelectionFromSelectedNodeIds()
+    {
+        if (_selectedNodeIds.Count == 0) return;
+        var firstId = _selectedNodeIds.FirstOrDefault(id => _nodes.Any(n => n.Id == id));
+        if (string.IsNullOrEmpty(firstId)) return;
+        var tvi = FindTreeViewItemByNodeId(ServerTree, firstId);
+        if (tvi == null) return;
+        ExpandAncestors(tvi);
+        tvi.IsSelected = true;
+        tvi.BringIntoView();
+    }
+
+    private static TreeViewItem? FindTreeViewItemByNodeId(ItemsControl parent, string nodeId)
+    {
+        for (var i = 0; i < parent.Items.Count; i++)
+        {
+            if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem child) continue;
+            if (child.Tag is Node n && n.Id == nodeId) return child;
+            var found = FindTreeViewItemByNodeId(child, nodeId);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static void ExpandAncestors(TreeViewItem item)
+    {
+        for (var p = System.Windows.Media.VisualTreeHelper.GetParent(item) as DependencyObject; p != null; p = System.Windows.Media.VisualTreeHelper.GetParent(p))
+        {
+            if (p is TreeViewItem parentTvi)
+                parentTvi.IsExpanded = true;
+        }
     }
 
     private static HashSet<string>? CollectExpandedGroupNodeIds(ItemsControl tree)
@@ -149,19 +185,40 @@ public partial class MainWindow
 
     private void ServerTree_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (ServerTree.SelectedItem is not TreeViewItem tvi || tvi.Tag is not Node node) return;
+        // 优先以 _selectedNodeIds 解析操作目标，避免 BuildTree 后 SelectedItem 错位导致误删父节点
+        List<Node>? nodesToAct = null;
+        if (_selectedNodeIds.Count > 0)
+        {
+            nodesToAct = _nodes.Where(n => _selectedNodeIds.Contains(n.Id)).ToList();
+            if (nodesToAct.Count == 0) nodesToAct = null;
+        }
+        if (nodesToAct == null && ServerTree.SelectedItem is TreeViewItem tvi && tvi.Tag is Node single)
+            nodesToAct = new List<Node> { single };
+
+        if (nodesToAct == null || nodesToAct.Count == 0) return;
+
         if (e.Key == Key.F2)
         {
+            if (nodesToAct.Count != 1) return;
             e.Handled = true;
-            StartInlineRename(tvi, node);
+            var node = nodesToAct[0];
+            var targetTvi = FindTreeViewItemByNodeId(ServerTree, node.Id);
+            if (targetTvi != null)
+                StartInlineRename(targetTvi, node);
         }
         else if (e.Key == Key.Delete)
         {
             e.Handled = true;
-            if (node.Type == NodeType.group)
-                DeleteNodeRecursive(node);
+            if (nodesToAct.Count > 1)
+                DeleteSelected(nodesToAct);
             else
-                DeleteNode(node);
+            {
+                var node = nodesToAct[0];
+                if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup)
+                    DeleteNodeRecursive(node);
+                else
+                    DeleteNode(node);
+            }
         }
     }
 
@@ -569,52 +626,8 @@ public partial class MainWindow
         _storage.SaveNodes(_nodes);
         BuildTree();
 
-        var syncWin = new TencentCloudSyncWindow(null) { Owner = this };
-        var cts = new CancellationTokenSource();
-        syncWin.ReportProgress("正在拉取实例列表…", 0, 1);
-        syncWin.Show();
-
-        var progress = new Progress<(string message, int current, int total)>(p =>
-        {
-            syncWin.ReportProgress(p.message, p.current, p.total);
-        });
-
-        List<TencentCvmInstance>? instances = null;
-        Exception? runEx = null;
-        var t = System.Threading.Tasks.Task.Run(() =>
-        {
-            try
-            {
-                return TencentCloudService.ListInstances(dlg.SecretId, dlg.SecretKey, progress, cts.Token);
-            }
-            catch (Exception ex)
-            {
-                runEx = ex;
-                return null;
-            }
-        });
-
-        while (!t.IsCompleted && syncWin.IsLoaded && syncWin.IsVisible)
-        {
-            System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
-                System.Windows.Threading.DispatcherPriority.Background,
-                () => { });
-            Thread.Sleep(50);
-        }
-
-        if (runEx != null || t.Result == null)
-        {
-            syncWin.ReportResult(runEx?.Message ?? "拉取失败", false);
-            return;
-        }
-        instances = t.Result;
-
-        var toAdd = BuildTencentCloudSubtree(groupNode.Id, instances);
-        foreach (var n in toAdd)
-            _nodes.Add(n);
-        _storage.SaveNodes(_nodes);
-        syncWin.ReportResult($"已导入 {instances.Count} 台实例，共 {toAdd.Count} 个节点。", true);
-        BuildTree(expandNodes: false);
+        // 复用与右键「同步」完全相同的流程，避免新建组流程中的线程/时序差异导致跨线程访问 UI
+        SyncTencentCloudGroup(groupNode);
     }
 
     /// <summary>根据腾讯云实例列表构建 机房→项目→服务器 节点树，所有服务器节点默认同父节点凭证。</summary>
@@ -694,9 +707,10 @@ public partial class MainWindow
         syncWin.Show();
         syncWin.ReportProgress("正在拉取实例列表…", 0, 1);
 
+        // 进度回调统一同步封送到同步窗口的 UI 线程，避免跨线程访问
         var progress = new Progress<(string message, int current, int total)>(p =>
         {
-            syncWin.ReportProgress(p.message, p.current, p.total);
+            syncWin.Dispatcher.Invoke(() => syncWin.ReportProgress(p.message, p.current, p.total));
         });
 
         List<TencentCvmInstance>? instances = null;
@@ -724,7 +738,8 @@ public partial class MainWindow
 
         if (runEx != null || t.Result == null)
         {
-            syncWin.ReportResult(runEx?.Message ?? "拉取失败或已取消", false);
+            var errMsg = runEx != null ? GetFullExceptionMessage(runEx) : "拉取失败或已取消";
+            syncWin.ReportResult(errMsg, false);
             return;
         }
         instances = t.Result;
@@ -747,10 +762,15 @@ public partial class MainWindow
         }
         CollectServerNodes(groupNode.Id);
 
-        // 删除本地存在但云上已不存在的节点
+        // 删除本地存在但云上已不存在的节点（先询问用户）
         var toRemove = serverNodesUnderGroup.Where(n => !cloudInstanceIds.Contains(n.Config!.ResourceId!)).ToList();
-        foreach (var n in toRemove)
-            _nodes.RemoveAll(x => x.Id == n.Id);
+        if (toRemove.Count > 0)
+        {
+            if (MessageBox.Show($"云上已不存在以下 {toRemove.Count} 个实例，是否从本地树中删除？\n\n此操作不可恢复。", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                toRemove = new List<Node>();
+            foreach (var n in toRemove)
+                _nodes.RemoveAll(x => x.Id == n.Id);
+        }
 
         // 现有实例 ID -> 实例信息（用于更新 IP 或新增）
         var instanceMap = instances.Where(i => !string.IsNullOrEmpty(i.InstanceId)).ToDictionary(i => i.InstanceId!, StringComparer.OrdinalIgnoreCase);
@@ -859,6 +879,19 @@ public partial class MainWindow
             }
         }
         return set;
+    }
+
+    /// <summary>拼接异常及内部异常信息，便于在同步窗口显示具体错误原因（如密钥错误、API 错误码等）。</summary>
+    private static string GetFullExceptionMessage(Exception ex)
+    {
+        var msg = ex?.Message ?? "";
+        if (ex?.InnerException != null)
+        {
+            var inner = ex.InnerException.Message ?? "";
+            if (!string.IsNullOrEmpty(inner) && !msg.Contains(inner))
+                msg = msg + " " + inner;
+        }
+        return string.IsNullOrWhiteSpace(msg) ? "拉取失败" : msg.Trim();
     }
 
     private static string GetTencentProjectIdFromName(string name)

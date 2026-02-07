@@ -31,7 +31,7 @@
                     <TextBlock Text="端口" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
                     <TextBox x:Name="PortBox" Width="80" MaxLength="5" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="UsernameRow">
                     <TextBlock Text="用户名" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
                     <TextBox x:Name="UsernameBox" Width="260" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
                 </StackPanel>
