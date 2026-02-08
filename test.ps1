@@ -1,4 +1,4 @@
-﻿# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
+# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
 
 param(
     [switch]$Release
@@ -13,6 +13,13 @@ trap {
     Write-Host "$($_.InvocationInfo.ScriptName):$($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
     Read-Host "按 Enter 键关闭窗口"
     break
+}
+
+# 启动前删除应用日志目录（与 ExceptionLog 使用的路径一致）
+$LogDir = Join-Path $env:LOCALAPPDATA "xOpenTerm\logs"
+if (Test-Path $LogDir) {
+    Remove-Item -Path $LogDir -Recurse -Force
+    Write-Host "已删除日志目录: $LogDir" -ForegroundColor Gray
 }
 
 $BuildScript = Join-Path $PSScriptRoot "script\build.ps1"
