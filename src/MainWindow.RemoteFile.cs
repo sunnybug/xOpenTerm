@@ -43,6 +43,7 @@ public partial class MainWindow
             list = parentList;
         }
         RemoteFileList.ItemsSource = list;
+        _remoteFileCacheByNodeId[_remoteFileNodeId] = (path, new List<RemoteFileItem>(list));
     }
 
     private void RemotePathBox_KeyDown(object sender, KeyEventArgs e)

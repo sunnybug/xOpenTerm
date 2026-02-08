@@ -147,7 +147,8 @@
 
         <!-- 右侧：标签 + 终端 -->
         <TabControl x:Name="TabsControl" Grid.Column="2" Padding="0" Margin="0"
-                    Background="{StaticResource BgDark}" BorderThickness="0"/>
+                    Background="{StaticResource BgDark}" BorderThickness="0"
+                    SelectionChanged="TabsControl_SelectionChanged"/>
         </Grid>
     </Grid>
 </Window>

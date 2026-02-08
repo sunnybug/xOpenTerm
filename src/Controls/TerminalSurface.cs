@@ -83,7 +83,10 @@ public sealed class TerminalSurface : FrameworkElement
         if (_buffer == null) return new Size(0, 0);
         var lineCount = _buffer.LineCount;
         if (lineCount == 0) return new Size(0, 0);
-        var width = 80 * _charWidth;
+        // 使用可用宽度（如 ScrollViewer 视口），避免固定 80 列导致行过窄
+        var width = availableSize.Width > 0 && !double.IsInfinity(availableSize.Width)
+            ? availableSize.Width
+            : 120 * _charWidth;
         var height = lineCount * _lineHeight;
         return new Size(width, height);
     }

@@ -40,6 +40,8 @@ public partial class MainWindow : Window
     private string? _remoteFileNodeId;
     /// <summary>远程文件当前路径</summary>
     private string _remoteFilePath = ".";
+    /// <summary>远程文件 tab 缓存：nodeId -> (路径, 列表)。该连接对应的所有 tab 关闭后清除。</summary>
+    private readonly Dictionary<string, (string Path, List<RemoteFileItem> List)> _remoteFileCacheByNodeId = new();
 
     public MainWindow()
     {

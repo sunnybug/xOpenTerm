@@ -31,6 +31,35 @@ public partial class TerminalControl : UserControl
         _surface.KeyDown += TerminalSurface_KeyDown;
         _surface.MouseDown += (_, _) => _surface.Focus();
         SurfaceHost.Child = _surface;
+        UpdateSurfaceWidth();
+        LayoutUpdated += OnLayoutUpdated;
+    }
+
+    private bool _layoutUpdatedOnce;
+
+    private void OnLayoutUpdated(object? sender, EventArgs e)
+    {
+        if (_layoutUpdatedOnce) return;
+        _layoutUpdatedOnce = true;
+        LayoutUpdated -= OnLayoutUpdated;
+        Dispatcher.BeginInvoke(() => UpdateSurfaceWidth());
+    }
+
+    private void ScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateSurfaceWidth();
+    }
+
+    private void UpdateSurfaceWidth()
+    {
+        // 让终端占满 ScrollViewer 视口宽度，避免行过窄（ViewportWidth 在布局后才有值）
+        var w = ScrollViewer.ViewportWidth;
+        if (w <= 0) w = Math.Max(0, ScrollViewer.ActualWidth - ScrollViewer.Padding.Left - ScrollViewer.Padding.Right);
+        if (w <= 0) w = 800;
+        if (Math.Abs(SurfaceHost.Width - w) < 0.01) return;
+        SurfaceHost.Width = w;
+        SurfaceHost.InvalidateMeasure();
+        _surface?.InvalidateMeasure();
     }
 
     public void Append(string data)

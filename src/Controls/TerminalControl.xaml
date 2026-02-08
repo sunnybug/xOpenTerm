@@ -4,7 +4,7 @@
              xmlns:hc="https://handyorg.github.io/handycontrol"
              Background="{StaticResource BgDark}">
     <ScrollViewer x:Name="ScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                  Padding="8" KeyDown="TerminalSurface_KeyDown">
+                  Padding="8" KeyDown="TerminalSurface_KeyDown" SizeChanged="ScrollViewer_SizeChanged">
         <Border x:Name="SurfaceHost" Background="Transparent" Focusable="False"/>
     </ScrollViewer>
 </UserControl>
