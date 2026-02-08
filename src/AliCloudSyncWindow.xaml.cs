@@ -7,13 +7,13 @@ using System.Windows.Threading;
 
 namespace xOpenTerm;
 
-/// <summary>腾讯云同步进度窗口：显示进度并支持取消。所有 UI 更新均通过 Dispatcher 切回 UI 线程。</summary>
-public partial class TencentCloudSyncWindow : Window
+/// <summary>阿里云同步进度窗口：显示进度并支持取消。所有 UI 更新均通过 Dispatcher 切回 UI 线程。</summary>
+public partial class AliCloudSyncWindow : Window
 {
     private readonly Action? _onCancel;
     private bool _completed;
 
-    public TencentCloudSyncWindow(Action? onCancel)
+    public AliCloudSyncWindow(Action? onCancel)
     {
         InitializeComponent();
         _onCancel = onCancel;

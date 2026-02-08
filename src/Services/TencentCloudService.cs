@@ -5,6 +5,8 @@ using TencentCloud.Cvm.V20170312;
 using TencentCloud.Cvm.V20170312.Models;
 using TencentCloud.Tag.V20180813;
 using TencentCloud.Tag.V20180813.Models;
+using TencentCloud.Lighthouse.V20200324;
+using TencentCloud.Lighthouse.V20200324.Models;
 
 namespace xOpenTerm.Services;
 
@@ -14,6 +16,17 @@ public record TencentCvmInstance(
     string RegionName,
     int ProjectId,
     string? ProjectName,
+    string InstanceId,
+    string InstanceName,
+    string? PublicIp,
+    string? PrivateIp,
+    string? OsName,
+    bool IsWindows);
+
+/// <summary>腾讯云轻量应用服务器实例信息，用于构建节点树（地域→服务器）。</summary>
+public record TencentLighthouseInstance(
+    string Region,
+    string RegionName,
     string InstanceId,
     string InstanceName,
     string? PublicIp,
@@ -98,7 +111,7 @@ public static class TencentCloudService
 
             while (true)
             {
-                var req = new DescribeInstancesRequest
+                var req = new TencentCloud.Cvm.V20170312.Models.DescribeInstancesRequest
                 {
                     Offset = offset,
                     Limit = limit
@@ -131,6 +144,105 @@ public static class TencentCloudService
                 if (got < limit)
                     break;
                 offset += limit;
+            }
+
+            current++;
+        }
+
+        progress?.Report(("拉取完成", totalRegions, totalRegions));
+        return list;
+    }
+
+    /// <summary>常见轻量应用服务器地域（可扩展）。</summary>
+    private static readonly (string Region, string Name)[] LighthouseRegions =
+    {
+        ("ap-guangzhou", "广州"),
+        ("ap-hongkong", "香港"),
+        ("ap-shanghai", "上海"),
+        ("ap-nanjing", "南京"),
+        ("ap-beijing", "北京"),
+        ("ap-chengdu", "成都"),
+        ("ap-chongqing", "重庆"),
+        ("ap-singapore", "新加坡"),
+        ("ap-bangkok", "曼谷"),
+        ("ap-tokyo", "东京"),
+        ("ap-seoul", "首尔"),
+        ("na-siliconvalley", "硅谷"),
+    };
+
+    /// <summary>拉取所有地域的轻量应用服务器实例，报告进度并支持取消。</summary>
+    public static List<TencentLighthouseInstance> ListLighthouseInstances(
+        string secretId,
+        string secretKey,
+        IProgress<(string message, int current, int total)>? progress,
+        System.Threading.CancellationToken cancellationToken = default)
+    {
+        var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
+        var list = new List<TencentLighthouseInstance>();
+        var totalRegions = LighthouseRegions.Length;
+        var current = 0;
+
+        foreach (var (region, regionName) in LighthouseRegions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(($"正在拉取轻量服务器 {regionName} ({region})…", current, totalRegions));
+
+            try
+            {
+                var client = new LighthouseClient(cred, region);
+                var offset = 0;
+                const int limit = 100;
+
+                while (true)
+                {
+                    var req = new TencentCloud.Lighthouse.V20200324.Models.DescribeInstancesRequest
+                    {
+                        Offset = offset,
+                        Limit = limit
+                    };
+                    var resp = client.DescribeInstancesSync(req);
+                    if (resp.InstanceSet == null) break;
+
+                    foreach (var ins in resp.InstanceSet)
+                    {
+                        var osName = ins.OsName ?? "";
+                        var isWin = osName.Contains("Windows", System.StringComparison.OrdinalIgnoreCase);
+
+                        // 获取公网 IP（从数组中取第一个）
+                        string? publicIp = null;
+                        if (ins.PublicAddresses != null && ins.PublicAddresses.Length > 0)
+                        {
+                            publicIp = ins.PublicAddresses[0];
+                        }
+
+                        // 获取私网 IP（从数组中取第一个）
+                        string? privateIp = null;
+                        if (ins.PrivateAddresses != null && ins.PrivateAddresses.Length > 0)
+                        {
+                            privateIp = ins.PrivateAddresses[0];
+                        }
+
+                        list.Add(new TencentLighthouseInstance(
+                            region,
+                            regionName,
+                            ins.InstanceId ?? "",
+                            ins.InstanceName ?? ins.InstanceId ?? "",
+                            publicIp,
+                            privateIp,
+                            osName,
+                            isWin));
+                    }
+
+                    var got = resp.InstanceSet == null ? 0 : resp.InstanceSet.Length;
+                    if (got < limit)
+                        break;
+                    offset += limit;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 某个地域失败不影响其他地域
+                System.Diagnostics.Debug.WriteLine($"拉取轻量服务器 {regionName} 失败: {ex.Message}");
             }
 
             current++;

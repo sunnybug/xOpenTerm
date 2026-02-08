@@ -71,4 +71,12 @@ public class ConnectionConfig
     /// <summary>腾讯云组节点：API 密钥 SecretKey（加密存储）。</summary>
     [YamlMember(Alias = "tencentSecretKey")]
     public string? TencentSecretKey { get; set; }
+
+    /// <summary>阿里云组节点：API 密钥 AccessKeyId（加密存储）。</summary>
+    [YamlMember(Alias = "aliAccessKeyId")]
+    public string? AliAccessKeyId { get; set; }
+
+    /// <summary>阿里云组节点：API 密钥 AccessKeySecret（加密存储）。</summary>
+    [YamlMember(Alias = "aliAccessKeySecret")]
+    public string? AliAccessKeySecret { get; set; }
 }

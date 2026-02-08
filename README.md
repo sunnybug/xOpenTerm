@@ -12,6 +12,8 @@
 - **顶栏菜单**：设置 → 登录凭证、隧道管理；帮助 → 关于、检查更新
 - **登录凭证**：独立管理窗口，可被多个节点引用
 - **隧道管理**：跳板机增删改查与测试连接
+- **腾讯云同步**：从腾讯云 API 导入服务器列表，支持增量更新
+- **阿里云同步**：从阿里云 API 导入服务器列表，支持增量更新
 - **关于 / 更新**：版本号、作者、GitHub 链接；从 GitHub Releases 检查更新
 - **持久化**：节点、凭证、隧道保存为 YAML（`config/nodes.yaml`、`credentials.yaml`、`tunnels.yaml`，位于 exe 同目录下的 `config/`）
 
@@ -24,7 +26,8 @@
 ## 项目结构
 
 - `src/` — 源码（输出到仓库根下 `bin/Debug`、`bin/Release`，中间文件在 `temp/`）
-- `script/` — 脚本：`build.ps1`、`test.ps1`、`publish.ps1`、`init_dev.ps1`
+- `test.ps1` — 构建并运行应用（支持 --release）
+- `script/` — 脚本：`build.ps1`、`publish.ps1`、`init_dev.ps1`
 - `bin/` — 工作目录：`config/` 配置、`log/` 日志、`var/` 临时覆盖配置
 - `dist/` — 发布目录（由 `script/publish.ps1` 或 GitHub Actions 生成）
 - `doc/`、`aidoc/` — 文档与 AI 生成文档
@@ -33,12 +36,14 @@
 
 ```powershell
 # 编译并运行 Debug
-.\run.ps1
+.\test.ps1
 
-# 或：仅构建 / 构建并运行（支持 -Release）
-.\script\build.ps1
-.\script\test.ps1              # Debug
-.\script\test.ps1 -Release     # Release
+# 仅构建
+.\script\build.ps1           # Debug
+.\script\build.ps1 --release # Release
+
+# 构建并运行 Release
+.\test.ps1 --release
 
 # 初始化开发环境（还原依赖、创建 bin/config 等）
 .\script\init_dev.ps1
@@ -72,3 +77,5 @@
 - 无「远程文件」面板与 `list_remote_dir`
 - 终端为自定义绘制 VT100 终端（ANSI 颜色/SGR、仅绘制可见行，无 xterm.js）
 - 隧道链配置与选择已支持，SSH 支持直连与多跳（经跳板机链本地端口转发连接目标）
+- 腾讯云同步功能
+- 阿里云同步功能
