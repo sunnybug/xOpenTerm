@@ -104,6 +104,12 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        if (TabsControl.Items.Count > 0 &&
+            MessageBox.Show("当前有连接未关闭，确定要退出吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            e.Cancel = true;
+            return;
+        }
         var s = _storage.LoadAppSettings();
         if (WindowState == WindowState.Maximized)
         {

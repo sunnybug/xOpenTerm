@@ -52,7 +52,7 @@ public partial class MainWindow
                 var terminal = new TerminalControl();
                 var tabItem = new TabItem
                 {
-                    Header = CreateTabHeader(tabTitle, tabId),
+                    Header = CreateTabHeader(tabTitle, tabId, node),
                     Content = terminal,
                     Tag = tabId,
                     ContextMenu = CreateTabContextMenu(tabId),
@@ -101,7 +101,7 @@ public partial class MainWindow
         grid.Children.Add(hostWpf);
         var tabItem = new TabItem
         {
-            Header = CreateTabHeader(tabTitle, tabId),
+            Header = CreateTabHeader(tabTitle, tabId, node),
             Content = grid,
             Tag = tabId,
             ContextMenu = CreateTabContextMenu(tabId),
@@ -136,7 +136,7 @@ public partial class MainWindow
 
         var tabItem = new TabItem
         {
-            Header = CreateTabHeader(tabTitle, tabId),
+            Header = CreateTabHeader(tabTitle, tabId, node),
             Content = terminal,
             Tag = tabId,
             ContextMenu = CreateTabContextMenu(tabId),
@@ -177,9 +177,20 @@ public partial class MainWindow
         });
     }
 
-    private StackPanel CreateTabHeader(string title, string tabId)
+    private StackPanel CreateTabHeader(string title, string tabId, Node? node = null)
     {
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        if (node != null)
+        {
+            var iconBlock = new TextBlock
+            {
+                Text = ServerTreeItemBuilder.NodeIcon(node, isGroupExpanded: true),
+                Margin = new Thickness(0, 0, 6, 0),
+                Foreground = ServerTreeItemBuilder.NodeColor(node),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            panel.Children.Add(iconBlock);
+        }
         panel.Children.Add(new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         var closeBtn = new Button
         {
@@ -189,7 +200,7 @@ public partial class MainWindow
         closeBtn.Click += (s, _) =>
         {
             if (s is Button b && b.Tag is string id)
-                CloseTab(id);
+                CloseTabWithConfirm(id);
         };
         panel.Children.Add(closeBtn);
         return panel;
@@ -203,7 +214,7 @@ public partial class MainWindow
         var disconnectItem = new MenuItem { Header = "[D] 断开" };
         disconnectItem.Click += (_, _) => DisconnectTab(tabId);
         var closeItem = new MenuItem { Header = "[W] 关闭" };
-        closeItem.Click += (_, _) => CloseTab(tabId);
+        closeItem.Click += (_, _) => CloseTabWithConfirm(tabId);
         menu.Items.Add(reconnectItem);
         menu.Items.Add(disconnectItem);
         menu.Items.Add(closeItem);
@@ -443,7 +454,7 @@ public partial class MainWindow
             var hostWpf = new WindowsFormsHost { Child = rdpControl };
             var tabItem = new TabItem
             {
-                Header = CreateTabHeader(tabTitle, tabId),
+                Header = CreateTabHeader(tabTitle, tabId, node),
                 Content = hostWpf,
                 Tag = tabId,
                 ContextMenu = CreateTabContextMenu(tabId),
@@ -472,6 +483,14 @@ public partial class MainWindow
         if (string.IsNullOrEmpty(nodeId)) return;
         if (_tabIdToNodeId.Values.Any(id => id == nodeId)) return;
         _remoteFileCacheByNodeId.Remove(nodeId);
+    }
+
+    /// <summary>关闭连接 tab 前提示用户，确认后再执行关闭。</summary>
+    private void CloseTabWithConfirm(string tabId)
+    {
+        if (MessageBox.Show("确定要关闭此连接吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        CloseTab(tabId);
     }
 
     private void CloseTab(string tabId)

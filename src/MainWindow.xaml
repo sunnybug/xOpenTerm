@@ -125,8 +125,9 @@
         <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                       Background="{StaticResource BorderBrush}"/>
 
-        <!-- 右侧：标签 + 终端（与左侧统一使用 AppTabItemStyle） -->
+        <!-- 右侧：标签 + 终端（与左侧统一使用 AppTabItemStyle），tab 栏不铺满整行 -->
         <TabControl x:Name="TabsControl" Grid.Column="2" Padding="0" Margin="0"
+                    Style="{StaticResource ConnectionTabsControlStyle}"
                     Background="{StaticResource BgDark}" BorderThickness="0"
                     SelectionChanged="TabsControl_SelectionChanged"
                     ItemContainerStyle="{StaticResource AppTabItemStyle}"/>
