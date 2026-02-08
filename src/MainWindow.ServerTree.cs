@@ -401,8 +401,14 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("[T] 新建分组 - 腾讯云", () => AddTencentCloudGroup(null)));
             menu.Items.Add(CreateMenuItem("[H] 新建主机", () => AddNode(NodeType.ssh, null)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("导出-yaml", () => ExportYaml()));
-            menu.Items.Add(CreateMenuItem("导入-yaml", () => ImportYaml(null)));
+            // 导入子菜单
+            var importSub = new MenuItem { Header = "[I] 导入" };
+            importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(null)));
+            menu.Items.Add(importSub);
+            // 导出子菜单
+            var exportSub = new MenuItem { Header = "[E] 导出" };
+            exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
+            menu.Items.Add(exportSub);
             return menu;
         }
         if (node.Type == NodeType.group)
@@ -411,14 +417,17 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("[T] 新建分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
             menu.Items.Add(CreateMenuItem("[H] 新建主机", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(new Separator());
+            // 导入子菜单
             var importSub = new MenuItem { Header = "[I] 导入" };
             importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
+            importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(node)));
             menu.Items.Add(importSub);
+            // 导出子菜单
+            var exportSub = new MenuItem { Header = "[E] 导出" };
+            exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
+            menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("[S] 设置", () => EditGroupSettings(node)));
-            menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("导出-yaml", () => ExportYaml()));
-            menu.Items.Add(CreateMenuItem("导入-yaml", () => ImportYaml(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("[A] 连接全部", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
@@ -430,15 +439,18 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("[T] 新建分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
             menu.Items.Add(CreateMenuItem("[H] 新建主机", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(new Separator());
+            // 导入子菜单
             var importSub = new MenuItem { Header = "[I] 导入" };
             importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
+            importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(node)));
             menu.Items.Add(importSub);
+            // 导出子菜单
+            var exportSub = new MenuItem { Header = "[E] 导出" };
+            exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
+            menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("[S] 设置", () => EditGroupSettings(node)));
             menu.Items.Add(CreateMenuItem("[Y] 同步", () => SyncTencentCloudGroup(node)));
-            menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("导出-yaml", () => ExportYaml()));
-            menu.Items.Add(CreateMenuItem("导入-yaml", () => ImportYaml(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("[A] 连接全部", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
