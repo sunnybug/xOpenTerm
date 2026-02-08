@@ -311,14 +311,8 @@ public partial class MainWindow
     {
         var tvi = FindClickedNode(e.OriginalSource);
         _contextMenuNode = tvi?.Tag as Node;
-        if (tvi != null)
-            tvi.IsSelected = true;
-        else
-        {
-            var current = ServerTree.SelectedItem;
-            if (current != null && ServerTree.ItemContainerGenerator.ContainerFromItem(current) is TreeViewItem container)
-                container.IsSelected = false;
-        }
+        // 仅记录右键目标节点，不修改任何选择状态
+        e.Handled = true;
     }
 
     private void ServerTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
@@ -453,7 +447,7 @@ public partial class MainWindow
         else
         {
             menu.Items.Add(CreateMenuItem("[L] 连接", () => OpenTab(node)));
-            menu.Items.Add(CreateMenuItem("[C] 复制节点", () => DuplicateNode(node)));
+            menu.Items.Add(CreateMenuItem("[C] 复制", () => DuplicateNode(node)));
             menu.Items.Add(CreateMenuItem("[S] 设置", () => EditNode(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("[D] 删除", () => DeleteNode(node)));
