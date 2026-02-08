@@ -132,7 +132,7 @@ public partial class MainWindow
             Tag = node,
             IsExpanded = expand
         };
-        if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup)
+        if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup)
         {
             void UpdateGroupIcon()
             {
@@ -213,7 +213,7 @@ public partial class MainWindow
             else
             {
                 var node = nodesToAct[0];
-                if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup)
+                if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup)
                     DeleteNodeRecursive(node);
                 else
                     DeleteNode(node);
@@ -304,9 +304,9 @@ public partial class MainWindow
         if (e.ChangedButton != MouseButton.Left) return;
         var item = FindClickedNode(e.OriginalSource);
         if (item?.Tag is not Node node) return;
-        // 分组与云组（腾讯云/阿里云）双击仅展开/折叠；仅可连接节点（ssh/local/rdp）双击打开标签
+        // 分组与云组（腾讯云）双击仅展开/折叠；仅可连接节点（ssh/local/rdp）双击打开标签
         if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup)
-            return;
+                    return;
         OpenTab(node);
     }
 
@@ -395,7 +395,7 @@ public partial class MainWindow
         }
     }
 
-    /// <summary>当前节点自身或任意祖先是否为腾讯云组/阿里云组。仅沿父链向上查找，O(n) 建表 + O(深度)。</summary>
+    /// <summary>当前节点自身或任意祖先是否为腾讯云组。仅沿父链向上查找，O(n) 建表 + O(深度)。</summary>
     private bool HasAncestorOrSelfCloudGroup(Node? node)
     {
         if (node == null) return false;
@@ -489,18 +489,15 @@ public partial class MainWindow
         }
         else if (node.Type == NodeType.aliCloudGroup)
         {
-            // 新建子菜单（云组下不允许再嵌套任何云组）
             var newSub = new MenuItem { Header = "[N] 新建" };
             newSub.Items.Add(CreateMenuItem("[G] 分组", () => AddNode(NodeType.group, node.Id)));
             newSub.Items.Add(CreateMenuItem("[H] 主机", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
-            // 导入子菜单
             var importSub = new MenuItem { Header = "[I] 导入" };
             importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(node)));
             menu.Items.Add(importSub);
-            // 导出子菜单
             var exportSub = new MenuItem { Header = "[E] 导出" };
             exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
             menu.Items.Add(exportSub);
@@ -871,7 +868,7 @@ public partial class MainWindow
             var parent = _nodes.FirstOrDefault(n => n.Id == parentId);
             if (parent != null && HasAncestorOrSelfCloudGroup(parent))
             {
-                MessageBox.Show("云组（腾讯云/阿里云）下不允许再嵌套云组，请在其他分组下新建。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("云组下不允许再嵌套云组，请在其他分组下新建。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
         }
@@ -896,6 +893,249 @@ public partial class MainWindow
 
         // 复用与右键「同步」完全相同的流程，避免新建组流程中的线程/时序差异导致跨线程访问 UI
         SyncTencentCloudGroup(groupNode);
+    }
+
+    private void AddAliCloudGroup(string? parentId)
+    {
+        if (!string.IsNullOrEmpty(parentId))
+        {
+            var parent = _nodes.FirstOrDefault(n => n.Id == parentId);
+            if (parent != null && HasAncestorOrSelfCloudGroup(parent))
+            {
+                MessageBox.Show("云组下不允许再嵌套云组，请在其他分组下新建。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+        var dlg = new AliCloudGroupAddWindow { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+
+        var groupNode = new Node
+        {
+            Id = Guid.NewGuid().ToString(),
+            ParentId = parentId,
+            Type = NodeType.aliCloudGroup,
+            Name = string.IsNullOrWhiteSpace(dlg.GroupName) ? "阿里云" : dlg.GroupName.Trim(),
+            Config = new ConnectionConfig
+            {
+                AliAccessKeyId = dlg.AccessKeyId,
+                AliAccessKeySecret = dlg.AccessKeySecret
+            }
+        };
+        _nodes.Add(groupNode);
+        _storage.SaveNodes(_nodes);
+        BuildTree();
+        SyncAliCloudGroup(groupNode);
+    }
+
+    /// <summary>根据阿里云 ECS 实例列表构建 地域→服务器 节点树。</summary>
+    private static List<Node> BuildAliCloudSubtree(string rootId, List<AliEcsInstance> instances)
+    {
+        var result = new List<Node>();
+        var regionIdToNode = new Dictionary<string, Node>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var ins in instances.OrderBy(i => i.RegionId).ThenBy(i => i.InstanceName))
+        {
+            if (string.IsNullOrEmpty(ins.InstanceId)) continue;
+
+            if (!regionIdToNode.TryGetValue(ins.RegionId ?? "", out var regionNode))
+            {
+                regionNode = new Node
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    ParentId = rootId,
+                    Type = NodeType.group,
+                    Name = ins.RegionName ?? ins.RegionId ?? "",
+                    Config = null
+                };
+                result.Add(regionNode);
+                regionIdToNode[ins.RegionId ?? ""] = regionNode;
+            }
+
+            var host = ins.PublicIp ?? ins.PrivateIp ?? "";
+            if (string.IsNullOrEmpty(host)) continue;
+
+            var serverNode = new Node
+            {
+                Id = Guid.NewGuid().ToString(),
+                ParentId = regionNode.Id,
+                Type = ins.IsWindows ? NodeType.rdp : NodeType.ssh,
+                Name = string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId : ins.InstanceName,
+                Config = new ConnectionConfig
+                {
+                    Host = host,
+                    Port = (ushort)(ins.IsWindows ? 3389 : 22),
+                    ResourceId = ins.InstanceId,
+                    AuthSource = AuthSource.parent
+                }
+            };
+            result.Add(serverNode);
+        }
+        return result;
+    }
+
+    private void SyncAliCloudGroup(Node groupNode)
+    {
+        if (groupNode.Config?.AliAccessKeyId == null || groupNode.Config?.AliAccessKeySecret == null)
+        {
+            MessageBox.Show("该阿里云组未配置密钥，请先在「设置」中保存 AccessKeyId/AccessKeySecret。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var accessKeyId = groupNode.Config.AliAccessKeyId;
+        var accessKeySecret = groupNode.Config.AliAccessKeySecret ?? "";
+        var cts = new CancellationTokenSource();
+        var syncWin = new AliCloudSyncWindow(cts.Cancel) { Owner = this };
+        syncWin.Show();
+        syncWin.ReportProgress("正在拉取实例列表…", 0, 1);
+
+        var progress = new Progress<(string message, int current, int total)>(p =>
+        {
+            syncWin.Dispatcher.Invoke(() => syncWin.ReportProgress(p.message, p.current, p.total));
+        });
+
+        List<AliEcsInstance>? instances = null;
+        Exception? runEx = null;
+        var t = System.Threading.Tasks.Task.Run(() =>
+        {
+            try
+            {
+                return AliCloudService.ListInstances(accessKeyId, accessKeySecret, progress, cts.Token);
+            }
+            catch (Exception ex)
+            {
+                runEx = ex;
+                return null;
+            }
+        });
+
+        while (!t.IsCompleted && syncWin.IsLoaded && syncWin.IsVisible)
+        {
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
+                System.Windows.Threading.DispatcherPriority.Background,
+                () => { });
+            Thread.Sleep(50);
+        }
+
+        if (runEx != null || t.Result == null)
+        {
+            var errMsg = runEx != null ? GetFullExceptionMessage(runEx) : "拉取失败或已取消";
+            syncWin.ReportResult(errMsg, false);
+            return;
+        }
+        instances = t.Result;
+        var cloudInstanceIds = instances.Where(i => !string.IsNullOrEmpty(i.InstanceId)).Select(i => i.InstanceId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var serverNodesUnderGroup = new List<Node>();
+        void CollectServerNodes(string parentId)
+        {
+            foreach (var n in _nodes.Where(x => x.ParentId == parentId))
+            {
+                if (n.Type == NodeType.ssh || n.Type == NodeType.rdp)
+                {
+                    if (!string.IsNullOrEmpty(n.Config?.ResourceId))
+                        serverNodesUnderGroup.Add(n);
+                }
+                else if (n.Type == NodeType.group || n.Type == NodeType.tencentCloudGroup || n.Type == NodeType.aliCloudGroup)
+                    CollectServerNodes(n.Id);
+            }
+        }
+        CollectServerNodes(groupNode.Id);
+
+        var toRemove = serverNodesUnderGroup.Where(n => !cloudInstanceIds.Contains(n.Config!.ResourceId!)).ToList();
+        var removedDetail = new List<string>();
+        if (toRemove.Count > 0)
+        {
+            if (MessageBox.Show($"云上已不存在以下 {toRemove.Count} 个实例，是否从本地树中删除？\n\n此操作不可恢复。", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                foreach (var n in toRemove)
+                {
+                    removedDetail.Add(n.Name ?? n.Config?.ResourceId ?? n.Id);
+                    _nodes.RemoveAll(x => x.Id == n.Id);
+                }
+            }
+            else
+                toRemove = new List<Node>();
+        }
+
+        var instanceMap = instances.Where(i => !string.IsNullOrEmpty(i.InstanceId)).ToDictionary(i => i.InstanceId!, StringComparer.OrdinalIgnoreCase);
+        var updatedDetail = new List<string>();
+        foreach (var n in serverNodesUnderGroup.Where(n => _nodes.Any(x => x.Id == n.Id)))
+        {
+            var rid = n.Config?.ResourceId;
+            if (string.IsNullOrEmpty(rid)) continue;
+            if (instanceMap.TryGetValue(rid, out var aliIns))
+            {
+                var newHost = aliIns.PublicIp ?? aliIns.PrivateIp ?? "";
+                if (!string.IsNullOrEmpty(newHost) && n.Config!.Host != newHost)
+                {
+                    var oldHost = n.Config.Host ?? "";
+                    n.Config.Host = newHost;
+                    updatedDetail.Add($"{n.Name ?? rid}: {oldHost} → {newHost}");
+                }
+            }
+        }
+
+        var existingRegionNodes = _nodes.Where(x => x.ParentId == groupNode.Id && x.Type == NodeType.group).ToList();
+        var regionByKey = existingRegionNodes.ToDictionary(n => n.Name ?? "", StringComparer.OrdinalIgnoreCase);
+        var existingIds = CollectResourceIdsUnderGroup(groupNode.Id);
+        var addedCount = 0;
+        var addedDetail = new List<string>();
+
+        foreach (var ins in instances)
+        {
+            if (string.IsNullOrEmpty(ins.InstanceId) || existingIds.Contains(ins.InstanceId)) continue;
+            existingIds.Add(ins.InstanceId);
+            addedCount++;
+            addedDetail.Add(string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId! : $"{ins.InstanceName} ({ins.InstanceId})");
+
+            var regionName = ins.RegionName ?? ins.RegionId ?? "";
+            if (!regionByKey.TryGetValue(regionName, out var regionNode))
+            {
+                regionNode = new Node
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    ParentId = groupNode.Id,
+                    Type = NodeType.group,
+                    Name = regionName,
+                    Config = null
+                };
+                _nodes.Add(regionNode);
+                regionByKey[regionName] = regionNode;
+            }
+
+            var host = ins.PublicIp ?? ins.PrivateIp ?? "";
+            if (string.IsNullOrEmpty(host)) continue;
+
+            var serverNode = new Node
+            {
+                Id = Guid.NewGuid().ToString(),
+                ParentId = regionNode.Id,
+                Type = ins.IsWindows ? NodeType.rdp : NodeType.ssh,
+                Name = string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId : ins.InstanceName,
+                Config = new ConnectionConfig
+                {
+                    Host = host,
+                    Port = (ushort)(ins.IsWindows ? 3389 : 22),
+                    ResourceId = ins.InstanceId,
+                    AuthSource = AuthSource.parent
+                }
+            };
+            _nodes.Add(serverNode);
+        }
+
+        _storage.SaveNodes(_nodes);
+        var detailLines = new List<string>();
+        foreach (var s in removedDetail)
+            detailLines.Add("[删除] " + s);
+        foreach (var s in updatedDetail)
+            detailLines.Add("[更新IP] " + s);
+        foreach (var s in addedDetail)
+            detailLines.Add("[新增] " + s);
+        var summary = $"已删除 {removedDetail.Count} 个本地节点，更新 {updatedDetail.Count} 台 IP，新增 {addedCount} 台实例（共 {instances.Count} 台）。";
+        syncWin.ReportResult(summary, true, detailLines.Count > 0 ? detailLines : null);
+        _selectedNodeIds.Clear();
+        _selectedNodeIds.Add(groupNode.Id);
+        BuildTree(expandNodes: false);
     }
 
     /// <summary>根据腾讯云实例列表构建 机房→项目→服务器 节点树，所有服务器节点默认同父节点凭证。</summary>
@@ -1035,7 +1275,7 @@ public partial class MainWindow
                     if (!string.IsNullOrEmpty(n.Config?.ResourceId))
                         serverNodesUnderGroup.Add(n);
                 }
-                else if (n.Type == NodeType.group || n.Type == NodeType.tencentCloudGroup)
+                else if (n.Type == NodeType.group || n.Type == NodeType.tencentCloudGroup || n.Type == NodeType.aliCloudGroup)
                     CollectServerNodes(n.Id);
             }
         }
@@ -1509,332 +1749,6 @@ public partial class MainWindow
             if (p is TreeViewItem tvi && tvi.Tag is Node n)
                 return n;
         return null;
-    }
-
-    /// <summary>新增阿里云组节点（输入密钥后立即同步）。</summary>
-    private void AddAliCloudGroup(string? parentId)
-    {
-        if (!string.IsNullOrEmpty(parentId))
-        {
-            var parent = _nodes.FirstOrDefault(n => n.Id == parentId);
-            if (parent != null && HasAncestorOrSelfCloudGroup(parent))
-            {
-                MessageBox.Show("云组（腾讯云/阿里云）下不允许再嵌套云组，请在其他分组下新建。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-        }
-        var dlg = new AliCloudGroupAddWindow { Owner = this };
-        if (dlg.ShowDialog() != true) return;
-
-        var groupNode = new Node
-        {
-            Id = Guid.NewGuid().ToString(),
-            ParentId = parentId,
-            Type = NodeType.aliCloudGroup,
-            Name = string.IsNullOrWhiteSpace(dlg.GroupName) ? "阿里云" : dlg.GroupName.Trim(),
-            Config = new ConnectionConfig
-            {
-                AliAccessKeyId = dlg.AccessKeyId,
-                AliAccessKeySecret = dlg.AccessKeySecret
-            }
-        };
-        _nodes.Add(groupNode);
-        _storage.SaveNodes(_nodes);
-        BuildTree();
-
-        // 复用与右键「同步」完全相同的流程，避免新建组流程中的线程/时序差异导致跨线程访问 UI
-        SyncAliCloudGroup(groupNode);
-    }
-
-    /// <summary>根据阿里云实例列表构建 地域→服务器 节点树，所有服务器节点默认同父节点凭证。</summary>
-    private static List<Node> BuildAliCloudSubtree(string rootId, List<AliEcsInstance> instances)
-    {
-        var result = new List<Node>();
-        var regionIdToNode = new Dictionary<string, Node>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var ins in instances.OrderBy(i => i.RegionName).ThenBy(i => i.InstanceName))
-        {
-            if (string.IsNullOrEmpty(ins.InstanceId)) continue;
-
-            var regionKey = ins.RegionId ?? "";
-            if (!regionIdToNode.TryGetValue(regionKey, out var regionNode))
-            {
-                regionNode = new Node
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    ParentId = rootId,
-                    Type = NodeType.group,
-                    Name = ins.RegionName ?? ins.RegionId ?? "",
-                    Config = null
-                };
-                result.Add(regionNode);
-                regionIdToNode[regionKey] = regionNode;
-            }
-
-            var host = ins.PublicIp ?? ins.PrivateIp ?? "";
-            if (string.IsNullOrEmpty(host)) continue;
-
-            var serverNode = new Node
-            {
-                Id = Guid.NewGuid().ToString(),
-                ParentId = regionNode.Id,
-                Type = ins.IsWindows ? NodeType.rdp : NodeType.ssh,
-                Name = string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId : ins.InstanceName,
-                Config = new ConnectionConfig
-                {
-                    Host = host,
-                    Port = (ushort)(ins.IsWindows ? 3389 : 22),
-                    ResourceId = ins.InstanceId,
-                    AuthSource = AuthSource.parent
-                }
-            };
-            result.Add(serverNode);
-        }
-        return result;
-    }
-
-    /// <summary>同步阿里云组：拉取实例列表、删除本地不存在节点、新增云上新节点、更新已有节点 IP。</summary>
-    private void SyncAliCloudGroup(Node groupNode)
-    {
-        if (groupNode.Config?.AliAccessKeyId == null || groupNode.Config?.AliAccessKeySecret == null)
-        {
-            MessageBox.Show("该阿里云组未配置密钥，请先在「设置」中保存 AccessKeyId/AccessKeySecret。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        var accessKeyId = groupNode.Config.AliAccessKeyId;
-        var accessKeySecret = groupNode.Config.AliAccessKeySecret ?? "";
-        var cts = new CancellationTokenSource();
-        var syncWin = new AliCloudSyncWindow(cts.Cancel) { Owner = this };
-        syncWin.Show();
-        syncWin.ReportProgress("正在拉取实例列表…", 0, 1);
-
-        // 进度回调统一同步封送到同步窗口的 UI 线程，避免跨线程访问
-        var progress = new Progress<(string message, int current, int total)>(p =>
-        {
-            syncWin.Dispatcher.Invoke(() => syncWin.ReportProgress(p.message, p.current, p.total));
-        });
-
-        List<AliEcsInstance>? ecsInstances = null;
-        List<AliSwasInstance>? swasInstances = null;
-        Exception? runEx = null;
-        var t = System.Threading.Tasks.Task.Run(() =>
-        {
-            try
-            {
-                // 同时拉取 ECS 和轻量应用服务器实例
-                var ecs = AliCloudService.ListInstances(accessKeyId, accessKeySecret, progress, cts.Token);
-                var swas = AliCloudService.ListSwasInstances(accessKeyId, accessKeySecret, progress, cts.Token);
-                return (Ecs: ecs, Swas: swas);
-            }
-            catch (Exception ex)
-            {
-                runEx = ex;
-                return (Ecs: null, Swas: null);
-            }
-        });
-
-        while (!t.IsCompleted && syncWin.IsLoaded && syncWin.IsVisible)
-        {
-            System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
-                System.Windows.Threading.DispatcherPriority.Background,
-                () => { });
-            Thread.Sleep(50);
-        }
-
-        if (runEx != null || t.Result.Ecs == null || t.Result.Swas == null)
-        {
-            var errMsg = runEx != null ? GetFullExceptionMessage(runEx) : "拉取失败或已取消";
-            syncWin.ReportResult(errMsg, false);
-            return;
-        }
-        ecsInstances = t.Result.Ecs;
-        swasInstances = t.Result.Swas;
-        var cloudInstanceIds = ecsInstances.Select(i => i.InstanceId)
-            .Concat(swasInstances.Select(i => i.InstanceId))
-            .Where(id => !string.IsNullOrEmpty(id))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // 收集本组下所有带 ResourceId 的服务器节点
-        var serverNodesUnderGroup = new List<Node>();
-        void CollectServerNodes(string parentId)
-        {
-            foreach (var n in _nodes.Where(x => x.ParentId == parentId))
-            {
-                if (n.Type == NodeType.ssh || n.Type == NodeType.rdp)
-                {
-                    if (!string.IsNullOrEmpty(n.Config?.ResourceId))
-                        serverNodesUnderGroup.Add(n);
-                }
-                else if (n.Type == NodeType.group || n.Type == NodeType.aliCloudGroup)
-                    CollectServerNodes(n.Id);
-            }
-        }
-        CollectServerNodes(groupNode.Id);
-
-        // 删除本地存在但云上已不存在的节点（先询问用户），并记录实际删除的节点名用于变动列表
-        var toRemove = serverNodesUnderGroup.Where(n => !cloudInstanceIds.Contains(n.Config!.ResourceId!)).ToList();
-        var removedDetail = new List<string>();
-        if (toRemove.Count > 0)
-        {
-            if (MessageBox.Show($"云上已不存在以下 {toRemove.Count} 个实例，是否从本地树中删除？\n\n此操作不可恢复。", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-            {
-                foreach (var n in toRemove)
-                {
-                    removedDetail.Add(n.Name ?? n.Config?.ResourceId ?? n.Id);
-                    _nodes.RemoveAll(x => x.Id == n.Id);
-                }
-            }
-            else
-                toRemove = new List<Node>();
-        }
-
-        // 现有实例 ID -> 实例信息（用于更新 IP 或新增）
-        var ecsInstanceMap = ecsInstances.Where(i => !string.IsNullOrEmpty(i.InstanceId)).ToDictionary(i => i.InstanceId!, StringComparer.OrdinalIgnoreCase);
-        var swasInstanceMap = swasInstances.Where(i => !string.IsNullOrEmpty(i.InstanceId)).ToDictionary(i => i.InstanceId!, StringComparer.OrdinalIgnoreCase);
-
-        // 更新已有节点的 Host，并记录 IP 变动用于详细列表
-        var updatedDetail = new List<string>();
-        foreach (var n in serverNodesUnderGroup.Where(n => _nodes.Any(x => x.Id == n.Id)))
-        {
-            var rid = n.Config?.ResourceId;
-            if (string.IsNullOrEmpty(rid)) continue;
-
-            // 先尝试从 ECS 实例中查找，再尝试从轻量服务器实例中查找
-            if (ecsInstanceMap.TryGetValue(rid, out var ecsIns))
-            {
-                var newHost = ecsIns.PublicIp ?? ecsIns.PrivateIp ?? "";
-                if (!string.IsNullOrEmpty(newHost) && n.Config!.Host != newHost)
-                {
-                    var oldHost = n.Config.Host ?? "";
-                    n.Config.Host = newHost;
-                    updatedDetail.Add($"{n.Name ?? rid}: {oldHost} → {newHost}");
-                }
-            }
-            else if (swasInstanceMap.TryGetValue(rid, out var swasIns))
-            {
-                var newHost = swasIns.PublicIp ?? swasIns.PrivateIp ?? "";
-                if (!string.IsNullOrEmpty(newHost) && n.Config!.Host != newHost)
-                {
-                    var oldHost = n.Config.Host ?? "";
-                    n.Config.Host = newHost;
-                    updatedDetail.Add($"{n.Name ?? rid}: {oldHost} → {newHost}");
-                }
-            }
-        }
-
-        // 新增云上有但本地没有的实例（按现有树结构插入到对应地域下）
-        var existingRegionNodes = _nodes.Where(x => x.ParentId == groupNode.Id && x.Type == NodeType.group).ToList();
-        var regionByKey = existingRegionNodes.ToDictionary(n => n.Name ?? "", StringComparer.OrdinalIgnoreCase);
-
-        var existingIds = CollectResourceIdsUnderGroup(groupNode.Id);
-        var addedCount = 0;
-        var addedDetail = new List<string>();
-
-        // 处理 ECS 实例
-        foreach (var ins in ecsInstances)
-        {
-            if (string.IsNullOrEmpty(ins.InstanceId) || existingIds.Contains(ins.InstanceId)) continue;
-            existingIds.Add(ins.InstanceId);
-            addedCount++;
-            addedDetail.Add(string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId! : $"{ins.InstanceName} ({ins.InstanceId})");
-
-            var regionName = ins.RegionName ?? "";
-            if (!regionByKey.TryGetValue(regionName, out var regionNode))
-            {
-                regionNode = new Node
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    ParentId = groupNode.Id,
-                    Type = NodeType.group,
-                    Name = ins.RegionName ?? "",
-                    Config = null
-                };
-                _nodes.Add(regionNode);
-                regionByKey[regionName] = regionNode;
-            }
-
-            var host = ins.PublicIp ?? ins.PrivateIp ?? "";
-            if (string.IsNullOrEmpty(host)) continue;
-
-            var serverNode = new Node
-            {
-                Id = Guid.NewGuid().ToString(),
-                ParentId = regionNode.Id,
-                Type = ins.IsWindows ? NodeType.rdp : NodeType.ssh,
-                Name = string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId : ins.InstanceName,
-                Config = new ConnectionConfig
-                {
-                    Host = host,
-                    Port = (ushort)(ins.IsWindows ? 3389 : 22),
-                    ResourceId = ins.InstanceId,
-                    AuthSource = AuthSource.parent
-                }
-            };
-            _nodes.Add(serverNode);
-        }
-
-        // 处理轻量应用服务器实例（地域添加前缀以区分 ECS）
-        var swasRegionKeyPrefix = "轻量应用服务器-";
-        foreach (var ins in swasInstances)
-        {
-            if (string.IsNullOrEmpty(ins.InstanceId) || existingIds.Contains(ins.InstanceId)) continue;
-            existingIds.Add(ins.InstanceId);
-            addedCount++;
-            addedDetail.Add(string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId! : $"{ins.InstanceName} ({ins.InstanceId})");
-
-            var regionName = ins.RegionName ?? "";
-            // 轻量应用服务器地域添加前缀以区分 ECS
-            var regionKey = swasRegionKeyPrefix + regionName;
-            if (!regionByKey.TryGetValue(regionKey, out var regionNode))
-            {
-                regionNode = new Node
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    ParentId = groupNode.Id,
-                    Type = NodeType.group,
-                    Name = regionName + " (轻量)",
-                    Config = null
-                };
-                _nodes.Add(regionNode);
-                regionByKey[regionKey] = regionNode;
-            }
-
-            var host = ins.PublicIp ?? ins.PrivateIp ?? "";
-            if (string.IsNullOrEmpty(host)) continue;
-
-            var serverNode = new Node
-            {
-                Id = Guid.NewGuid().ToString(),
-                ParentId = regionNode.Id,
-                Type = ins.IsWindows ? NodeType.rdp : NodeType.ssh,
-                Name = string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId : ins.InstanceName,
-                Config = new ConnectionConfig
-                {
-                    Host = host,
-                    Port = (ushort)(ins.IsWindows ? 3389 : 22),
-                    ResourceId = ins.InstanceId,
-                    AuthSource = AuthSource.parent
-                }
-            };
-            _nodes.Add(serverNode);
-        }
-
-        _storage.SaveNodes(_nodes);
-        // 汇总变动详情：删除、更新 IP、新增
-        var detailLines = new List<string>();
-        foreach (var s in removedDetail)
-            detailLines.Add("[删除] " + s);
-        foreach (var s in updatedDetail)
-            detailLines.Add("[更新IP] " + s);
-        foreach (var s in addedDetail)
-            detailLines.Add("[新增] " + s);
-        var summary = $"已删除 {removedDetail.Count} 个本地节点，更新 {updatedDetail.Count} 台 IP，新增 {addedCount} 台实例（ECS: {ecsInstances.Count}，轻量: {swasInstances.Count}）。";
-        syncWin.ReportResult(summary, true, detailLines.Count > 0 ? detailLines : null);
-        // 同步后只恢复当前同步组的选中与展开，避免沿用旧选中项导致其它云组被展开
-        _selectedNodeIds.Clear();
-        _selectedNodeIds.Add(groupNode.Id);
-        BuildTree(expandNodes: false);
     }
 
     private bool IsDescendant(string potentialAncestorId, string nodeId)

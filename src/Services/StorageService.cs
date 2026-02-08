@@ -254,6 +254,8 @@ public class StorageService
         c.KeyPassphrase = SecretService.Decrypt(c.KeyPassphrase);
         c.TencentSecretId = SecretService.Decrypt(c.TencentSecretId);
         c.TencentSecretKey = SecretService.Decrypt(c.TencentSecretKey);
+        c.AliAccessKeyId = SecretService.Decrypt(c.AliAccessKeyId);
+        c.AliAccessKeySecret = SecretService.Decrypt(c.AliAccessKeySecret);
         if (c.Tunnel != null)
         {
             foreach (var hop in c.Tunnel)
@@ -267,6 +269,8 @@ public class StorageService
         c.KeyPassphrase = SecretService.Encrypt(c.KeyPassphrase, configVersion);
         c.TencentSecretId = SecretService.Encrypt(c.TencentSecretId, configVersion);
         c.TencentSecretKey = SecretService.Encrypt(c.TencentSecretKey, configVersion);
+        c.AliAccessKeyId = SecretService.Encrypt(c.AliAccessKeyId, configVersion);
+        c.AliAccessKeySecret = SecretService.Encrypt(c.AliAccessKeySecret, configVersion);
         if (c.Tunnel != null)
         {
             foreach (var hop in c.Tunnel)

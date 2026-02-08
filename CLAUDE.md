@@ -14,7 +14,7 @@ xOpenTerm 是一个 **C# WPF** 实现的 Windows SSH/本地终端批量管理工
 - **RDP 连接**：通过系统 mstsc 启动远程桌面
 - **凭证管理**：独立的登录凭证系统，可被多个节点引用
 - **腾讯云同步**：支持从腾讯云导入并同步服务器列表
-- **阿里云同步**：支持从阿里云导入并同步服务器列表
+- **阿里云同步**：支持从阿里云 ECS 导入并同步服务器列表（地域→服务器）
 
 ## 构建和运行
 
@@ -50,7 +50,7 @@ xOpenTerm/
 │   │   ├── SecretService.cs      # 密码加密/解密
 │   │   ├── ConfigResolver.cs     # 配置解析（继承/凭证引用）
 │   │   ├── TencentCloudService.cs # 腾讯云 API 集成
-│   │   ├── AliCloudService.cs    # 阿里云 API 集成
+│   │   ├── AliCloudService.cs    # 阿里云 ECS API 集成
 │   │   ├── RemoteFileService.cs  # SCP 远程文件操作
 │   │   └── SshTester.cs          # SSH 连接测试
 │   ├── Controls/                 # 自定义控件
@@ -148,12 +148,6 @@ xOpenTerm/
 - 同步功能：增量更新节点树，删除云上已不存在的服务器
 - 节点结构：机房 → 项目 → 服务器（SSH/RDP）
 
-### 8. 阿里云集成 (AliCloudService)
-
-- 支持创建"阿里云组"节点，从阿里云 API 导入服务器列表
-- 同步功能：增量更新节点树，删除云上已不存在的服务器
-- 节点结构：区域 → 服务器（SSH/RDP）
-
 ## 核心依赖
 
 - **SSH.NET** (`Renci.SshNet`)：SSH 协议实现
@@ -161,7 +155,7 @@ xOpenTerm/
 - **MaterialDesignThemes**：Material Design WPF 主题库
 - **RoyalApps.Community.Rdp.WinForms**：RDP 连接封装
 - **TencentCloudSDK**：腾讯云 API SDK
-- **Aliyun.CSDK**：阿里云 API SDK
+- **AlibabaCloud.SDK.Ecs20140526**：阿里云 ECS API SDK
 
 ## 常见开发任务
 
@@ -208,6 +202,5 @@ xOpenTerm/
 
 - 无内嵌 RDP 窗口（通过 mstsc 启动系统远程桌面）
 - 终端为自定义绘制 VT100（非 xterm.js）
-- 腾讯云同步功能
-- 阿里云同步功能
+- 腾讯云、阿里云同步功能
 - MobaXterm 配置导入

@@ -40,14 +40,15 @@ public partial class NodeEditWindow : Window
         _storage = storage;
 
         NameBox.Text = node.Name;
-        // 与 NodeType 枚举顺序一致：group, tencentCloudGroup, ssh, local, rdp
+        // 与 NodeType 枚举顺序一致：group, tencentCloudGroup, aliCloudGroup, ssh, local, rdp
         TypeCombo.Items.Add("分组");
         TypeCombo.Items.Add("腾讯云组");
+        TypeCombo.Items.Add("阿里云组");
         TypeCombo.Items.Add("SSH");
         TypeCombo.Items.Add("本地终端");
         TypeCombo.Items.Add("RDP");
         var typeIndex = (int)node.Type;
-        TypeCombo.SelectedIndex = typeIndex >= 0 && typeIndex < TypeCombo.Items.Count ? typeIndex : 2; // 默认 SSH
+        TypeCombo.SelectedIndex = typeIndex >= 0 && typeIndex < TypeCombo.Items.Count ? typeIndex : 3; // 默认 SSH
 
         AuthCombo.Items.Add("同父节点");
         AuthCombo.Items.Add("登录凭证");
@@ -198,7 +199,7 @@ public partial class NodeEditWindow : Window
                 AuthCombo.SelectedIndex = newIdx >= 0 ? newIdx : 0;
             }
         }
-        else if (TypeCombo.SelectedIndex != (int)NodeType.ssh) // 非 SSH（分组/腾讯云组/本地终端）
+        else if (TypeCombo.SelectedIndex != (int)NodeType.ssh) // 非 SSH（分组/云组/本地终端）
         {
             if (count != 5)
             {
@@ -219,10 +220,11 @@ public partial class NodeEditWindow : Window
         var idx = TypeCombo.SelectedIndex;
         var isGroup = idx == (int)NodeType.group;
         var isTencentGroup = idx == (int)NodeType.tencentCloudGroup;
+        var isAliGroup = idx == (int)NodeType.aliCloudGroup;
         var isSsh = idx == (int)NodeType.ssh;
         var isLocal = idx == (int)NodeType.local;
         var isRdp = idx == (int)NodeType.rdp;
-        var hideConfig = isGroup || isTencentGroup;
+        var hideConfig = isGroup || isTencentGroup || isAliGroup;
         ConfigLabel.Visibility = hideConfig ? Visibility.Collapsed : Visibility.Visible;
         ConfigPanel.Visibility = hideConfig ? Visibility.Collapsed : Visibility.Visible;
         CredentialRow.Visibility = Visibility.Collapsed;
@@ -375,7 +377,7 @@ public partial class NodeEditWindow : Window
             return;
         }
         _node.Name = name;
-        if (_node.Type != NodeType.group && _node.Type != NodeType.tencentCloudGroup)
+        if (_node.Type != NodeType.group && _node.Type != NodeType.tencentCloudGroup && _node.Type != NodeType.aliCloudGroup)
         {
             _node.Config ??= new ConnectionConfig();
             if (_node.Type == NodeType.local)
@@ -417,7 +419,7 @@ public partial class NodeEditWindow : Window
         }
         else
         {
-            _node.Config = null; // 分组、腾讯云组不保存主机配置
+            _node.Config = null; // 分组、云组不保存主机配置
         }
         SavedNode = _node;
         _closingConfirmed = true;

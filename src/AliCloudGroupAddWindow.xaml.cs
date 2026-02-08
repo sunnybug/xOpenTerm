@@ -3,7 +3,7 @@ using System.Windows.Controls;
 
 namespace xOpenTerm;
 
-/// <summary>新增阿里云组：输入组名与阿里云 API 密钥。</summary>
+/// <summary>新增阿里云组：输入组名与阿里云 AccessKey。</summary>
 public partial class AliCloudGroupAddWindow : Window
 {
     public string GroupName => NameBox?.Text?.Trim() ?? "阿里云";
@@ -19,13 +19,13 @@ public partial class AliCloudGroupAddWindow : Window
     {
         if (string.IsNullOrWhiteSpace(AccessKeyId))
         {
-            MessageBox.Show("请输入 AccessKey ID。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("请输入 AccessKeyId。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
             AccessKeyIdBox.Focus();
             return;
         }
         if (string.IsNullOrWhiteSpace(AccessKeySecret))
         {
-            MessageBox.Show("请输入 AccessKey Secret。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("请输入 AccessKeySecret。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
             AccessKeySecretBox.Focus();
             return;
         }

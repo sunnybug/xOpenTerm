@@ -73,8 +73,8 @@ public partial class GroupSettingsWindow : Window
         var tunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => t.AuthType).ThenBy(t => t.Name).Select(t => t.Id).ToList();
 
         var hasCred = !string.IsNullOrEmpty(sshCredId) || !string.IsNullOrEmpty(rdpCredId);
-        var isTencentGroup = _groupNode.Type == NodeType.tencentCloudGroup;
-        if (!hasCred && (tunnelIds == null || tunnelIds.Count == 0) && !isTencentGroup)
+        var isCloudGroup = _groupNode.Type == NodeType.tencentCloudGroup || _groupNode.Type == NodeType.aliCloudGroup;
+        if (!hasCred && (tunnelIds == null || tunnelIds.Count == 0) && !isCloudGroup)
         {
             _groupNode.Config = null;
         }
@@ -87,7 +87,7 @@ public partial class GroupSettingsWindow : Window
             _groupNode.Config.AuthSource = hasCred ? AuthSource.credential : null;
             _groupNode.Config.TunnelIds = (tunnelIds?.Count ?? 0) == 0 ? null : tunnelIds;
             _groupNode.Config.TunnelSource = null;
-            // 腾讯云组不覆盖密钥，由新增时填写
+            // 云组（腾讯云/阿里云）不覆盖密钥，由新增时填写
         }
 
         DialogResult = true;

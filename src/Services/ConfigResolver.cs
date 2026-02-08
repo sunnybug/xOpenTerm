@@ -36,7 +36,7 @@ public static class ConfigResolver
         return (host, port, username, domain, password);
     }
 
-    /// <summary>从节点向上查找第一个带 Config 的分组或腾讯云组节点。</summary>
+    /// <summary>从节点向上查找第一个带 Config 的分组或云组节点。</summary>
     private static Node? FindAncestorGroupWithConfig(string? parentId, List<Node> allNodes)
     {
         var id = parentId;
@@ -44,7 +44,7 @@ public static class ConfigResolver
         {
             var p = allNodes.FirstOrDefault(n => n.Id == id);
             if (p == null) return null;
-            if ((p.Type == NodeType.group || p.Type == NodeType.tencentCloudGroup) && p.Config != null)
+            if ((p.Type == NodeType.group || p.Type == NodeType.tencentCloudGroup || p.Type == NodeType.aliCloudGroup) && p.Config != null)
                 return p;
             id = p.ParentId;
         }

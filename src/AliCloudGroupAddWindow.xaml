@@ -12,19 +12,19 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Grid.Row="0" Text="填写阿里云 API 密钥后，将拉取并导入所有地域的 ECS 实例，按 地域→服务器 构建节点树。"
+        <TextBlock Grid.Row="0" Text="填写阿里云 AccessKey 后，将拉取并导入所有地域的 ECS 实例，按 地域→服务器 构建节点树。" 
                    Foreground="#94a3b8" TextWrapping="Wrap" Margin="0,0,0,12"/>
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-            <TextBlock Text="组名称" Width="100" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-            <TextBox x:Name="NameBox" Text="阿里云" Width="308" Padding="6,4" Background="#1e293b" Foreground="#e2e8f0"/>
+            <TextBlock Text="组名称" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+            <TextBox x:Name="NameBox" Text="阿里云" Width="320" Padding="6,4" Background="#1e293b" Foreground="#e2e8f0"/>
         </StackPanel>
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
-            <TextBlock Text="AccessKey ID" Width="100" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-            <TextBox x:Name="AccessKeyIdBox" Width="308" Padding="6,4" Background="#1e293b" Foreground="#e2e8f0"/>
+            <TextBlock Text="AccessKeyId" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+            <TextBox x:Name="AccessKeyIdBox" Width="320" Padding="6,4" Background="#1e293b" Foreground="#e2e8f0"/>
         </StackPanel>
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Text="AccessKey Secret" Width="100" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-            <PasswordBox x:Name="AccessKeySecretBox" Width="308" Padding="6,4" Background="#1e293b" Foreground="#e2e8f0"/>
+            <TextBlock Text="AccessKeySecret" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+            <PasswordBox x:Name="AccessKeySecretBox" Width="320" Padding="6,4" Background="#1e293b" Foreground="#e2e8f0"/>
         </StackPanel>
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button x:Name="OkBtn" Content="确定" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="OkBtn_Click"/>
