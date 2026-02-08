@@ -14,6 +14,11 @@ namespace xOpenTerm.Controls;
 /// </summary>
 public sealed class SshPuttyHostControl : Panel
 {
+    public SshPuttyHostControl()
+    {
+        Dock = DockStyle.Fill;
+    }
+
     private Process? _puttyProcess;
     private IntPtr _puttyHandle;
     private bool _isPuttyNg;
@@ -113,6 +118,18 @@ public sealed class SshPuttyHostControl : Panel
             NativeMethods.SetParent(_puttyHandle, Handle);
 
         ResizePuttyWindow();
+
+        // 延迟再次 Resize：首次 ResizePuttyWindow 时 Panel 可能尚未达到最终尺寸，
+        // 200ms 后再触发一次，确保 PuTTY 终端列数与实际窗口匹配
+        System.Windows.Forms.Timer delayResize = new() { Interval = 200 };
+        delayResize.Tick += (_, _) =>
+        {
+            delayResize.Stop();
+            delayResize.Dispose();
+            ResizePuttyWindow();
+        };
+        delayResize.Start();
+
         try { Connected?.Invoke(this, EventArgs.Empty); } catch { }
     }
 

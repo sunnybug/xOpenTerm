@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -88,16 +89,19 @@ public partial class MainWindow
                 _remoteFilePath = ".";
                 RemotePathBox.Text = ".";
                 RemoteFileTitle.Text = "远程文件 - " + node.Name;
-                LeftTabControl.SelectedIndex = 1;
                 LoadRemoteFileList();
             });
         };
 
         var hostWpf = new WindowsFormsHost { Child = puttyControl };
+        hostWpf.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+        hostWpf.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+        var grid = new Grid();
+        grid.Children.Add(hostWpf);
         var tabItem = new TabItem
         {
             Header = CreateTabHeader(tabTitle, tabId),
-            Content = hostWpf,
+            Content = grid,
             Tag = tabId,
             ContextMenu = CreateTabContextMenu(tabId)
         };
@@ -106,15 +110,20 @@ public partial class MainWindow
         _tabIdToPuttyControl[tabId] = puttyControl;
         _tabIdToNodeId[tabId] = node.Id;
 
-        try
+        // 延迟到 WPF 布局完成后再连接，确保 WindowsFormsHost/Panel 已获得正确尺寸，
+        // 避免 PuTTY 以极小的窗口初始化导致终端列数过窄
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
         {
-            puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, useAgent);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show("PuTTY 启动失败：" + ex.Message, "xOpenTerm");
-            CloseTab(tabId);
-        }
+            try
+            {
+                puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, useAgent);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("PuTTY 启动失败：" + ex.Message, "xOpenTerm");
+                CloseTab(tabId);
+            }
+        }));
     }
 
     private void OpenLocalOrSshTab(string tabId, string tabTitle, Node node,
@@ -289,17 +298,32 @@ public partial class MainWindow
                     _remoteFilePath = ".";
                     RemotePathBox.Text = ".";
                     RemoteFileTitle.Text = "远程文件 - " + node.Name;
-                    LeftTabControl.SelectedIndex = 1;
                     LoadRemoteFileList();
                 });
             };
 
-            tabItem.Content = new WindowsFormsHost { Child = puttyControl };
+            var hostWpfReconnect = new WindowsFormsHost { Child = puttyControl };
+            hostWpfReconnect.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            hostWpfReconnect.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+            var gridReconnect = new Grid();
+            gridReconnect.Children.Add(hostWpfReconnect);
+            tabItem.Content = gridReconnect;
             _tabIdToPuttyControl[tabId] = puttyControl;
             _disconnectedPuttyTabIds.Remove(tabId);
             TabsControl.SelectedItem = tabItem;
 
-            puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, useAgent);
+            // 延迟到布局完成后连接，确保 Panel 尺寸正确
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
+            {
+                try
+                {
+                    puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, useAgent);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("重连失败：" + ex.Message, "xOpenTerm");
+                }
+            }));
         }
         catch (Exception ex)
         {
@@ -445,12 +469,22 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>若已无任何连接 tab 对应该 node，则清除该 node 的远程文件缓存。</summary>
+    private void ClearRemoteFileCacheIfNoTabsForNode(string? nodeId)
+    {
+        if (string.IsNullOrEmpty(nodeId)) return;
+        if (_tabIdToNodeId.Values.Any(id => id == nodeId)) return;
+        _remoteFileCacheByNodeId.Remove(nodeId);
+    }
+
     private void CloseTab(string tabId)
     {
         if (_disconnectedPuttyTabIds.Contains(tabId))
         {
             _disconnectedPuttyTabIds.Remove(tabId);
+            var nodeId = _tabIdToNodeId.TryGetValue(tabId, out var nid) ? nid : null;
             _tabIdToNodeId.Remove(tabId);
+            ClearRemoteFileCacheIfNoTabsForNode(nodeId);
             RemoveTabItem(tabId);
             return;
         }
@@ -459,7 +493,9 @@ public partial class MainWindow
             rdp.Disconnect();
             rdp.Dispose();
             _tabIdToRdpControl.Remove(tabId);
+            var nodeId = _tabIdToNodeId.TryGetValue(tabId, out var nid) ? nid : null;
             _tabIdToNodeId.Remove(tabId);
+            ClearRemoteFileCacheIfNoTabsForNode(nodeId);
             RemoveTabItem(tabId);
             return;
         }
@@ -468,20 +504,24 @@ public partial class MainWindow
         {
             putty.Close();
             _tabIdToPuttyControl.Remove(tabId);
-            if (_tabIdToNodeId.TryGetValue(tabId, out var nodeId) && nodeId == _remoteFileNodeId)
+            var nodeId = _tabIdToNodeId.TryGetValue(tabId, out var nid) ? nid : null;
+            if (nodeId != null && nodeId == _remoteFileNodeId)
             {
                 _remoteFileNodeId = null;
                 RemoteFileList.ItemsSource = null;
                 RemoteFileTitle.Text = "远程文件";
             }
             _tabIdToNodeId.Remove(tabId);
+            ClearRemoteFileCacheIfNoTabsForNode(nodeId);
             RemoveTabItem(tabId);
             return;
         }
 
+        var termNodeId = _tabIdToNodeId.TryGetValue(tabId, out var tnid) ? tnid : null;
         _sessionManager.CloseSession(tabId);
         _tabIdToTerminal.Remove(tabId);
         _tabIdToNodeId.Remove(tabId);
+        ClearRemoteFileCacheIfNoTabsForNode(termNodeId);
         RemoveTabItem(tabId);
     }
 
@@ -505,8 +545,46 @@ public partial class MainWindow
                 LeftTabControl.SelectedIndex = 0;
             return;
         }
-        var nextIndex = Math.Max(0, removedIndex - 1);
+        // 按右>左顺序选下一个：优先选被关闭 tab 右侧的 tab，否则选左侧
+        var nextIndex = removedIndex < TabsControl.Items.Count ? removedIndex : Math.Max(0, removedIndex - 1);
         TabsControl.SelectedIndex = nextIndex;
+        SyncRemoteFileToCurrentConnectionTab();
+    }
+
+    /// <summary>若左侧已激活远程文件 tab，则把远程文件面板切换为当前连接 tab 对应的远程文件（当前连接为 SSH 时）。有缓存则恢复，否则从根路径加载。</summary>
+    private void SyncRemoteFileToCurrentConnectionTab()
+    {
+        if (LeftTabControl.SelectedIndex != 1) return;
+        if (TabsControl.SelectedItem is not TabItem tabItem || tabItem.Tag is not string tabId) return;
+        if (!_tabIdToNodeId.TryGetValue(tabId, out var nodeId)) return;
+        var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
+        if (node?.Type != NodeType.ssh)
+        {
+            if (_remoteFileNodeId == nodeId) return;
+            _remoteFileNodeId = null;
+            RemoteFileList.ItemsSource = null;
+            RemoteFileTitle.Text = "远程文件";
+            return;
+        }
+        _remoteFileNodeId = nodeId;
+        RemoteFileTitle.Text = "远程文件 - " + node.Name;
+        if (_remoteFileCacheByNodeId.TryGetValue(nodeId, out var cached))
+        {
+            _remoteFilePath = cached.Path;
+            RemotePathBox.Text = cached.Path;
+            RemoteFileList.ItemsSource = cached.List;
+        }
+        else
+        {
+            _remoteFilePath = ".";
+            RemotePathBox.Text = ".";
+            LoadRemoteFileList();
+        }
+    }
+
+    private void TabsControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        SyncRemoteFileToCurrentConnectionTab();
     }
 
     private void OnSessionDataReceived(object? sender, (string SessionId, string Data) e)
@@ -544,7 +622,6 @@ public partial class MainWindow
             _remoteFilePath = ".";
             RemotePathBox.Text = ".";
             RemoteFileTitle.Text = "远程文件 - " + node.Name;
-            LeftTabControl.SelectedIndex = 1;
             LoadRemoteFileList();
         });
     }
