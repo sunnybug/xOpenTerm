@@ -447,7 +447,7 @@ public partial class MainWindow
         else
         {
             menu.Items.Add(CreateMenuItem("[L] 连接", () => OpenTab(node)));
-            menu.Items.Add(CreateMenuItem("[C] 复制", () => DuplicateNode(node)));
+            menu.Items.Add(CreateMenuItem("[C] 克隆", () => DuplicateNode(node)));
             menu.Items.Add(CreateMenuItem("[S] 设置", () => EditNode(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("[D] 删除", () => DeleteNode(node)));
