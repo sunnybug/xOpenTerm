@@ -1,7 +1,6 @@
 <Window x:Class="xOpenTerm.TunnelManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:hc="https://handyorg.github.io/handycontrol"
         Title="隧道管理" Height="420" Width="560" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False" Background="{StaticResource BgDark}" ResizeMode="CanResize">
     <Grid Margin="12">

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using MaterialDesignThemes.Wpf;
 using xOpenTerm.Services;
 
 namespace xOpenTerm;
@@ -8,12 +9,21 @@ public partial class App : Application
 {
     public App()
     {
+        Startup += OnStartup;
         // UI 线程未处理异常（可阻止进程退出并写日志）
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         // 非 UI 线程未处理异常（进程即将退出，仅写日志）
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         // Task 内未观察的异常（避免后台任务抛错导致进程静默崩溃）
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+    }
+
+    private void OnStartup(object sender, StartupEventArgs e)
+    {
+        // 确保 Material Design 主题字典在最前（提供 Primary.Light 等），避免 Defaults 解析时报错
+        var theme = new Theme();
+        theme.SetBaseTheme(BaseTheme.Dark);
+        ResourceDictionaryExtensions.SetTheme(Application.Current.Resources, theme);
     }
 
     private void OnDispatcherUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)

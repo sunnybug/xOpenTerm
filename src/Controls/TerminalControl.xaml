@@ -1,7 +1,6 @@
 <UserControl x:Class="xOpenTerm.Controls.TerminalControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:hc="https://handyorg.github.io/handycontrol"
              Background="{StaticResource BgDark}">
     <ScrollViewer x:Name="ScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                   Padding="8" KeyDown="TerminalSurface_KeyDown" SizeChanged="ScrollViewer_SizeChanged">

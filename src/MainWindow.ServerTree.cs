@@ -1212,7 +1212,7 @@ public partial class MainWindow
             {
                 var selected = _selectedNodeIds.Contains(n.Id);
                 SetIsMultiSelected(tvi, selected);
-                // 直接设置 Background 以覆盖 HandyControl 模板的默认视觉
+                // 直接设置 Background 以覆盖控件模板的默认视觉
                 tvi.Background = selected ? selBg : Brushes.Transparent;
             }
         }
