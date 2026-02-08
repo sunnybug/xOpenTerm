@@ -10,21 +10,93 @@
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml"/>
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/SkinDark.xaml"/>
             </ResourceDictionary.MergedDictionaries>
-            <!-- 保留原有配色资源，供仍使用 StaticResource 的界面引用 -->
-            <SolidColorBrush x:Key="BgDark" Color="#111827"/>
-            <SolidColorBrush x:Key="BgSidebar" Color="#1F2937"/>
-            <SolidColorBrush x:Key="BgInput" Color="#1F2937"/>
-            <SolidColorBrush x:Key="BorderBrush" Color="#374151"/>
-            <SolidColorBrush x:Key="TextPrimary" Color="#E5E7EB"/>
-            <SolidColorBrush x:Key="TextSecondary" Color="#9CA3AF"/>
-            <SolidColorBrush x:Key="Accent" Color="#3B82F6"/>
-            <SolidColorBrush x:Key="HoverBg" Color="#374151"/>
-            <SolidColorBrush x:Key="ButtonBg" Color="#374151"/>
-            <SolidColorBrush x:Key="ButtonHoverBg" Color="#4B5563"/>
-            <SolidColorBrush x:Key="ButtonBorder" Color="#5B6370"/>
-            <SolidColorBrush x:Key="ButtonBorderHighlight" Color="#6B7280"/>
-            <SolidColorBrush x:Key="SelectionBg" Color="#374151"/>
+            <!-- 现代化深色配色 (UI/UX Pro Max: Developer Tool / IDE - Code dark + run green) -->
+            <SolidColorBrush x:Key="BgDark" Color="#0F172A"/>
+            <SolidColorBrush x:Key="BgSidebar" Color="#1E293B"/>
+            <SolidColorBrush x:Key="BgInput" Color="#334155"/>
+            <SolidColorBrush x:Key="BorderBrush" Color="#475569"/>
+            <SolidColorBrush x:Key="TextPrimary" Color="#F8FAFC"/>
+            <SolidColorBrush x:Key="TextSecondary" Color="#94A3B8"/>
+            <SolidColorBrush x:Key="Accent" Color="#22C55E"/>
+            <SolidColorBrush x:Key="HoverBg" Color="#334155"/>
+            <SolidColorBrush x:Key="ButtonBg" Color="#334155"/>
+            <SolidColorBrush x:Key="ButtonHoverBg" Color="#475569"/>
+            <SolidColorBrush x:Key="ButtonBorder" Color="#64748B"/>
+            <SolidColorBrush x:Key="ButtonBorderHighlight" Color="#94A3B8"/>
+            <SolidColorBrush x:Key="SelectionBg" Color="#334155"/>
             <SolidColorBrush x:Key="SelectionFg" Color="#FFFFFF"/>
+            <!-- 圆角 (现代化块状风格，150–300ms 过渡) -->
+            <CornerRadius x:Key="RadiusSm">4</CornerRadius>
+            <CornerRadius x:Key="RadiusMd">6</CornerRadius>
+            <CornerRadius x:Key="RadiusLg">8</CornerRadius>
+            <!-- 键盘焦点样式：可见焦点环，便于无障碍与键盘导航 -->
+            <Style x:Key="FocusVisual">
+                <Setter Property="Control.Template">
+                    <Setter.Value>
+                        <ControlTemplate>
+                            <Border BorderBrush="{StaticResource Accent}" BorderThickness="2" Margin="1" SnapsToDevicePixels="True"/>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- 全局按钮键盘焦点可见 -->
+            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+            </Style>
+            <!-- 默认窗口字体 (现代化可读性) -->
+            <Style TargetType="Window">
+                <Setter Property="FontFamily" Value="Segoe UI"/>
+                <Setter Property="FontSize" Value="14"/>
+            </Style>
+            <!-- 全局 Tab 样式：左侧服务器/远程文件 + 右侧终端，选中=灰底+强调底线，未选中=透明 -->
+            <Style x:Key="AppTabItemStyle" TargetType="TabItem">
+                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                <Setter Property="Padding" Value="12,8"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabItem">
+                            <Border x:Name="TabBorder" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                    BorderThickness="0,0,0,2" BorderBrush="Transparent" Cursor="Hand"
+                                    Margin="0,0,2,0">
+                                <ContentPresenter ContentSource="Header" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource BgInput}"/>
+                                    <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- 标签页关闭按钮：≥28px 可点区域 + hover 反馈 (UI/UX Pro Max) -->
+            <Style x:Key="TabCloseButtonStyle" TargetType="Button">
+                <Setter Property="Content" Value="×"/>
+                <Setter Property="MinWidth" Value="28"/>
+                <Setter Property="MinHeight" Value="28"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                                    CornerRadius="{StaticResource RadiusSm}" SnapsToDevicePixels="True">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBg}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

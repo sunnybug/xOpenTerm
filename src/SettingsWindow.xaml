@@ -4,7 +4,7 @@
         xmlns:hc="https://handyorg.github.io/handycontrol"
         Title="字体" Height="480" Width="460" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False" Background="{StaticResource BgDark}" ResizeMode="CanResize" MinHeight="420" MinWidth="420">
-    <Grid Margin="16">
+    <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -12,7 +12,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <!-- 界面字体与预览（同一方框） -->
-        <Border Grid.Row="0" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="12,10" Margin="0,0,0,12">
+        <Border Grid.Row="0" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="14,12" Margin="0,0,0,14" CornerRadius="{StaticResource RadiusMd}">
             <StackPanel>
                 <TextBlock Text="界面字体" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,8"/>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -26,7 +26,7 @@
                               BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
                 </StackPanel>
                 <TextBlock Text="预览" Foreground="{StaticResource TextPrimary}" Margin="0,4,0,6" FontWeight="SemiBold"/>
-                <Border Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,8">
+                <Border Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,8" CornerRadius="{StaticResource RadiusSm}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="界面：" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBlock x:Name="InterfacePreview" Foreground="{StaticResource TextPrimary}"
@@ -40,7 +40,7 @@
             <Button x:Name="PuttyFontBtn" Content="在 PuTTY 中设置字体…" Padding="8,4" Click="PuttyFontBtn_Click"
                     ToolTip="打开 PuTTY 配置窗口"/>
         </StackPanel>
-        <Border Grid.Row="2" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="12,10" Margin="0,0,0,12">
+        <Border Grid.Row="2" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="14,12" Margin="0,0,0,14" CornerRadius="{StaticResource RadiusMd}">
             <StackPanel>
                 <TextBlock Text="PuTTY 字体设置步骤：" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,8"/>
                 <TextBlock Foreground="{StaticResource TextSecondary}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4">
@@ -57,9 +57,9 @@
                 </TextBlock>
             </StackPanel>
         </Border>
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button x:Name="OkBtn" Content="确定" Width="80" Padding="8,4" Margin="0,0,8,0" Click="OkBtn_Click" IsDefault="True"/>
-            <Button Content="取消" Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="OkBtn" Content="确定" Width="84" Padding="10,6" Margin="0,0,10,0" Click="OkBtn_Click" IsDefault="True"/>
+            <Button Content="取消" Width="84" Padding="10,6" IsCancel="True" Click="CancelBtn_Click"/>
         </StackPanel>
     </Grid>
 </Window>

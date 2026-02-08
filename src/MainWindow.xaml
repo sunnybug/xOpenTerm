@@ -11,8 +11,8 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <!-- 顶栏菜单 -->
-        <Menu Grid.Row="0" Background="{StaticResource BgSidebar}" Foreground="White" Padding="4,2">
+        <!-- 顶栏菜单 (现代化间距) -->
+        <Menu Grid.Row="0" Background="{StaticResource BgSidebar}" Foreground="{StaticResource TextPrimary}" Padding="6,4">
             <MenuItem Header="设置">
                 <MenuItem Header="字体" Click="MenuFontSettings_Click"/>
                 <MenuItem Header="登录凭证" Click="MenuCredentials_Click"/>
@@ -31,38 +31,19 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧：Tab（服务器/远程文件） -->
+        <!-- 左侧：Tab（服务器/远程文件）- 与右侧统一使用 AppTabItemStyle -->
         <Border Grid.Column="0" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0"
-                Background="{StaticResource BgSidebar}">
-            <TabControl x:Name="LeftTabControl" Margin="0" Padding="4,4,4,0"
-                        Background="Transparent" BorderThickness="0">
-                    <TabControl.Resources>
-                        <Style TargetType="TabItem">
-                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="TabItem">
-                                        <Border x:Name="Border" Background="Transparent" Padding="10,6" Margin="0,0,4,0"
-                                                BorderThickness="0" Cursor="Hand">
-                                            <ContentPresenter ContentSource="Header"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Border" Property="Background" Value="{StaticResource BgInput}"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </TabControl.Resources>
+                Background="{StaticResource BgSidebar}" CornerRadius="0,8,8,0" Margin="0,0,0,0">
+            <TabControl x:Name="LeftTabControl" Margin="0" Padding="6,6,6,0"
+                        Background="Transparent" BorderThickness="0"
+                        ItemContainerStyle="{StaticResource AppTabItemStyle}">
                     <TabItem Header="服务器">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBox x:Name="ServerSearchBox" Grid.Row="0" Margin="8,8,8,4" Padding="8,6"
+                            <TextBox x:Name="ServerSearchBox" Grid.Row="0" Margin="8,8,8,6" Padding="10,8"
                                      Foreground="{StaticResource TextPrimary}" Background="{StaticResource BgInput}"
                                      BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                                      TextChanged="ServerSearchBox_TextChanged"
@@ -99,9 +80,9 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock x:Name="RemoteFileTitle" Grid.Row="0" Text="远程文件" Margin="12,10,12,6"
+                            <TextBlock x:Name="RemoteFileTitle" Grid.Row="0" Text="远程文件" Margin="12,10,12,8"
                                        Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold"/>
-                            <TextBox x:Name="RemotePathBox" Grid.Row="1" Margin="8,0,8,6" Padding="8,6"
+                            <TextBox x:Name="RemotePathBox" Grid.Row="1" Margin="8,0,8,6" Padding="10,8"
                                      Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"
                                      BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                                      KeyDown="RemotePathBox_KeyDown"/>
@@ -142,43 +123,14 @@
                 </TabControl>
         </Border>
 
-        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                       Background="{StaticResource BorderBrush}"/>
 
-        <!-- 右侧：标签 + 终端 -->
+        <!-- 右侧：标签 + 终端（与左侧统一使用 AppTabItemStyle） -->
         <TabControl x:Name="TabsControl" Grid.Column="2" Padding="0" Margin="0"
                     Background="{StaticResource BgDark}" BorderThickness="0"
-                    SelectionChanged="TabsControl_SelectionChanged">
-            <TabControl.Resources>
-                <Style TargetType="TabItem">
-                    <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="TabItem">
-                                <Border x:Name="Border" Background="Transparent" Padding="10,6" Margin="0,0,2,0"
-                                        BorderThickness="0,0,0,2" BorderBrush="Transparent" Cursor="Hand">
-                                    <ContentPresenter ContentSource="Header"/>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#1e293b"/>
-                                        <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-                                    </Trigger>
-                                    <MultiTrigger>
-                                        <MultiTrigger.Conditions>
-                                            <Condition Property="IsMouseOver" Value="True"/>
-                                            <Condition Property="IsSelected" Value="False"/>
-                                        </MultiTrigger.Conditions>
-                                        <Setter TargetName="Border" Property="Background" Value="{StaticResource HoverBg}"/>
-                                    </MultiTrigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </TabControl.Resources>
-        </TabControl>
+                    SelectionChanged="TabsControl_SelectionChanged"
+                    ItemContainerStyle="{StaticResource AppTabItemStyle}"/>
         </Grid>
     </Grid>
 </Window>

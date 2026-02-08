@@ -55,7 +55,8 @@ public partial class MainWindow
                     Header = CreateTabHeader(tabTitle, tabId),
                     Content = terminal,
                     Tag = tabId,
-                    ContextMenu = CreateTabContextMenu(tabId)
+                    ContextMenu = CreateTabContextMenu(tabId),
+                    Style = (Style)FindResource("AppTabItemStyle")
                 };
                 TabsControl.Items.Add(tabItem);
                 TabsControl.SelectedItem = tabItem;
@@ -103,7 +104,8 @@ public partial class MainWindow
             Header = CreateTabHeader(tabTitle, tabId),
             Content = grid,
             Tag = tabId,
-            ContextMenu = CreateTabContextMenu(tabId)
+            ContextMenu = CreateTabContextMenu(tabId),
+            Style = (Style)FindResource("AppTabItemStyle")
         };
         TabsControl.Items.Add(tabItem);
         TabsControl.SelectedItem = tabItem;
@@ -137,7 +139,8 @@ public partial class MainWindow
             Header = CreateTabHeader(tabTitle, tabId),
             Content = terminal,
             Tag = tabId,
-            ContextMenu = CreateTabContextMenu(tabId)
+            ContextMenu = CreateTabContextMenu(tabId),
+            Style = (Style)FindResource("AppTabItemStyle")
         };
         TabsControl.Items.Add(tabItem);
         TabsControl.SelectedItem = tabItem;
@@ -180,15 +183,8 @@ public partial class MainWindow
         panel.Children.Add(new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         var closeBtn = new Button
         {
-            Content = "×",
-            Width = 20,
-            Height = 20,
-            Padding = new Thickness(0),
-            FontSize = 14,
-            Background = Brushes.Transparent,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8)),
-            Cursor = Cursors.Hand,
-            Tag = tabId
+            Tag = tabId,
+            Style = (System.Windows.Style)Application.Current.Resources["TabCloseButtonStyle"]
         };
         closeBtn.Click += (s, _) =>
         {
@@ -450,7 +446,8 @@ public partial class MainWindow
                 Header = CreateTabHeader(tabTitle, tabId),
                 Content = hostWpf,
                 Tag = tabId,
-                ContextMenu = CreateTabContextMenu(tabId)
+                ContextMenu = CreateTabContextMenu(tabId),
+                Style = (Style)FindResource("AppTabItemStyle")
             };
             TabsControl.Items.Add(tabItem);
             TabsControl.SelectedItem = tabItem;

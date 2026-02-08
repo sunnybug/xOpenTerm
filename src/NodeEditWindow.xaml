@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:hc="https://handyorg.github.io/handycontrol"
         Title="节点设置" Height="520" Width="460" WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False" Background="#1a1a2e" ResizeMode="NoResize">
+        ShowInTaskbar="False" Background="{StaticResource BgDark}" ResizeMode="NoResize">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -13,61 +13,61 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="名称" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-            <TextBox x:Name="NameBox" Width="280" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
+            <TextBlock Text="名称" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+            <TextBox x:Name="NameBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
         </StackPanel>
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="类型" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+            <TextBlock Text="类型" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
             <ComboBox x:Name="TypeCombo" Width="120" Padding="4"/>
         </StackPanel>
-        <TextBlock Grid.Row="2" x:Name="ConfigLabel" Text="连接配置" Foreground="#94a3b8" Margin="0,8,0,6"/>
+        <TextBlock Grid.Row="2" x:Name="ConfigLabel" Text="连接配置" Foreground="{StaticResource TextSecondary}" Margin="0,8,0,6"/>
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="ConfigPanel">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="主机" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <TextBox x:Name="HostBox" Width="260" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
+                    <TextBlock Text="主机" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="HostBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="端口" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <TextBox x:Name="PortBox" Width="80" MaxLength="5" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
+                    <TextBlock Text="端口" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="PortBox" Width="80" MaxLength="5" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="UsernameRow">
-                    <TextBlock Text="用户名" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <TextBox x:Name="UsernameBox" Width="260" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
+                    <TextBlock Text="用户名" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="UsernameBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="认证" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+                    <TextBlock Text="认证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <ComboBox x:Name="AuthCombo" Width="120" Padding="4"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="PasswordRow">
-                    <TextBlock Text="密码" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <PasswordBox x:Name="PasswordBox" Width="260" Padding="6" Background="#1e293b" Foreground="#e2e8f0"/>
+                    <TextBlock Text="密码" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <PasswordBox x:Name="PasswordBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="KeyRow" Visibility="Collapsed">
-                    <TextBlock Text="私钥路径" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <TextBox x:Name="KeyPathBox" Width="220" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
+                    <TextBlock Text="私钥路径" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="KeyPathBox" Width="220" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
-                    <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+                    <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <ComboBox x:Name="CredentialCombo" Width="260" Padding="4"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="TunnelRow" Visibility="Collapsed">
-                    <TextBlock Text="跳板机" Width="80" VerticalAlignment="Top" Foreground="#e2e8f0" Margin="0,6,0,0"/>
+                    <TextBlock Text="跳板机" Width="80" VerticalAlignment="Top" Foreground="{StaticResource TextPrimary}" Margin="0,6,0,0"/>
                     <StackPanel>
-                        <CheckBox x:Name="TunnelUseParentCheckBox" Content="同父节点" Foreground="#e2e8f0" Margin="0,0,0,6" Checked="TunnelUseParentCheckBox_Changed" Unchecked="TunnelUseParentCheckBox_Changed"/>
-                        <ListBox x:Name="TunnelListBox" Height="72" Background="#1e293b" Foreground="#e2e8f0" SelectionMode="Multiple"/>
+                        <CheckBox x:Name="TunnelUseParentCheckBox" Content="同父节点" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6" Checked="TunnelUseParentCheckBox_Changed" Unchecked="TunnelUseParentCheckBox_Changed"/>
+                        <ListBox x:Name="TunnelListBox" Height="72" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionMode="Multiple"/>
                         <Button x:Name="TunnelManageBtn" Content="管理…" Margin="0,4,0,0" Padding="6,2" Click="TunnelManageBtn_Click"/>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="DomainRow" Visibility="Collapsed">
-                    <TextBlock Text="域" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-                    <TextBox x:Name="DomainBox" Width="260" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
+                    <TextBlock Text="域" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="DomainBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="TestConnectionRow" Visibility="Collapsed">
                     <Button x:Name="TestConnectionBtn" Content="测试连接" Width="90" Padding="6,4" Click="TestConnectionBtn_Click"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="ProtocolRow" Visibility="Collapsed">
-                    <TextBlock Text="协议" Width="80" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+                    <TextBlock Text="协议" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <ComboBox x:Name="ProtocolCombo" Width="120" Padding="4"/>
                 </StackPanel>
             </StackPanel>
