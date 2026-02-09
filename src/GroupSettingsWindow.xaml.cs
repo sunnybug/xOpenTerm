@@ -43,6 +43,26 @@ public partial class GroupSettingsWindow : Window
         {
             RefreshTunnelList(null);
         }
+
+        // 腾讯云/阿里云父节点：显示云 API 密钥区域并加载已保存的密钥
+        if (_groupNode.Type == NodeType.tencentCloudGroup)
+        {
+            CloudKeysPanel.Visibility = Visibility.Visible;
+            TencentKeysPanel.Visibility = Visibility.Visible;
+            AliKeysPanel.Visibility = Visibility.Collapsed;
+            TencentSecretIdBox.Text = _groupNode.Config?.TencentSecretId ?? "";
+            TencentSecretKeyBox.Password = _groupNode.Config?.TencentSecretKey ?? "";
+            Height = 440;
+        }
+        else if (_groupNode.Type == NodeType.aliCloudGroup)
+        {
+            CloudKeysPanel.Visibility = Visibility.Visible;
+            TencentKeysPanel.Visibility = Visibility.Collapsed;
+            AliKeysPanel.Visibility = Visibility.Visible;
+            AliAccessKeyIdBox.Text = _groupNode.Config?.AliAccessKeyId ?? "";
+            AliAccessKeySecretBox.Password = _groupNode.Config?.AliAccessKeySecret ?? "";
+            Height = 440;
+        }
     }
 
     private void RefreshTunnelList(List<string>? initialSelectedIds = null)
@@ -87,7 +107,17 @@ public partial class GroupSettingsWindow : Window
             _groupNode.Config.AuthSource = hasCred ? AuthSource.credential : null;
             _groupNode.Config.TunnelIds = (tunnelIds?.Count ?? 0) == 0 ? null : tunnelIds;
             _groupNode.Config.TunnelSource = null;
-            // 云组（腾讯云/阿里云）不覆盖密钥，由新增时填写
+            // 云组父节点：保存云 API 密钥（AccessKeyId/Secret 或 SecretId/SecretKey）
+            if (_groupNode.Type == NodeType.tencentCloudGroup)
+            {
+                _groupNode.Config.TencentSecretId = TencentSecretIdBox.Text?.Trim() ?? "";
+                _groupNode.Config.TencentSecretKey = TencentSecretKeyBox.Password ?? "";
+            }
+            else if (_groupNode.Type == NodeType.aliCloudGroup)
+            {
+                _groupNode.Config.AliAccessKeyId = AliAccessKeyIdBox.Text?.Trim() ?? "";
+                _groupNode.Config.AliAccessKeySecret = AliAccessKeySecretBox.Password ?? "";
+            }
         }
 
         DialogResult = true;

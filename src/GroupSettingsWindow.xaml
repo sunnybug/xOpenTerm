@@ -1,10 +1,11 @@
 <Window x:Class="xOpenTerm.GroupSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="分组默认设置" Height="360" Width="400" WindowStartupLocation="CenterOwner"
+        Title="分组默认设置" Height="360" Width="440" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False" Background="{StaticResource BgDark}" ResizeMode="NoResize">
     <Grid Margin="16">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -15,18 +16,41 @@
                    Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,0,16"/>
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
             <TextBlock Text="默认 SSH 凭证" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-            <ComboBox x:Name="SshCredentialCombo" Width="240" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
+            <ComboBox x:Name="SshCredentialCombo" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
         </StackPanel>
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
             <TextBlock Text="默认 RDP 凭证" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-            <ComboBox x:Name="RdpCredentialCombo" Width="240" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
+            <ComboBox x:Name="RdpCredentialCombo" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
         </StackPanel>
-        <StackPanel Grid.Row="3">
+        <!-- 腾讯云/阿里云父节点：云 API 密钥（仅云组时显示） -->
+        <StackPanel x:Name="CloudKeysPanel" Grid.Row="3" Visibility="Collapsed" Margin="0,0,0,8">
+            <StackPanel x:Name="TencentKeysPanel" Orientation="Vertical" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="SecretId" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="TencentSecretIdBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                    <TextBlock Text="SecretKey" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <PasswordBox x:Name="TencentSecretKeyBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel x:Name="AliKeysPanel" Orientation="Vertical" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="AccessKeyId" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="AliAccessKeyIdBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                    <TextBlock Text="AccessKeySecret" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <PasswordBox x:Name="AliAccessKeySecretBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="4">
             <TextBlock Text="默认跳板" VerticalAlignment="Top" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6"/>
             <ListBox x:Name="TunnelListBox" Height="120" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionMode="Multiple"/>
             <Button x:Name="TunnelManageBtn" Content="管理隧道…" Margin="0,6,0,0" Padding="6,2" Click="TunnelManageBtn_Click"/>
         </StackPanel>
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button x:Name="SaveBtn" Content="保存" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="SaveBtn_Click"/>
             <Button Content="取消" Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click"/>
         </StackPanel>
