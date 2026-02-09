@@ -1231,7 +1231,7 @@ public partial class MainWindow
         {
             try
             {
-                // 同时拉取 CVM 和轻量服务器实例
+                // 多地域并行拉取（各产品内并行），先 CVM 后轻量以保证进度条连贯
                 var cvm = TencentCloudService.ListInstances(secretId, secretKey, progress, cts.Token);
                 var lighthouse = TencentCloudService.ListLighthouseInstances(secretId, secretKey, progress, cts.Token);
                 return (Cvm: cvm, Lighthouse: lighthouse);

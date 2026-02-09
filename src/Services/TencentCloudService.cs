@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using TencentCloud.Common;
 using TencentCloud.Cvm.V20170312;
 using TencentCloud.Cvm.V20170312.Models;
@@ -85,32 +87,38 @@ public static class TencentCloudService
         return map;
     }
 
-    /// <summary>拉取所有地域的实例，报告进度并支持取消。实例会附带项目名称（若拉取到）。</summary>
+    /// <summary>拉取所有地域的实例，多地域并行拉取，报告进度并支持取消。实例会附带项目名称（若拉取到）。</summary>
     public static List<TencentCvmInstance> ListInstances(
         string secretId,
         string secretKey,
         IProgress<(string message, int current, int total)>? progress,
         System.Threading.CancellationToken cancellationToken = default)
     {
-        var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
         progress?.Report(("正在拉取项目列表…", 0, 1));
         var projectIdToName = GetProjectIdToName(secretId, secretKey, cancellationToken);
 
-        var list = new List<TencentCvmInstance>();
+        var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
+        var bag = new ConcurrentBag<TencentCvmInstance>();
         var totalRegions = Regions.Length;
-        var current = 0;
+        var completed = 0;
+        const int maxParallel = 8;
 
-        foreach (var (region, regionName) in Regions)
+        var options = new ParallelOptions
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(($"正在拉取 {regionName} ({region})…", current, totalRegions));
+            MaxDegreeOfParallelism = maxParallel,
+            CancellationToken = cancellationToken
+        };
 
+        Parallel.ForEach(Regions, options, (regionTuple) =>
+        {
+            var (region, regionName) = regionTuple;
             var client = new CvmClient(cred, region);
             var offset = 0;
             const int limit = 100;
 
             while (true)
             {
+                options.CancellationToken.ThrowIfCancellationRequested();
                 var req = new TencentCloud.Cvm.V20170312.Models.DescribeInstancesRequest
                 {
                     Offset = offset,
@@ -127,7 +135,7 @@ public static class TencentCloudService
                     var privateIp = ins.PrivateIpAddresses?.FirstOrDefault();
                     var projectId = (int)(ins.Placement?.ProjectId ?? 0);
                     projectIdToName.TryGetValue((ulong)projectId, out var projectName);
-                    list.Add(new TencentCvmInstance(
+                    bag.Add(new TencentCvmInstance(
                         region,
                         regionName,
                         projectId,
@@ -146,11 +154,12 @@ public static class TencentCloudService
                 offset += limit;
             }
 
-            current++;
-        }
+            var c = Interlocked.Increment(ref completed);
+            progress?.Report(($"正在拉取 CVM ({c}/{totalRegions} 地域)…", c, totalRegions));
+        });
 
         progress?.Report(("拉取完成", totalRegions, totalRegions));
-        return list;
+        return bag.ToList();
     }
 
     /// <summary>常见轻量应用服务器地域（可扩展）。</summary>
@@ -170,7 +179,7 @@ public static class TencentCloudService
         ("na-siliconvalley", "硅谷"),
     };
 
-    /// <summary>拉取所有地域的轻量应用服务器实例，报告进度并支持取消。</summary>
+    /// <summary>拉取所有地域的轻量应用服务器实例，多地域并行拉取，报告进度并支持取消。</summary>
     public static List<TencentLighthouseInstance> ListLighthouseInstances(
         string secretId,
         string secretKey,
@@ -178,15 +187,20 @@ public static class TencentCloudService
         System.Threading.CancellationToken cancellationToken = default)
     {
         var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
-        var list = new List<TencentLighthouseInstance>();
+        var bag = new ConcurrentBag<TencentLighthouseInstance>();
         var totalRegions = LighthouseRegions.Length;
-        var current = 0;
+        var completed = 0;
+        const int maxParallel = 8;
 
-        foreach (var (region, regionName) in LighthouseRegions)
+        var options = new ParallelOptions
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(($"正在拉取轻量服务器 {regionName} ({region})…", current, totalRegions));
+            MaxDegreeOfParallelism = maxParallel,
+            CancellationToken = cancellationToken
+        };
 
+        Parallel.ForEach(LighthouseRegions, options, (regionTuple) =>
+        {
+            var (region, regionName) = regionTuple;
             try
             {
                 var client = new LighthouseClient(cred, region);
@@ -195,6 +209,7 @@ public static class TencentCloudService
 
                 while (true)
                 {
+                    options.CancellationToken.ThrowIfCancellationRequested();
                     var req = new TencentCloud.Lighthouse.V20200324.Models.DescribeInstancesRequest
                     {
                         Offset = offset,
@@ -208,21 +223,14 @@ public static class TencentCloudService
                         var osName = ins.OsName ?? "";
                         var isWin = osName.Contains("Windows", System.StringComparison.OrdinalIgnoreCase);
 
-                        // 获取公网 IP（从数组中取第一个）
                         string? publicIp = null;
                         if (ins.PublicAddresses != null && ins.PublicAddresses.Length > 0)
-                        {
                             publicIp = ins.PublicAddresses[0];
-                        }
-
-                        // 获取私网 IP（从数组中取第一个）
                         string? privateIp = null;
                         if (ins.PrivateAddresses != null && ins.PrivateAddresses.Length > 0)
-                        {
                             privateIp = ins.PrivateAddresses[0];
-                        }
 
-                        list.Add(new TencentLighthouseInstance(
+                        bag.Add(new TencentLighthouseInstance(
                             region,
                             regionName,
                             ins.InstanceId ?? "",
@@ -245,10 +253,11 @@ public static class TencentCloudService
                 System.Diagnostics.Debug.WriteLine($"拉取轻量服务器 {regionName} 失败: {ex.Message}");
             }
 
-            current++;
-        }
+            var c = Interlocked.Increment(ref completed);
+            progress?.Report(($"正在拉取轻量服务器 ({c}/{totalRegions} 地域)…", c, totalRegions));
+        });
 
         progress?.Report(("拉取完成", totalRegions, totalRegions));
-        return list;
+        return bag.ToList();
     }
 }
