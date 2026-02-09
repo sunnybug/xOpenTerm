@@ -43,6 +43,15 @@
             <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
             </Style>
+            <!-- 勾选态复选框背景与对话框区分，避免与 BgDark 等背景融为一体 -->
+            <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                <Setter Property="Background" Value="Transparent"/>
+                <Style.Triggers>
+                    <Trigger Property="IsChecked" Value="True">
+                        <Setter Property="Background" Value="{StaticResource BgInput}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
             <!-- 默认窗口字体 (现代化可读性) -->
             <Style TargetType="Window">
                 <Setter Property="FontFamily" Value="Segoe UI"/>
