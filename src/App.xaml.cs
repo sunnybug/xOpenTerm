@@ -10,6 +10,7 @@ public partial class App : Application
     public App()
     {
         Startup += OnStartup;
+        Exit += (_, _) => ExceptionLog.WriteInfo("App Exit 事件（进程即将退出）");
         // UI 线程未处理异常（可阻止进程退出并写日志）
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         // 非 UI 线程未处理异常（进程即将退出，仅写日志）

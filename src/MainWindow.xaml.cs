@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -50,7 +52,19 @@ public partial class MainWindow : Window
         ApplyAppSettings(settings);
         ApplyWindowAndLayout(settings);
         LoadData();
-        BuildTree();
+        // 恢复上次关闭时的选中节点（仅保留仍存在的节点）
+        if (settings.ServerTreeSelectedIds != null && settings.ServerTreeSelectedIds.Count > 0)
+        {
+            var nodeIds = _nodes.Select(n => n.Id).ToHashSet();
+            foreach (var id in settings.ServerTreeSelectedIds)
+                if (nodeIds.Contains(id))
+                    _selectedNodeIds.Add(id);
+        }
+        // 恢复上次关闭时的展开状态（若有）；否则默认展开
+        var initialExpanded = settings.ServerTreeExpandedIds != null && settings.ServerTreeExpandedIds.Count > 0
+            ? new HashSet<string>(settings.ServerTreeExpandedIds)
+            : null;
+        BuildTree(expandNodes: true, initialExpandedIds: initialExpanded);
         _sessionManager.DataReceived += OnSessionDataReceived;
         _sessionManager.SessionClosed += OnSessionClosed;
         _sessionManager.SessionConnected += OnSessionConnected;
@@ -129,6 +143,10 @@ public partial class MainWindow : Window
         s.WindowState = (int)WindowState;
         if (LeftColumn.ActualWidth >= MinLeftPanelWidth && LeftColumn.ActualWidth <= MaxLeftPanelWidth)
             s.LeftPanelWidth = LeftColumn.ActualWidth;
+        // 保存节点树展开状态与选中节点，下次启动时恢复
+        var expanded = CollectExpandedGroupNodeIds(ServerTree);
+        s.ServerTreeExpandedIds = expanded != null && expanded.Count > 0 ? expanded.ToList() : null;
+        s.ServerTreeSelectedIds = _selectedNodeIds.Count > 0 ? _selectedNodeIds.ToList() : null;
         _storage.SaveAppSettings(s);
     }
 
@@ -156,6 +174,8 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        ExceptionLog.WriteInfo("进程退出: 开始关闭");
+        var rdpCount = _tabIdToRdpControl.Count;
         foreach (var tabId in _tabIdToRdpControl.Keys.ToList())
         {
             if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
@@ -164,6 +184,8 @@ public partial class MainWindow : Window
             }
         }
         _tabIdToRdpControl.Clear();
+        ExceptionLog.WriteInfo($"进程退出: RDP 已关闭 (共 {rdpCount} 个)");
+        var puttyCount = _tabIdToPuttyControl.Count;
         foreach (var tabId in _tabIdToPuttyControl.Keys.ToList())
         {
             if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
@@ -172,10 +194,13 @@ public partial class MainWindow : Window
             }
         }
         _tabIdToPuttyControl.Clear();
+        ExceptionLog.WriteInfo($"进程退出: PuTTY 已关闭 (共 {puttyCount} 个)");
         // 关闭所有 SessionManager 会话（含未在 tab 中的），避免子进程/SSH 连接导致进程无法退出
         _sessionManager.CloseAllSessions();
+        ExceptionLog.WriteInfo("进程退出: 会话已关闭");
         base.OnClosed(e);
         Application.Current.Shutdown();
+        ExceptionLog.WriteInfo("进程退出: Shutdown 已调用");
     }
 
     private void MenuCredentials_Click(object sender, RoutedEventArgs e)

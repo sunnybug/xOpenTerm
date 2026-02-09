@@ -5,6 +5,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Windows.Forms;
 using xOpenTerm.Native;
+using xOpenTerm.Services;
 
 namespace xOpenTerm.Controls;
 
@@ -147,6 +148,7 @@ public sealed class SshPuttyHostControl : Panel
 
     public void Close()
     {
+        ExceptionLog.WriteInfo("PuTTY Close 开始");
         try
         {
             if (_puttyProcess != null && !_puttyProcess.HasExited)
@@ -160,6 +162,7 @@ public sealed class SshPuttyHostControl : Panel
         catch { }
         _puttyProcess = null;
         _puttyHandle = IntPtr.Zero;
+        ExceptionLog.WriteInfo("PuTTY Close 结束");
     }
 
     public void FocusPutty()

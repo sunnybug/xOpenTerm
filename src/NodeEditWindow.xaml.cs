@@ -27,10 +27,13 @@ public partial class NodeEditWindow : Window
     private readonly HashSet<string> _initialTunnelIds;
     private readonly int _initialProtocolIndex;
     private bool _closingConfirmed;
+    /// <summary>是否为编辑已有节点（已有节点不允许修改类型）</summary>
+    private readonly bool _isExistingNode;
 
     public Node? SavedNode { get; private set; }
 
-    public NodeEditWindow(Node node, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage)
+    /// <param name="isExistingNode">true 表示编辑已有节点，类型不可改；false 表示新建节点，类型可选</param>
+    public NodeEditWindow(Node node, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage, bool isExistingNode = true)
     {
         InitializeComponent();
         _node = node;
@@ -49,6 +52,9 @@ public partial class NodeEditWindow : Window
         TypeCombo.Items.Add("RDP");
         var typeIndex = (int)node.Type;
         TypeCombo.SelectedIndex = typeIndex >= 0 && typeIndex < TypeCombo.Items.Count ? typeIndex : 3; // 默认 SSH
+        _isExistingNode = isExistingNode;
+        // 节点类型创建后不允许修改
+        TypeCombo.IsEnabled = !_isExistingNode;
 
         AuthCombo.Items.Add("同父节点");
         AuthCombo.Items.Add("登录凭证");

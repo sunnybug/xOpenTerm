@@ -2,13 +2,16 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using AlibabaCloud.SDK.Ecs20140526;
 using AlibabaCloud.SDK.Ecs20140526.Models;
 using AlibabaCloud.OpenApiClient.Models;
+using AlibabaCloud.SDK.SWAS_OPEN20200601;
+using AlibabaCloud.SDK.SWAS_OPEN20200601.Models;
 
 namespace xOpenTerm.Services;
 
-/// <summary>阿里云 ECS 实例信息，用于构建节点树（地域→服务器）。</summary>
+/// <summary>阿里云 ECS/轻量应用服务器 实例信息，用于构建节点树（地域→服务器）。</summary>
 public record AliEcsInstance(
     string RegionId,
     string RegionName,
@@ -36,7 +39,7 @@ public static class AliCloudService
             Endpoint = "ecs-cn-hangzhou.aliyuncs.com",
             RegionId = "cn-hangzhou"
         };
-        var client = new Client(config);
+        var client = new AlibabaCloud.SDK.Ecs20140526.Client(config);
 
         progress?.Report(("正在拉取地域列表…", 0, 1));
         var describeRegionsReq = new DescribeRegionsRequest();
@@ -73,7 +76,7 @@ public static class AliCloudService
                 Endpoint = regionEndpoint,
                 RegionId = regionId
             };
-            var regionClient = new Client(regionConfig);
+            var regionClient = new AlibabaCloud.SDK.Ecs20140526.Client(regionConfig);
 
             var listReq = new DescribeInstancesRequest
             {
@@ -129,5 +132,160 @@ public static class AliCloudService
 
         progress?.Report(("拉取完成", totalRegions, totalRegions));
         return bag.ToList();
+    }
+
+    /// <summary>轻量应用服务器支持的地域 ID 及显示名（中国内地 + 香港及海外部分）。</summary>
+    private static readonly IReadOnlyList<(string RegionId, string RegionName)> SwasRegions = new[]
+    {
+        ("cn-qingdao", "华北1（青岛）"),
+        ("cn-beijing", "华北2（北京）"),
+        ("cn-zhangjiakou", "华北3（张家口）"),
+        ("cn-hohhot", "华北5（呼和浩特）"),
+        ("cn-wulanchabu", "华北6（乌兰察布）"),
+        ("cn-hangzhou", "华东1（杭州）"),
+        ("cn-shanghai", "华东2（上海）"),
+        ("cn-shenzhen", "华南1（深圳）"),
+        ("cn-heyuan", "华南2（河源）"),
+        ("cn-guangzhou", "华南3（广州）"),
+        ("cn-chengdu", "西南1（成都）"),
+        ("cn-hongkong", "中国香港"),
+        ("ap-southeast-1", "新加坡"),
+        ("ap-southeast-5", "印度尼西亚（雅加达）"),
+        ("ap-southeast-7", "泰国（曼谷）"),
+        ("ap-northeast-1", "日本（东京）"),
+        ("ap-northeast-2", "韩国（首尔）"),
+        ("eu-central-1", "德国（法兰克福）"),
+        ("us-east-1", "美国（弗吉尼亚）"),
+        ("us-west-1", "美国（硅谷）")
+    };
+
+    /// <summary>拉取所有地域的轻量应用服务器实例，多地域并行拉取，报告进度并支持取消。</summary>
+    public static List<AliEcsInstance> ListSwasInstances(
+        string accessKeyId,
+        string accessKeySecret,
+        IProgress<(string message, int current, int total)>? progress,
+        CancellationToken cancellationToken = default)
+    {
+        var config = new AlibabaCloud.OpenApiClient.Models.Config
+        {
+            AccessKeyId = accessKeyId,
+            AccessKeySecret = accessKeySecret,
+            Endpoint = "swas-open.cn-hangzhou.aliyuncs.com",
+            RegionId = "cn-hangzhou"
+        };
+        var bag = new ConcurrentBag<AliEcsInstance>();
+        var total = SwasRegions.Count;
+        var completed = 0;
+        const int maxParallel = 8;
+        var options = new ParallelOptions { MaxDegreeOfParallelism = maxParallel, CancellationToken = cancellationToken };
+
+        Parallel.ForEach(SwasRegions, options, (region) =>
+        {
+            var regionId = region.RegionId;
+            var regionName = region.RegionName;
+            try
+            {
+                // 轻量应用服务器采用地域化接入，必须使用各地域自己的 endpoint（见阿里云文档：swas.{region}.aliyuncs.com）
+                var regionConfig = new AlibabaCloud.OpenApiClient.Models.Config
+                {
+                    AccessKeyId = accessKeyId,
+                    AccessKeySecret = accessKeySecret,
+                    Endpoint = $"swas.{regionId}.aliyuncs.com",
+                    RegionId = regionId
+                };
+                var client = new AlibabaCloud.SDK.SWAS_OPEN20200601.Client(regionConfig);
+                int pageNumber = 1;
+                const int pageSize = 100;
+                while (true)
+                {
+                    options.CancellationToken.ThrowIfCancellationRequested();
+                    var req = new ListInstancesRequest { RegionId = regionId, PageNumber = pageNumber, PageSize = pageSize };
+                    var resp = client.ListInstances(req);
+                    var list = resp?.Body?.Instances ?? new List<ListInstancesResponseBody.ListInstancesResponseBodyInstances>();
+                    foreach (var ins in list)
+                    {
+                        if (string.IsNullOrEmpty(ins.InstanceId)) continue;
+                        var publicIp = ins.PublicIpAddress
+                            ?? ins.NetworkAttributes?.FirstOrDefault()?.PublicIpAddress;
+                        var privateIp = ins.InnerIpAddress
+                            ?? ins.NetworkAttributes?.FirstOrDefault()?.PrivateIpAddress;
+                        var osType = ins.Image?.OsType ?? "";
+                        var isWin = string.Equals(osType, "windows", StringComparison.OrdinalIgnoreCase);
+                        bag.Add(new AliEcsInstance(
+                            regionId,
+                            regionName,
+                            ins.InstanceId,
+                            ins.InstanceName ?? ins.InstanceId,
+                            publicIp,
+                            privateIp,
+                            osType,
+                            isWin));
+                    }
+                    if (list.Count < pageSize || (resp?.Body?.TotalCount ?? 0) <= pageNumber * pageSize)
+                        break;
+                    pageNumber++;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 该地域可能未开通轻量或无权访问，跳过；记录日志便于排查（如香港实例未拉取）
+                System.Diagnostics.Debug.WriteLine($"阿里云轻量 地域 {regionId}({regionName}) 拉取失败: {ex.Message}");
+            }
+            var c = Interlocked.Increment(ref completed);
+            progress?.Report((message: $"正在拉取轻量应用服务器 ({c}/{total} 地域)…", current: c, total: total));
+        });
+
+        progress?.Report((message: "轻量应用服务器拉取完成", current: total, total: total));
+        return bag.ToList();
+    }
+
+    /// <summary>拉取 ECS + 轻量应用服务器 全部实例并合并，用于阿里云组同步。ECS 与轻量多地域并行拉取，且两者同时并行执行。</summary>
+    public static List<AliEcsInstance> ListAllInstances(
+        string accessKeyId,
+        string accessKeySecret,
+        IProgress<(string message, int current, int total)>? progress,
+        CancellationToken cancellationToken = default)
+    {
+        var totalEcs = 0;
+        var totalSwas = SwasRegions.Count;
+        var completedEcs = 0;
+        var completedSwas = 0;
+        var lockObj = new object();
+
+        progress?.Report(("正在拉取 ECS/轻量（并行）…", 0, totalSwas));
+
+        IProgress<(string message, int current, int total)>? progressEcs = progress == null ? null : new Progress<(string message, int current, int total)>(p =>
+        {
+            lock (lockObj)
+            {
+                totalEcs = p.total;
+                completedEcs = p.current;
+                var total = totalEcs + totalSwas;
+                var current = completedEcs + completedSwas;
+                progress?.Report(("正在拉取 ECS/轻量（并行）…", current, total > 0 ? total : 1));
+            }
+        });
+
+        IProgress<(string message, int current, int total)>? progressSwas = progress == null ? null : new Progress<(string message, int current, int total)>(p =>
+        {
+            lock (lockObj)
+            {
+                completedSwas = p.current;
+                var total = totalEcs + totalSwas;
+                var current = completedEcs + completedSwas;
+                progress?.Report(("正在拉取 ECS/轻量（并行）…", current, total > 0 ? total : 1));
+            }
+        });
+
+        List<AliEcsInstance>? ecsList = null;
+        List<AliEcsInstance>? swasList = null;
+        var tEcs = Task.Run(() => ListInstances(accessKeyId, accessKeySecret, progressEcs, cancellationToken), cancellationToken);
+        var tSwas = Task.Run(() => ListSwasInstances(accessKeyId, accessKeySecret, progressSwas, cancellationToken), cancellationToken);
+        Task.WaitAll(tEcs, tSwas);
+        ecsList = tEcs.GetAwaiter().GetResult();
+        swasList = tSwas.GetAwaiter().GetResult();
+
+        progress?.Report(("拉取完成", totalEcs + totalSwas, totalEcs + totalSwas));
+        return ecsList.Concat(swasList).ToList();
     }
 }

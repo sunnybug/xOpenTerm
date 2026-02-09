@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,10 +15,10 @@ namespace xOpenTerm;
 /// <summary>主窗口：服务器树、节点 CRUD、拖拽排序。</summary>
 public partial class MainWindow
 {
-    private void BuildTree(bool expandNodes = true)
+    private void BuildTree(bool expandNodes = true, HashSet<string>? initialExpandedIds = null)
     {
-        // 重建前收集当前已展开的分组节点 ID，避免新增/编辑/删除后其它父节点被意外展开
-        var expandedIds = CollectExpandedGroupNodeIds(ServerTree);
+        // 重建前收集当前已展开的分组节点 ID（或使用传入的初始展开状态，用于启动时恢复）
+        var expandedIds = initialExpandedIds ?? CollectExpandedGroupNodeIds(ServerTree);
         ServerTree.Items.Clear();
         var roots = _nodes.Where(n => string.IsNullOrEmpty(n.ParentId)).ToList();
         foreach (var node in roots)
@@ -541,7 +542,7 @@ public partial class MainWindow
         _storage.SaveNodes(_nodes);
         BuildTree();
         if (type != NodeType.group)
-            EditNode(node);
+            EditNode(node, isExistingNode: false);
     }
 
     private void ConnectAll(string groupId)
@@ -632,9 +633,9 @@ public partial class MainWindow
         BuildTree();
     }
 
-    private void EditNode(Node node)
+    private void EditNode(Node node, bool isExistingNode = true)
     {
-        var dlg = new NodeEditWindow(node, _nodes, _credentials, _tunnels, _storage) { Owner = this };
+        var dlg = new NodeEditWindow(node, _nodes, _credentials, _tunnels, _storage, isExistingNode) { Owner = this };
         if (dlg.ShowDialog() == true && dlg.SavedNode != null)
         {
             var idx = _nodes.FindIndex(n => n.Id == dlg.SavedNode.Id);
@@ -927,7 +928,7 @@ public partial class MainWindow
         SyncAliCloudGroup(groupNode);
     }
 
-    /// <summary>根据阿里云 ECS 实例列表构建 地域→服务器 节点树。</summary>
+    /// <summary>根据阿里云 ECS/轻量 实例列表构建 地域→服务器 节点树。</summary>
     private static List<Node> BuildAliCloudSubtree(string rootId, List<AliEcsInstance> instances)
     {
         var result = new List<Node>();
@@ -999,7 +1000,7 @@ public partial class MainWindow
         {
             try
             {
-                return AliCloudService.ListInstances(accessKeyId, accessKeySecret, progress, cts.Token);
+                return AliCloudService.ListAllInstances(accessKeyId, accessKeySecret, progress, cts.Token);
             }
             catch (Exception ex)
             {
@@ -1216,30 +1217,53 @@ public partial class MainWindow
         var cts = new CancellationTokenSource();
         var syncWin = new TencentCloudSyncWindow(cts.Cancel) { Owner = this };
         syncWin.Show();
-        syncWin.ReportProgress("正在拉取实例列表…", 0, 1);
+        syncWin.ReportProgress("正在拉取 CVM/轻量（并行）…", 0, 1);
 
-        // 进度回调统一同步封送到同步窗口的 UI 线程，避免跨线程访问
-        var progress = new Progress<(string message, int current, int total)>(p =>
+        // 进度回调统一同步封送到同步窗口的 UI 线程；CVM 与轻量并行拉取时合并两路进度
+        var totalCvm = 0;
+        var totalLighthouse = 0;
+        var completedCvm = 0;
+        var completedLighthouse = 0;
+        var progressLock = new object();
+        var progressCvm = new Progress<(string message, int current, int total)>(p =>
         {
-            syncWin.Dispatcher.Invoke(() => syncWin.ReportProgress(p.message, p.current, p.total));
+            lock (progressLock)
+            {
+                totalCvm = p.total;
+                completedCvm = p.current;
+                var total = totalCvm + totalLighthouse;
+                var current = completedCvm + completedLighthouse;
+                syncWin.Dispatcher.Invoke(() => syncWin.ReportProgress("正在拉取 CVM/轻量（并行）…", current, total > 0 ? total : 1));
+            }
+        });
+        var progressLighthouse = new Progress<(string message, int current, int total)>(p =>
+        {
+            lock (progressLock)
+            {
+                totalLighthouse = p.total;
+                completedLighthouse = p.current;
+                var total = totalCvm + totalLighthouse;
+                var current = completedCvm + completedLighthouse;
+                syncWin.Dispatcher.Invoke(() => syncWin.ReportProgress("正在拉取 CVM/轻量（并行）…", current, total > 0 ? total : 1));
+            }
         });
 
         List<TencentCvmInstance>? cvmInstances = null;
         List<TencentLighthouseInstance>? lighthouseInstances = null;
         Exception? runEx = null;
-        var t = System.Threading.Tasks.Task.Run(() =>
+        var tCvm = Task.Run(() => TencentCloudService.ListInstances(secretId, secretKey, progressCvm, cts.Token));
+        var tLighthouse = Task.Run(() => TencentCloudService.ListLighthouseInstances(secretId, secretKey, progressLighthouse, cts.Token));
+        var t = Task.Run(async () =>
         {
             try
             {
-                // 多地域并行拉取（各产品内并行），先 CVM 后轻量以保证进度条连贯
-                var cvm = TencentCloudService.ListInstances(secretId, secretKey, progress, cts.Token);
-                var lighthouse = TencentCloudService.ListLighthouseInstances(secretId, secretKey, progress, cts.Token);
-                return (Cvm: cvm, Lighthouse: lighthouse);
+                await Task.WhenAll(tCvm, tLighthouse);
+                return (Cvm: tCvm.Result, Lighthouse: tLighthouse.Result);
             }
             catch (Exception ex)
             {
                 runEx = ex;
-                return (Cvm: null, Lighthouse: null);
+                return (Cvm: (List<TencentCvmInstance>?)null, Lighthouse: (List<TencentLighthouseInstance>?)null);
             }
         });
 

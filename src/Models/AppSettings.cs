@@ -28,4 +28,12 @@ public class AppSettings
 
     [YamlMember(Alias = "leftPanelWidth")]
     public double LeftPanelWidth { get; set; } = 260;
+
+    /// <summary>上次关闭时服务器树中展开的分组节点 ID 列表，用于下次启动恢复</summary>
+    [YamlMember(Alias = "serverTreeExpandedIds")]
+    public List<string>? ServerTreeExpandedIds { get; set; }
+
+    /// <summary>上次关闭时服务器树选中的节点 ID 列表（多选），用于下次启动恢复</summary>
+    [YamlMember(Alias = "serverTreeSelectedIds")]
+    public List<string>? ServerTreeSelectedIds { get; set; }
 }

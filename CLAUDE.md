@@ -14,7 +14,7 @@ xOpenTerm 是一个 **C# WPF** 实现的 Windows SSH/本地终端批量管理工
 - **RDP 连接**：通过系统 mstsc 启动远程桌面
 - **凭证管理**：独立的登录凭证系统，可被多个节点引用
 - **腾讯云同步**：支持从腾讯云导入并同步服务器列表
-- **阿里云同步**：支持从阿里云 ECS 导入并同步服务器列表（地域→服务器）
+- **阿里云同步**：支持从阿里云 ECS 与轻量应用服务器导入并同步服务器列表（地域→服务器）
 
 ## 构建和运行
 
@@ -198,9 +198,12 @@ xOpenTerm/
 - 配置加载问题：检查 `Services/StorageService.cs` 的异常处理
 - PuTTY 嵌入问题：检查 `Controls/SshPuttyHostControl.cs` 的窗口句柄和命名管道
 
-## 与 Tauri 版本的差异
+## 其他特性
 
 - 无内嵌 RDP 窗口（通过 mstsc 启动系统远程桌面）
 - 终端为自定义绘制 VT100（非 xterm.js）
 - 腾讯云、阿里云同步功能
 - MobaXterm 配置导入
+
+## log位置
+%LocalAppData%\xOpenTerm\logs\info_yyyy-MM-dd.log

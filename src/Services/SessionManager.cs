@@ -221,13 +221,24 @@ public class SessionManager
     /// <summary>关闭所有会话（退出时调用，确保子进程/连接释放后进程能退出）。</summary>
     public void CloseAllSessions()
     {
-        foreach (var sessionId in _sessions.Keys.ToList())
+        var ids = _sessions.Keys.ToList();
+        ExceptionLog.WriteInfo($"CloseAllSessions 开始, 会话数={ids.Count}");
+        foreach (var sessionId in ids)
         {
             if (_sessions.TryRemove(sessionId, out var h))
             {
-                try { h.Close(); } catch { }
+                try
+                {
+                    ExceptionLog.WriteInfo($"CloseAllSessions 关闭会话: {sessionId}");
+                    h.Close();
+                }
+                catch (Exception ex)
+                {
+                    ExceptionLog.Write(ex, "CloseAllSessions 关闭会话异常: " + sessionId);
+                }
             }
         }
+        ExceptionLog.WriteInfo("CloseAllSessions 结束");
     }
 
     public bool HasSession(string sessionId) => _sessions.ContainsKey(sessionId);
@@ -304,6 +315,7 @@ internal class LocalSessionHandle : ISessionHandle
         {
             if (_closed) return;
             _closed = true;
+            ExceptionLog.WriteInfo($"LocalSession Close: {_sessionId}");
             try { if (!_process.HasExited) _process.Kill(true); } catch { }
             Closed?.Invoke(this, EventArgs.Empty);
         }
@@ -376,9 +388,11 @@ internal class SshSessionHandle : ISessionHandle
         {
             if (_closed) return;
             _closed = true;
+            ExceptionLog.WriteInfo($"SshSession Close 开始: {_sessionId}");
             try
             {
                 _stream?.Dispose();
+                ExceptionLog.WriteInfo($"SshSession Close 断开连接: {_sessionId}");
                 _client?.Disconnect();
                 _client?.Dispose();
                 // 多跳链逆序释放：先停转发端口，再断跳板连接
@@ -390,7 +404,11 @@ internal class SshSessionHandle : ISessionHandle
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                ExceptionLog.Write(ex, "SshSession Close 异常: " + _sessionId);
+            }
+            ExceptionLog.WriteInfo($"SshSession Close 结束: {_sessionId}");
             Closed?.Invoke(this, EventArgs.Empty);
         }
     }
