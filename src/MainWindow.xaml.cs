@@ -160,20 +160,22 @@ public partial class MainWindow : Window
         {
             if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
             {
-                rdp.Disconnect();
-                rdp.Dispose();
+                try { rdp.Disconnect(); rdp.Dispose(); } catch { }
             }
         }
         _tabIdToRdpControl.Clear();
         foreach (var tabId in _tabIdToPuttyControl.Keys.ToList())
         {
             if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
-                putty.Close();
+            {
+                try { putty.Close(); } catch { }
+            }
         }
         _tabIdToPuttyControl.Clear();
-        foreach (var tabId in _tabIdToTerminal.Keys.ToList())
-            _sessionManager.CloseSession(tabId);
+        // 关闭所有 SessionManager 会话（含未在 tab 中的），避免子进程/SSH 连接导致进程无法退出
+        _sessionManager.CloseAllSessions();
         base.OnClosed(e);
+        Application.Current.Shutdown();
     }
 
     private void MenuCredentials_Click(object sender, RoutedEventArgs e)

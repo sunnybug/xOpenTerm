@@ -56,6 +56,19 @@ public static class AliCloudService
             var regionName = region.LocalName ?? regionId;
             progress?.Report(($"正在拉取 {regionName} ({regionId})…", current, totalRegions));
 
+            // 每个地域必须使用该地域的 endpoint，否则会报 404 The specified endpoint cant operate this region
+            var regionEndpoint = !string.IsNullOrEmpty(region.RegionEndpoint)
+                ? region.RegionEndpoint
+                : $"ecs.{regionId}.aliyuncs.com";
+            var regionConfig = new Config
+            {
+                AccessKeyId = accessKeyId,
+                AccessKeySecret = accessKeySecret,
+                Endpoint = regionEndpoint,
+                RegionId = regionId
+            };
+            var regionClient = new Client(regionConfig);
+
             var listReq = new DescribeInstancesRequest
             {
                 RegionId = regionId,
@@ -67,7 +80,7 @@ public static class AliCloudService
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 listReq.NextToken = nextToken;
-                var listResp = client.DescribeInstances(listReq);
+                var listResp = regionClient.DescribeInstances(listReq);
                 var instanceList = listResp?.Body?.Instances?.Instance ?? new List<DescribeInstancesResponseBody.DescribeInstancesResponseBodyInstances.DescribeInstancesResponseBodyInstancesInstance>();
                 var instances = instanceList;
 

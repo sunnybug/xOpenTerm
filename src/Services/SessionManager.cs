@@ -218,6 +218,18 @@ public class SessionManager
             h.Close();
     }
 
+    /// <summary>关闭所有会话（退出时调用，确保子进程/连接释放后进程能退出）。</summary>
+    public void CloseAllSessions()
+    {
+        foreach (var sessionId in _sessions.Keys.ToList())
+        {
+            if (_sessions.TryRemove(sessionId, out var h))
+            {
+                try { h.Close(); } catch { }
+            }
+        }
+    }
+
     public bool HasSession(string sessionId) => _sessions.ContainsKey(sessionId);
 }
 
