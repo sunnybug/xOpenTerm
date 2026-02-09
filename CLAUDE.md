@@ -175,7 +175,7 @@ xOpenTerm/
 
 1. 在 `Models/AuthType.cs` 添加枚举值
 2. 在 `Services/SessionManager.cs` 的 `CreateSshSession()` 中添加认证逻辑
-3. 在对话框 UI（如 `NodeEditWindow.xaml.cs`）添加对应控件
+3. 在对应节点类型的编辑窗口（如 `SshNodeEditWindow.xaml.cs`、`RdpNodeEditWindow.xaml.cs`）添加对应控件
 
 ### 修改配置文件结构
 

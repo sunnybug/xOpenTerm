@@ -1,7 +1,8 @@
-<Window x:Class="xOpenTerm.NodeEditWindow"
+<local:NodeEditWindowBase x:Class="xOpenTerm.SshNodeEditWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="节点设置" Height="520" Width="460" WindowStartupLocation="CenterOwner"
+        xmlns:local="clr-namespace:xOpenTerm"
+        Title="SSH 节点设置" Height="520" Width="460" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False" Background="{StaticResource BgDark}" ResizeMode="NoResize">
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -15,11 +16,7 @@
             <TextBlock Text="名称" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
             <TextBox x:Name="NameBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
         </StackPanel>
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="类型" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-            <ComboBox x:Name="TypeCombo" Width="120" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" Style="{StaticResource SimpleComboBoxStyle}"/>
-        </StackPanel>
-        <TextBlock Grid.Row="2" x:Name="ConfigLabel" Text="连接配置" Foreground="{StaticResource TextSecondary}" Margin="0,8,0,6"/>
+        <TextBlock Grid.Row="1" Text="连接配置" Foreground="{StaticResource TextSecondary}" Margin="0,8,0,6"/>
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="ConfigPanel">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -36,7 +33,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="认证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <ComboBox x:Name="AuthCombo" Width="120" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" Style="{StaticResource SimpleComboBoxStyle}"/>
+                    <ComboBox x:Name="AuthCombo" Width="120" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionChanged="AuthCombo_SelectionChanged"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="PasswordRow">
                     <TextBlock Text="密码" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
@@ -48,9 +45,9 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
                     <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <ComboBox x:Name="CredentialCombo" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" Style="{StaticResource SimpleComboBoxStyle}"/>
+                    <ComboBox x:Name="CredentialCombo" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="TunnelRow" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="TunnelRow">
                     <TextBlock Text="跳板机" Width="80" VerticalAlignment="Top" Foreground="{StaticResource TextPrimary}" Margin="0,6,0,0"/>
                     <StackPanel>
                         <CheckBox x:Name="TunnelUseParentCheckBox" Content="同父节点" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6" Checked="TunnelUseParentCheckBox_Changed" Unchecked="TunnelUseParentCheckBox_Changed"/>
@@ -58,16 +55,8 @@
                         <Button x:Name="TunnelManageBtn" Content="管理…" Margin="0,4,0,0" Padding="6,2" Click="TunnelManageBtn_Click"/>
                     </StackPanel>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="DomainRow" Visibility="Collapsed">
-                    <TextBlock Text="域" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <TextBox x:Name="DomainBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="TestConnectionRow" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="TestConnectionRow">
                     <Button x:Name="TestConnectionBtn" Content="测试连接" Width="90" Padding="6,4" Click="TestConnectionBtn_Click"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="ProtocolRow" Visibility="Collapsed">
-                    <TextBlock Text="协议" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <ComboBox x:Name="ProtocolCombo" Width="120" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" Style="{StaticResource SimpleComboBoxStyle}"/>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
@@ -76,4 +65,4 @@
             <Button Content="取消" Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click"/>
         </StackPanel>
     </Grid>
-</Window>
+</local:NodeEditWindowBase>

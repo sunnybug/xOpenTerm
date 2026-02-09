@@ -635,10 +635,21 @@ public partial class MainWindow
 
     private void EditNode(Node node, bool isExistingNode = true)
     {
-        var dlg = new NodeEditWindow(node, _nodes, _credentials, _tunnels, _storage, isExistingNode) { Owner = this };
+        NodeEditWindowBase? dlg = node.Type switch
+        {
+            NodeType.group => new GroupNodeEditWindow(node, _nodes, _credentials, _tunnels, _storage, isExistingNode),
+            NodeType.tencentCloudGroup => new TencentCloudNodeEditWindow(node, _nodes, _credentials, _tunnels, _storage, isExistingNode),
+            NodeType.aliCloudGroup => new AliCloudNodeEditWindow(node, _nodes, _credentials, _tunnels, _storage, isExistingNode),
+            NodeType.ssh => new SshNodeEditWindow(node, _nodes, _credentials, _tunnels, _storage, isExistingNode),
+            NodeType.local => new LocalNodeEditWindow(node, _nodes, _credentials, _tunnels, _storage, isExistingNode),
+            NodeType.rdp => new RdpNodeEditWindow(node, _nodes, _credentials, _tunnels, _storage, isExistingNode),
+            _ => null
+        };
+        if (dlg == null) return;
+        dlg.Owner = this;
         if (dlg.ShowDialog() == true && dlg.SavedNode != null)
         {
-            var idx = _nodes.FindIndex(n => n.Id == dlg.SavedNode.Id);
+            var idx = _nodes.FindIndex(n => n.Id == dlg.SavedNode!.Id);
             if (idx >= 0) _nodes[idx] = dlg.SavedNode;
             else _nodes.Add(dlg.SavedNode);
             _storage.SaveNodes(_nodes);
