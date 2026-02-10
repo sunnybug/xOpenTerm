@@ -1,0 +1,50 @@
+<UserControl x:Class="xOpenTerm.Controls.SshStatusBarControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource BgSidebar}" Padding="8,4"
+             BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="*" MinWidth="80"/>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <!-- 连接状态 -->
+        <StackPanel Grid.Column="0" Orientation="Horizontal">
+            <TextBlock Text="状态:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="StatusText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <!-- CPU -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal">
+            <TextBlock Text="CPU:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="CpuText" Text="—%" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <!-- 内存 -->
+        <StackPanel Grid.Column="4" Orientation="Horizontal">
+            <TextBlock Text="内存:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="MemText" Text="—%" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <!-- 网络流量走势图 -->
+        <Border Grid.Column="6" Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinHeight="24">
+            <Canvas x:Name="NetworkChart" ClipToBounds="True"/>
+        </Border>
+        <!-- TCP -->
+        <StackPanel Grid.Column="8" Orientation="Horizontal">
+            <TextBlock Text="TCP:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="TcpText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <!-- UDP -->
+        <StackPanel Grid.Column="10" Orientation="Horizontal">
+            <TextBlock Text="UDP:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="UdpText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -29,7 +29,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="认证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <ComboBox x:Name="AuthCombo" Width="120" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionChanged="AuthCombo_SelectionChanged"/>
+                    <ComboBox x:Name="AuthCombo" Width="120" Style="{StaticResource SimpleComboBoxStyle}" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionChanged="AuthCombo_SelectionChanged"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
                     <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>

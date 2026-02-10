@@ -32,7 +32,7 @@
         </StackPanel>
         <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,8">
             <TextBlock Text="认证" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
-            <ComboBox x:Name="AuthCombo" Width="120" Padding="4"/>
+            <ComboBox x:Name="AuthCombo" Width="120" Style="{StaticResource SimpleComboBoxStyle}" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
         </StackPanel>
         <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
             <TextBlock Text="登录凭证" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>

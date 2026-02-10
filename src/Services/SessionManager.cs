@@ -10,6 +10,78 @@ namespace xOpenTerm.Services;
 /// <summary>管理 SSH 与本地终端会话，向 UI 推送输出</summary>
 public class SessionManager
 {
+    /// <summary>在远程主机上执行单条命令并返回标准输出（用于状态栏统计等）。支持直连与跳板链。执行后即断开。</summary>
+    public static async Task<string?> RunSshCommandAsync(
+        string host, ushort port, string username,
+        string? password, string? keyPath, string? keyPassphrase,
+        List<JumpHop>? jumpChain, bool useAgent,
+        string command, CancellationToken cancellationToken = default)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                if (jumpChain == null || jumpChain.Count == 0)
+                    return RunSshCommandDirect(host, port, username, password, keyPath, keyPassphrase, useAgent, command);
+
+                string connectHost = jumpChain[0].Host;
+                var connectPort = (uint)jumpChain[0].Port;
+                var chainDisposables = new List<IDisposable>();
+
+                for (var i = 0; i < jumpChain.Count; i++)
+                {
+                    var hop = jumpChain[i];
+                    var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
+                    if (conn == null) return null;
+                    var client = new SshClient(conn);
+                    client.Connect();
+                    chainDisposables.Add(client);
+                    var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
+                    var nextPort = (uint)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
+                    var fwd = new ForwardedPortLocal("127.0.0.1", 0, nextHost, nextPort);
+                    client.AddForwardedPort(fwd);
+                    fwd.Start();
+                    chainDisposables.Add(fwd);
+                    connectHost = "127.0.0.1";
+                    connectPort = fwd.BoundPort;
+                }
+
+                try
+                {
+                    return RunSshCommandDirect(connectHost, (ushort)connectPort, username, password, keyPath, keyPassphrase, useAgent, command);
+                }
+                finally
+                {
+                    for (var i = chainDisposables.Count - 1; i >= 0; i--)
+                    {
+                        try { chainDisposables[i]?.Dispose(); } catch { }
+                    }
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string? RunSshCommandDirect(string host, ushort port, string username,
+        string? password, string? keyPath, string? keyPassphrase, bool useAgent, string command)
+    {
+        var conn = CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent);
+        if (conn == null) return null;
+        using var client = new SshClient(conn);
+        client.Connect();
+        try
+        {
+            using var cmd = client.RunCommand(command);
+            return cmd.Result;
+        }
+        finally
+        {
+            client.Disconnect();
+        }
+    }
     private readonly ConcurrentDictionary<string, ISessionHandle> _sessions = new();
 
     public event EventHandler<(string SessionId, string Data)>? DataReceived;

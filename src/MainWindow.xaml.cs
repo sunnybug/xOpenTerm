@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -44,6 +45,12 @@ public partial class MainWindow : Window
     private string _remoteFilePath = ".";
     /// <summary>远程文件 tab 缓存：nodeId -> (路径, 列表)。该连接对应的所有 tab 关闭后清除。</summary>
     private readonly Dictionary<string, (string Path, List<RemoteFileItem> List)> _remoteFileCacheByNodeId = new();
+    /// <summary>SSH 标签页底部状态栏控件（仅 SSH 连接 tab）。</summary>
+    private readonly Dictionary<string, SshStatusBarControl> _tabIdToSshStatusBar = new();
+    /// <summary>SSH 状态栏轮询取消用（关闭/断开 tab 时取消）。</summary>
+    private readonly Dictionary<string, CancellationTokenSource> _tabIdToStatsCts = new();
+    /// <summary>PuTTY 类 SSH tab 的连接参数，用于状态栏远程采集（仅无跳板时存储）。</summary>
+    private readonly Dictionary<string, (string host, int port, string username, string? password, string? keyPath, string? keyPassphrase, List<JumpHop>? jumpChain, bool useAgent)> _tabIdToSshStatsParams = new();
 
     public MainWindow()
     {

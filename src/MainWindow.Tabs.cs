@@ -1,4 +1,6 @@
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -82,6 +84,30 @@ public partial class MainWindow
                     CloseTab(tabId);
             });
         };
+
+        var hostWpf = new WindowsFormsHost { Child = puttyControl };
+        hostWpf.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+        hostWpf.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+        var statusBar = new SshStatusBarControl();
+        statusBar.UpdateStats(false, null, null, null, null, null, null);
+        var dock = new DockPanel();
+        DockPanel.SetDock(statusBar, Dock.Bottom);
+        dock.Children.Add(statusBar);
+        dock.Children.Add(hostWpf);
+        var tabItem = new TabItem
+        {
+            Header = CreateTabHeader(tabTitle, tabId, node),
+            Content = dock,
+            Tag = tabId,
+            ContextMenu = CreateTabContextMenu(tabId),
+            Style = (Style)FindResource("AppTabItemStyle")
+        };
+        TabsControl.Items.Add(tabItem);
+        TabsControl.SelectedItem = tabItem;
+        _tabIdToPuttyControl[tabId] = puttyControl;
+        _tabIdToNodeId[tabId] = node.Id;
+        _tabIdToSshStatusBar[tabId] = statusBar;
+        _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, null, null, useAgent);
         puttyControl.Connected += (_, _) =>
         {
             Dispatcher.BeginInvoke(() =>
@@ -91,26 +117,10 @@ public partial class MainWindow
                 RemotePathBox.Text = ".";
                 RemoteFileTitle.Text = "远程文件 - " + node.Name;
                 LoadRemoteFileList();
+                if (_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
+                    StartSshStatusBarPolling(tabId, p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent);
             });
         };
-
-        var hostWpf = new WindowsFormsHost { Child = puttyControl };
-        hostWpf.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
-        hostWpf.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
-        var grid = new Grid();
-        grid.Children.Add(hostWpf);
-        var tabItem = new TabItem
-        {
-            Header = CreateTabHeader(tabTitle, tabId, node),
-            Content = grid,
-            Tag = tabId,
-            ContextMenu = CreateTabContextMenu(tabId),
-            Style = (Style)FindResource("AppTabItemStyle")
-        };
-        TabsControl.Items.Add(tabItem);
-        TabsControl.SelectedItem = tabItem;
-        _tabIdToPuttyControl[tabId] = puttyControl;
-        _tabIdToNodeId[tabId] = node.Id;
 
         // 延迟到 WPF 布局完成后再连接，确保 WindowsFormsHost/Panel 已获得正确尺寸，
         // 避免 PuTTY 以极小的窗口初始化导致终端列数过窄
@@ -134,10 +144,27 @@ public partial class MainWindow
         var terminal = new TerminalControl();
         terminal.DataToSend += (_, data) => _sessionManager.WriteToSession(tabId, data);
 
+        System.Windows.FrameworkElement tabContent;
+        if (sshParams != null)
+        {
+            var statusBar = new SshStatusBarControl();
+            statusBar.UpdateStats(false, null, null, null, null, null, null);
+            var dock = new DockPanel();
+            DockPanel.SetDock(statusBar, Dock.Bottom);
+            dock.Children.Add(statusBar);
+            dock.Children.Add(terminal);
+            tabContent = dock;
+            _tabIdToSshStatusBar[tabId] = statusBar;
+        }
+        else
+        {
+            tabContent = terminal;
+        }
+
         var tabItem = new TabItem
         {
             Header = CreateTabHeader(tabTitle, tabId, node),
-            Content = terminal,
+            Content = tabContent,
             Tag = tabId,
             ContextMenu = CreateTabContextMenu(tabId),
             Style = (Style)FindResource("AppTabItemStyle")
@@ -233,13 +260,24 @@ public partial class MainWindow
             if (TryGetTabItem(tabId) is not TabItem tabItem)
                 return;
             _tabIdToPuttyControl.Remove(tabId);
+            StopSshStatusBarPolling(tabId);
             if (_tabIdToNodeId.TryGetValue(tabId, out var nid) && nid == _remoteFileNodeId)
             {
                 _remoteFileNodeId = null;
                 RemoteFileList.ItemsSource = null;
                 RemoteFileTitle.Text = "远程文件";
             }
-            tabItem.Content = CreateDisconnectedPlaceholder();
+            var placeholder = CreateDisconnectedPlaceholder();
+            if (_tabIdToSshStatusBar.TryGetValue(tabId, out var statusBar))
+            {
+                var dock = new DockPanel();
+                DockPanel.SetDock(statusBar, Dock.Bottom);
+                dock.Children.Add(statusBar);
+                dock.Children.Add(placeholder);
+                tabItem.Content = dock;
+            }
+            else
+                tabItem.Content = placeholder;
             _disconnectedPuttyTabIds.Add(tabId);
             putty.Close();
             return;
@@ -297,6 +335,19 @@ public partial class MainWindow
                         CloseTab(tabId);
                 });
             };
+            var hostWpfReconnect = new WindowsFormsHost { Child = puttyControl };
+            hostWpfReconnect.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            hostWpfReconnect.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+            var statusBarReconnect = new SshStatusBarControl();
+            statusBarReconnect.UpdateStats(false, null, null, null, null, null, null);
+            var dockReconnect = new DockPanel();
+            DockPanel.SetDock(statusBarReconnect, Dock.Bottom);
+            dockReconnect.Children.Add(statusBarReconnect);
+            dockReconnect.Children.Add(hostWpfReconnect);
+            tabItem.Content = dockReconnect;
+            _tabIdToPuttyControl[tabId] = puttyControl;
+            _tabIdToSshStatusBar[tabId] = statusBarReconnect;
+            _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent);
             puttyControl.Connected += (_, _) =>
             {
                 Dispatcher.BeginInvoke(() =>
@@ -306,16 +357,10 @@ public partial class MainWindow
                     RemotePathBox.Text = ".";
                     RemoteFileTitle.Text = "远程文件 - " + node.Name;
                     LoadRemoteFileList();
+                    if (_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
+                        StartSshStatusBarPolling(tabId, p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent);
                 });
             };
-
-            var hostWpfReconnect = new WindowsFormsHost { Child = puttyControl };
-            hostWpfReconnect.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
-            hostWpfReconnect.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
-            var gridReconnect = new Grid();
-            gridReconnect.Children.Add(hostWpfReconnect);
-            tabItem.Content = gridReconnect;
-            _tabIdToPuttyControl[tabId] = puttyControl;
             _disconnectedPuttyTabIds.Remove(tabId);
             TabsControl.SelectedItem = tabItem;
 
@@ -495,6 +540,10 @@ public partial class MainWindow
 
     private void CloseTab(string tabId)
     {
+        StopSshStatusBarPolling(tabId);
+        _tabIdToSshStatusBar.Remove(tabId);
+        _tabIdToSshStatsParams.Remove(tabId);
+
         if (_disconnectedPuttyTabIds.Contains(tabId))
         {
             _disconnectedPuttyTabIds.Remove(tabId);
@@ -618,6 +667,7 @@ public partial class MainWindow
         {
             if (_tabIdToTerminal.TryGetValue(sessionId, out var term))
                 term.Append("\r\n\x1b[31m连接已关闭\x1b[0m\r\n");
+            StopSshStatusBarPolling(sessionId);
             if (_remoteFileNodeId != null && _tabIdToNodeId.TryGetValue(sessionId, out var nodeId) && nodeId == _remoteFileNodeId)
             {
                 _remoteFileNodeId = null;
@@ -639,6 +689,86 @@ public partial class MainWindow
             RemotePathBox.Text = ".";
             RemoteFileTitle.Text = "远程文件 - " + node.Name;
             LoadRemoteFileList();
+            // 内置 SSH 终端连接成功后启动状态栏轮询
+            StartSshStatusBarPollingForTab(sessionId, node);
         });
+    }
+
+    /// <summary>为 SSH 标签页启动状态栏轮询（3 秒一次，远程执行统计命令并更新状态栏）。</summary>
+    private void StartSshStatusBarPollingForTab(string tabId, Node node)
+    {
+        if (!_tabIdToSshStatusBar.TryGetValue(tabId, out var statusBar)) return;
+        try
+        {
+            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
+                ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
+            StartSshStatusBarPolling(tabId, host, (ushort)port, username, password, keyPath, keyPassphrase, jumpChain, useAgent);
+        }
+        catch
+        {
+            statusBar.UpdateStats(true, null, null, null, null, null, null);
+        }
+    }
+
+    /// <summary>启动状态栏轮询：每 3 秒在远程执行统计命令并更新指定 tab 的状态栏。</summary>
+    private void StartSshStatusBarPolling(string tabId,
+        string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase,
+        List<JumpHop>? jumpChain, bool useAgent)
+    {
+        if (_tabIdToStatsCts.TryGetValue(tabId, out var oldCts))
+        {
+            try { oldCts.Cancel(); } catch { }
+            _tabIdToStatsCts.Remove(tabId);
+        }
+        var cts = new CancellationTokenSource();
+        _tabIdToStatsCts[tabId] = cts;
+        var token = cts.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    var output = await SessionManager.RunSshCommandAsync(
+                        host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent,
+                        SshStatsHelper.StatsCommand, token);
+                    if (token.IsCancellationRequested) break;
+                    var (cpu, mem, rxBps, txBps, tcp, udp) = SshStatsHelper.ParseStatsOutput(output);
+                    if (!_tabIdToSshStatusBar.TryGetValue(tabId, out var bar)) break;
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (_tabIdToSshStatusBar.TryGetValue(tabId, out var b))
+                            b.UpdateStats(true, cpu, mem, rxBps, txBps, tcp, udp);
+                    });
+                }
+                catch (OperationCanceledException) { break; }
+                catch
+                {
+                    if (!_tabIdToSshStatusBar.TryGetValue(tabId, out var bar)) break;
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (_tabIdToSshStatusBar.TryGetValue(tabId, out var b))
+                            b.UpdateStats(true, null, null, null, null, null, null);
+                    });
+                }
+                try
+                {
+                    await Task.Delay(3000, token);
+                }
+                catch (OperationCanceledException) { break; }
+            }
+        }, token);
+    }
+
+    /// <summary>停止指定 tab 的状态栏轮询并更新为未连接。</summary>
+    private void StopSshStatusBarPolling(string tabId)
+    {
+        if (_tabIdToStatsCts.TryGetValue(tabId, out var cts))
+        {
+            try { cts.Cancel(); } catch { }
+            _tabIdToStatsCts.Remove(tabId);
+        }
+        if (_tabIdToSshStatusBar.TryGetValue(tabId, out var bar))
+            bar.UpdateStats(false, null, null, null, null, null, null);
     }
 }

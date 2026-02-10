@@ -108,9 +108,33 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+            <!-- 下拉框列表项样式：保证下拉弹出层内文字与背景对比度，避免与 BgInput 接近导致难以辨认 -->
+            <Style x:Key="SimpleComboBoxItemStyle" TargetType="ComboBoxItem">
+                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Padding" Value="8,6"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBoxItem">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsHighlighted" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBg}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectionBg}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <!-- 简洁下拉框样式：无前置图标/符号，用于节点设置等对话框，避免 Material Design 模板带来的多余视觉元素 -->
             <Style x:Key="SimpleComboBoxStyle" TargetType="ComboBox">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+                <Setter Property="ItemContainerStyle" Value="{StaticResource SimpleComboBoxItemStyle}"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ComboBox">
