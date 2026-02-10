@@ -7,13 +7,25 @@ namespace xOpenTerm.Services;
 public static class SshStatsHelper
 {
     /// <summary>在 Linux 上采集 CPU/内存/网络/TCP/UDP 的单条命令（约 1 秒，含 sleep 1）。</summary>
-    public const string StatsCommand = "S1=$(grep '^cpu ' /proc/stat); echo \"CPU1:$S1\"; echo \"MEM:$(grep -E 'MemTotal|MemAvailable|MemFree' /proc/meminfo | tr '\n' ' ')\"; N1=$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev); echo \"NET1:$N1\"; sleep 1; S2=$(grep '^cpu ' /proc/stat); echo \"CPU2:$S2\"; N2=$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev); echo \"NET2:$N2\"; echo \"TCP:$(if command -v ss >/dev/null 2>&1; then ss -t -a 2>/dev/null | tail -n +2 | wc -l; elif command -v netstat >/dev/null 2>&1; then netstat -t -a 2>/dev/null | tail -n +3 | wc -l; else echo 0; fi)\"; echo \"UDP:$(if command -v ss >/dev/null 2>&1; then ss -u -a 2>/dev/null | tail -n +2 | wc -l; elif command -v netstat >/dev/null 2>&1; then netstat -u -a 2>/dev/null | tail -n +3 | wc -l; else echo 0; fi)\"";
+    public const string StatsCommand = "grep '^cpu ' /proc/stat; echo '---'; grep 'MemTotal' /proc/meminfo; echo '---'; grep 'MemFree' /proc/meminfo; echo '---'; awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev; echo '---'; sleep 1; grep '^cpu ' /proc/stat; echo '---'; awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev; echo '---'; netstat -t -a 2>/dev/null | wc -l; echo '---'; netstat -u -a 2>/dev/null | wc -l;";
+    
+    /// <summary>用于调试的简化命令，不包含 sleep，用于快速测试。</summary>
+    public const string DebugCommand = "echo \"CPU:$(grep '^cpu ' /proc/stat)\"; echo \"MEM:$(grep -E 'MemTotal|MemFree' /proc/meminfo)\"; echo \"NET:$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev)\"; echo \"TCP:$(netstat -t -a 2>/dev/null | wc -l)\"; echo \"UDP:$(netstat -u -a 2>/dev/null | wc -l)\"; echo \"VERSION:$(cat /etc/centos-release 2>/dev/null || cat /etc/redhat-release 2>/dev/null || echo 'Unknown')\"";
 
     /// <summary>解析远程命令输出，返回 CPU%、内存%、下行/上行字节每秒、TCP 数、UDP 数。解析失败则对应项为 null。</summary>
     public static (double? CpuPercent, double? MemPercent, double? RxBps, double? TxBps, int? TcpCount, int? UdpCount) ParseStatsOutput(string? output)
     {
+        ExceptionLog.WriteInfo($"[SshStatsHelper] 开始解析输出，长度: {(output?.Length ?? 0)}");
+        if (!string.IsNullOrEmpty(output))
+        {
+            ExceptionLog.WriteInfo($"[SshStatsHelper] 输出内容: {output}");
+        }
+
         if (string.IsNullOrWhiteSpace(output))
+        {
+            ExceptionLog.WriteInfo("[SshStatsHelper] 输出为空，返回 null");
             return (null, null, null, null, null, null);
+        }
 
         double? cpu = null;
         double? mem = null;
@@ -24,28 +36,71 @@ public static class SshStatsHelper
 
         var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
         string? cpu1 = null, cpu2 = null;
-        string? memLine = null;
+        string? memTotal = null, memFree = null;
         string? net1 = null, net2 = null;
 
+        ExceptionLog.WriteInfo($"[SshStatsHelper] 解析到 {lines.Length} 行数据");
+
+        // 使用分隔符 --- 来识别不同的数据段
+        int sectionIndex = 0;
         foreach (var line in lines)
         {
-            if (line.StartsWith("CPU1:", StringComparison.Ordinal))
-                cpu1 = line.Substring(5).Trim();
-            else if (line.StartsWith("CPU2:", StringComparison.Ordinal))
-                cpu2 = line.Substring(5).Trim();
-            else if (line.StartsWith("MEM:", StringComparison.Ordinal))
-                memLine = line.Substring(4).Trim();
-            else if (line.StartsWith("NET1:", StringComparison.Ordinal))
-                net1 = line.Substring(5).Trim();
-            else if (line.StartsWith("NET2:", StringComparison.Ordinal))
-                net2 = line.Substring(5).Trim();
-            else if (line.StartsWith("TCP:", StringComparison.Ordinal) && int.TryParse(line.Substring(4).Trim(), out var t))
-                tcp = t;
-            else if (line.StartsWith("UDP:", StringComparison.Ordinal) && int.TryParse(line.Substring(4).Trim(), out var u))
-                udp = u;
+            ExceptionLog.WriteInfo($"[SshStatsHelper] 处理行: {line}, 段索引: {sectionIndex}");
+            if (line == "---")
+            {
+                sectionIndex++;
+                continue;
+            }
+
+            switch (sectionIndex)
+            {
+                case 0: // CPU1
+                    if (!string.IsNullOrEmpty(line))
+                        cpu1 = line;
+                    break;
+                case 1: // MemTotal
+                    if (!string.IsNullOrEmpty(line))
+                        memTotal = line;
+                    break;
+                case 2: // MemFree
+                    if (!string.IsNullOrEmpty(line))
+                        memFree = line;
+                    break;
+                case 3: // NET1
+                    if (!string.IsNullOrEmpty(line))
+                        net1 = line;
+                    break;
+                case 4: // CPU2
+                    if (!string.IsNullOrEmpty(line))
+                        cpu2 = line;
+                    break;
+                case 5: // NET2
+                    if (!string.IsNullOrEmpty(line))
+                        net2 = line;
+                    break;
+                case 6: // TCP
+                    if (!string.IsNullOrEmpty(line))
+                    {
+                        if (int.TryParse(line, out var t))
+                            tcp = t;
+                        else if (int.TryParse(System.Text.RegularExpressions.Regex.Match(line, "\\d+").Value, out t))
+                            tcp = t;
+                    }
+                    break;
+                case 7: // UDP
+                    if (!string.IsNullOrEmpty(line))
+                    {
+                        if (int.TryParse(line, out var u))
+                            udp = u;
+                        else if (int.TryParse(System.Text.RegularExpressions.Regex.Match(line, "\\d+").Value, out u))
+                            udp = u;
+                    }
+                    break;
+            }
         }
 
         // CPU: 两行 cpu 行，格式 "cpu  user nice sys idle iowait ..."
+        ExceptionLog.WriteInfo($"[SshStatsHelper] CPU1: {cpu1}, CPU2: {cpu2}");
         if (!string.IsNullOrEmpty(cpu1) && !string.IsNullOrEmpty(cpu2))
         {
             if (ParseCpuLine(cpu1, out var u1, out var t1) && ParseCpuLine(cpu2, out var u2, out var t2))
@@ -56,23 +111,19 @@ public static class SshStatsHelper
             }
         }
 
-        // MEM: "MemTotal: 123456 kB MemAvailable: 65432 kB" 或多行
-        if (!string.IsNullOrEmpty(memLine))
-        {
-            var totalKb = MatchNumberAfter(memLine, "MemTotal");
-            var availKb = MatchNumberAfter(memLine, "MemAvailable");
-            var freeKb = MatchNumberAfter(memLine, "MemFree");
+        // MEM: 分别解析 MemTotal 和 MemFree
+        ExceptionLog.WriteInfo($"[SshStatsHelper] 内存总量行: {memTotal}, 空闲行: {memFree}");
+        var totalKb = MatchNumberAfter(memTotal ?? "", "MemTotal");
+        var freeKb = MatchNumberAfter(memFree ?? "", "MemFree");
+        ExceptionLog.WriteInfo($"[SshStatsHelper] 内存总量: {totalKb}, 空闲: {freeKb}");
 
-            if (totalKb.HasValue && totalKb.Value > 0)
-            {
-                if (availKb.HasValue)
-                    mem = 100.0 * (1.0 - (double)availKb.Value / totalKb.Value);
-                else if (freeKb.HasValue)
-                    mem = 100.0 * (1.0 - (double)freeKb.Value / totalKb.Value);
-            }
+        if (totalKb.HasValue && freeKb.HasValue && totalKb.Value > 0)
+        {
+            mem = 100.0 * (1.0 - (double)freeKb.Value / totalKb.Value);
         }
 
         // NET: "rx_total tx_total" 两行，间隔 1 秒，差值为 bytes/s
+        ExceptionLog.WriteInfo($"[SshStatsHelper] NET1: {net1}, NET2: {net2}");
         if (!string.IsNullOrEmpty(net1) && !string.IsNullOrEmpty(net2))
         {
             var parts1 = net1.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
@@ -90,6 +141,7 @@ public static class SshStatsHelper
             }
         }
 
+        ExceptionLog.WriteInfo($"[SshStatsHelper] 解析结果 - CPU: {cpu}, 内存: {mem}, 下行: {rxBps}, 上行: {txBps}, TCP: {tcp}, UDP: {udp}");
         return (cpu, mem, rxBps, txBps, tcp, udp);
     }
 

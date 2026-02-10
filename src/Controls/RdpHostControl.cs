@@ -18,6 +18,7 @@ public class RdpHostControl : System.Windows.Forms.UserControl
     private readonly string? _password;
 
     public event EventHandler? Disconnected;
+    public event EventHandler? Connected;
     public event EventHandler<string>? ErrorOccurred;
 
     public RdpHostControl(string host, int port, string username, string domain, string? password)
@@ -32,6 +33,7 @@ public class RdpHostControl : System.Windows.Forms.UserControl
 
         _rdpControl = new RdpControl { Dock = DockStyle.Fill };
         _rdpControl.OnDisconnected += Rdp_OnDisconnected;
+        _rdpControl.OnConnected += Rdp_OnConnected;
         Controls.Add(_rdpControl);
 
         var config = _rdpControl.RdpConfiguration;
@@ -100,11 +102,20 @@ public class RdpHostControl : System.Windows.Forms.UserControl
         });
     }
 
+    private void Rdp_OnConnected(object? sender, EventArgs e)
+    {
+        BeginInvoke(() =>
+        {
+            Connected?.Invoke(this, EventArgs.Empty);
+        });
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
             _rdpControl.OnDisconnected -= Rdp_OnDisconnected;
+            _rdpControl.OnConnected -= Rdp_OnConnected;
             Disconnect();
             _rdpControl.Dispose();
         }

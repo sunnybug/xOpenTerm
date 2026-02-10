@@ -47,10 +47,16 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, (string Path, List<RemoteFileItem> List)> _remoteFileCacheByNodeId = new();
     /// <summary>SSH 标签页底部状态栏控件（仅 SSH 连接 tab）。</summary>
     private readonly Dictionary<string, SshStatusBarControl> _tabIdToSshStatusBar = new();
-    /// <summary>SSH 状态栏轮询取消用（关闭/断开 tab 时取消）。</summary>
+    /// <summary>RDP 标签页底部状态栏控件（仅 RDP 连接 tab）。</summary>
+    private readonly Dictionary<string, SshStatusBarControl> _tabIdToRdpStatusBar = new();
+    /// <summary>状态栏轮询取消用（关闭/断开 tab 时取消）。</summary>
     private readonly Dictionary<string, CancellationTokenSource> _tabIdToStatsCts = new();
     /// <summary>PuTTY 类 SSH tab 的连接参数，用于状态栏远程采集（仅无跳板时存储）。</summary>
     private readonly Dictionary<string, (string host, int port, string username, string? password, string? keyPath, string? keyPassphrase, List<JumpHop>? jumpChain, bool useAgent)> _tabIdToSshStatsParams = new();
+    /// <summary>RDP tab 的连接参数，用于状态栏远程采集。</summary>
+    private readonly Dictionary<string, (string host, int port, string username, string? password)> _tabIdToRdpStatsParams = new();
+    /// <summary>Tab 连接状态跟踪：tabId -> 是否已断开</summary>
+    private readonly Dictionary<string, bool> _tabIdToDisconnected = new();
 
     public MainWindow()
     {
@@ -268,6 +274,19 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         ExceptionLog.WriteInfo("进程退出: 开始关闭");
+
+        // 停止所有状态栏轮询线程，防止后台线程访问已清理的资源
+        var statsCtsCount = _tabIdToStatsCts.Count;
+        foreach (var tabId in _tabIdToStatsCts.Keys.ToList())
+        {
+            if (_tabIdToStatsCts.TryGetValue(tabId, out var cts))
+            {
+                try { cts.Cancel(); } catch { }
+            }
+        }
+        _tabIdToStatsCts.Clear();
+        ExceptionLog.WriteInfo($"进程退出: 状态栏轮询已停止 (共 {statsCtsCount} 个)");
+
         var rdpCount = _tabIdToRdpControl.Count;
         foreach (var tabId in _tabIdToRdpControl.Keys.ToList())
         {

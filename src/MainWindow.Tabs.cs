@@ -209,14 +209,45 @@ public partial class MainWindow
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
         if (node != null)
         {
-            var iconBlock = new TextBlock
+            bool isDisconnected = _tabIdToDisconnected.TryGetValue(tabId, out var disconnected) && disconnected;
+            string iconText = ServerTreeItemBuilder.NodeIcon(node, isGroupExpanded: true);
+
+            // 使用Grid来叠加图标和x
+            var iconContainer = new Grid
             {
-                Text = ServerTreeItemBuilder.NodeIcon(node, isGroupExpanded: true),
+                Width = 16,
+                Height = 16,
                 Margin = new Thickness(0, 0, 6, 0),
-                Foreground = ServerTreeItemBuilder.NodeColor(node),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            panel.Children.Add(iconBlock);
+
+            // 原始图标
+            var iconBlock = new TextBlock
+            {
+                Text = iconText,
+                Foreground = ServerTreeItemBuilder.NodeColor(node),
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center
+            };
+
+            iconContainer.Children.Add(iconBlock);
+
+            // 如果断开连接，添加x覆盖
+            if (isDisconnected)
+            {
+                var xBlock = new TextBlock
+                {
+                    Text = "✕",
+                    Foreground = System.Windows.Media.Brushes.Red,
+                    FontSize = 12,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                    VerticalAlignment = System.Windows.VerticalAlignment.Center
+                };
+                iconContainer.Children.Add(xBlock);
+            }
+
+            panel.Children.Add(iconContainer);
         }
         panel.Children.Add(new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         var closeBtn = new Button
@@ -391,6 +422,12 @@ public partial class MainWindow
         if (node == null)
             return;
 
+        // 更新连接状态为未断开
+        if (_tabIdToDisconnected.ContainsKey(tabId))
+            _tabIdToDisconnected[tabId] = false;
+        // 更新标签页图标
+        UpdateTabHeaderIcon(tabId);
+
         if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
         {
             rdp.Connect();
@@ -434,6 +471,7 @@ public partial class MainWindow
                     OpenTab(node);
                     return;
                 }
+
                 terminal.Append("\x1b[32m正在连接...\x1b[0m\r\n");
                 var (h, p, u, pw, kp, kpp, jc, ua) = (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent);
                 Task.Run(() =>
@@ -488,27 +526,43 @@ public partial class MainWindow
                 Dispatcher.Invoke(() => MessageBox.Show(msg, "xOpenTerm"));
             };
             rdpControl.Disconnected += (_, _) =>
+        {
+            Dispatcher.Invoke(() =>
             {
-                Dispatcher.Invoke(() =>
-                {
-                    if (_tabIdToRdpControl.ContainsKey(tabId))
-                        CloseTab(tabId);
-                });
-            };
+                if (_tabIdToRdpControl.ContainsKey(tabId))
+                    CloseTab(tabId);
+            });
+        };
+        rdpControl.Connected += (_, _) =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (_tabIdToRdpStatsParams.TryGetValue(tabId, out var p))
+                    StartRdpStatusBarPolling(tabId, p.host, (ushort)p.port, p.username, p.password);
+            });
+        };
 
             var hostWpf = new WindowsFormsHost { Child = rdpControl };
-            var tabItem = new TabItem
-            {
-                Header = CreateTabHeader(tabTitle, tabId, node),
-                Content = hostWpf,
-                Tag = tabId,
-                ContextMenu = CreateTabContextMenu(tabId),
-                Style = (Style)FindResource("AppTabItemStyle")
-            };
-            TabsControl.Items.Add(tabItem);
-            TabsControl.SelectedItem = tabItem;
-            _tabIdToRdpControl[tabId] = rdpControl;
-            _tabIdToNodeId[tabId] = node.Id;
+        var statusBar = new SshStatusBarControl();
+        statusBar.UpdateStats(false, null, null, null, null, null, null);
+        var dock = new DockPanel();
+        DockPanel.SetDock(statusBar, Dock.Bottom);
+        dock.Children.Add(statusBar);
+        dock.Children.Add(hostWpf);
+        var tabItem = new TabItem
+        {
+            Header = CreateTabHeader(tabTitle, tabId, node),
+            Content = dock,
+            Tag = tabId,
+            ContextMenu = CreateTabContextMenu(tabId),
+            Style = (Style)FindResource("AppTabItemStyle")
+        };
+        TabsControl.Items.Add(tabItem);
+        TabsControl.SelectedItem = tabItem;
+        _tabIdToRdpControl[tabId] = rdpControl;
+        _tabIdToRdpStatusBar[tabId] = statusBar;
+        _tabIdToRdpStatsParams[tabId] = (host, port, username, password);
+        _tabIdToNodeId[tabId] = node.Id;
 
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
             {
@@ -542,7 +596,10 @@ public partial class MainWindow
     {
         StopSshStatusBarPolling(tabId);
         _tabIdToSshStatusBar.Remove(tabId);
+        _tabIdToRdpStatusBar.Remove(tabId);
         _tabIdToSshStatsParams.Remove(tabId);
+        _tabIdToRdpStatsParams.Remove(tabId);
+        _tabIdToDisconnected.Remove(tabId);
 
         if (_disconnectedPuttyTabIds.Contains(tabId))
         {
@@ -674,7 +731,51 @@ public partial class MainWindow
                 RemoteFileList.ItemsSource = null;
                 RemoteFileTitle.Text = "远程文件";
             }
+            // 更新连接状态为断开
+            _tabIdToDisconnected[sessionId] = true;
+            // 更新标签页图标
+            UpdateTabHeaderIcon(sessionId);
         });
+    }
+
+    private void UpdateTabHeaderIcon(string tabId)
+    {
+        // 查找对应的标签页
+        TabItem? tabItem = null;
+        foreach (var item in TabsControl.Items)
+        {
+            if (item is TabItem ti && ti.Tag is string id && id == tabId)
+            {
+                tabItem = ti;
+                break;
+            }
+        }
+        if (tabItem == null) return;
+
+        // 获取节点信息
+        if (!_tabIdToNodeId.TryGetValue(tabId, out var nodeId)) return;
+        var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
+        if (node == null) return;
+
+        // 获取当前标签页标题
+        string title = "";
+        if (tabItem.Header is StackPanel panel)
+        {
+            foreach (var child in panel.Children)
+            {
+                if (child is TextBlock tb && tb != panel.Children[0])
+                {
+                    title = tb.Text;
+                    break;
+                }
+            }
+        }
+
+        // 更新标签页头部
+        if (!string.IsNullOrEmpty(title))
+        {
+            tabItem.Header = CreateTabHeader(title, tabId, node);
+        }
     }
 
     private void OnSessionConnected(object? sender, string sessionId)
@@ -691,6 +792,11 @@ public partial class MainWindow
             LoadRemoteFileList();
             // 内置 SSH 终端连接成功后启动状态栏轮询
             StartSshStatusBarPollingForTab(sessionId, node);
+            // 更新连接状态为已连接
+            if (_tabIdToDisconnected.ContainsKey(sessionId))
+                _tabIdToDisconnected[sessionId] = false;
+            // 更新标签页图标
+            UpdateTabHeaderIcon(sessionId);
         });
     }
 
@@ -770,5 +876,70 @@ public partial class MainWindow
         }
         if (_tabIdToSshStatusBar.TryGetValue(tabId, out var bar))
             bar.UpdateStats(false, null, null, null, null, null, null);
+        if (_tabIdToRdpStatusBar.TryGetValue(tabId, out var rdpBar))
+            rdpBar.UpdateStats(false, null, null, null, null, null, null);
+    }
+
+    /// <summary>为 RDP 标签页启动状态栏轮询（3 秒一次，远程执行统计命令并更新状态栏）。</summary>
+    private void StartRdpStatusBarPolling(string tabId, string host, ushort port, string username, string? password)
+    {
+        if (_tabIdToStatsCts.TryGetValue(tabId, out var oldCts))
+        {
+            try { oldCts.Cancel(); } catch { }
+            _tabIdToStatsCts.Remove(tabId);
+        }
+        var cts = new CancellationTokenSource();
+        _tabIdToStatsCts[tabId] = cts;
+        var token = cts.Token;
+        _ = Task.Run(async () =>
+        {
+            bool hasTried = false;
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    // 使用 SSH 方式连接到 Windows 服务器执行命令
+                    var output = await SessionManager.RunSshCommandAsync(
+                        host, port, username, password, null, null, null, false,
+                        RdpStatsHelper.StatsCommand, token);
+                    if (token.IsCancellationRequested) break;
+                    var (cpu, mem, tcp, udp) = RdpStatsHelper.ParseStatsOutput(output);
+                    if (!_tabIdToRdpStatusBar.TryGetValue(tabId, out var bar)) break;
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (_tabIdToRdpStatusBar.TryGetValue(tabId, out var b))
+                            b.UpdateStats(true, cpu, mem, null, null, tcp, udp);
+                    });
+                    hasTried = true;
+                }
+                catch (OperationCanceledException) { break; }
+                catch
+                {
+                    if (!_tabIdToRdpStatusBar.TryGetValue(tabId, out var bar)) break;
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (_tabIdToRdpStatusBar.TryGetValue(tabId, out var b))
+                        {
+                            if (!hasTried)
+                            {
+                                // 第一次尝试失败，显示无SSH服务的提示
+                                b.ShowRdpNoSshMessage();
+                                hasTried = true;
+                            }
+                            else
+                            {
+                                // 后续尝试失败，保持灰色状态
+                                b.UpdateStats(true, null, null, null, null, null, null);
+                            }
+                        }
+                    });
+                }
+                try
+                {
+                    await Task.Delay(3000, token);
+                }
+                catch (OperationCanceledException) { break; }
+            }
+        }, token);
     }
 }

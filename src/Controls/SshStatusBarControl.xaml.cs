@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using xOpenTerm.Services;
 
 namespace xOpenTerm.Controls;
 
@@ -30,10 +31,20 @@ public partial class SshStatusBarControl : UserControl
     public void UpdateStats(bool connected, double? cpuPercent, double? memPercent,
         double? rxBps, double? txBps, int? tcpCount, int? udpCount)
     {
+        ExceptionLog.WriteInfo($"[SshStatusBar] 更新状态 - 连接: {connected}, CPU: {cpuPercent}, 内存: {memPercent}, 下行: {rxBps}, 上行: {txBps}, TCP: {tcpCount}, UDP: {udpCount}");
+
         StatusText.Text = connected ? "已连接" : "未连接";
-        StatusText.Foreground = connected
-            ? (SolidColorBrush)FindResource("Accent")
-            : (SolidColorBrush)FindResource("TextSecondary");
+        try
+        {
+            StatusText.Foreground = connected
+                ? (SolidColorBrush)FindResource("Accent")
+                : (SolidColorBrush)FindResource("TextSecondary");
+        }
+        catch
+        {
+            // 资源已清理时使用默认颜色
+            StatusText.Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8));
+        }
 
         CpuText.Text = cpuPercent.HasValue ? $"{cpuPercent.Value:F1}%" : "—%";
         MemText.Text = memPercent.HasValue ? $"{memPercent.Value:F1}%" : "—%";
@@ -41,6 +52,27 @@ public partial class SshStatusBarControl : UserControl
         TxText.Text = txBps.HasValue ? FormatBytesPerSecond(txBps.Value) : "—";
         TcpText.Text = tcpCount.HasValue ? tcpCount.Value.ToString() : "—";
         UdpText.Text = udpCount.HasValue ? udpCount.Value.ToString() : "—";
+
+        // 设置文本颜色：有数据时使用正常颜色，无数据时使用灰色
+        SolidColorBrush textPrimary;
+        SolidColorBrush textSecondary;
+        try
+        {
+            textPrimary = (SolidColorBrush)FindResource("TextPrimary");
+            textSecondary = (SolidColorBrush)FindResource("TextSecondary");
+        }
+        catch
+        {
+            // 资源已清理时使用默认颜色
+            textPrimary = new SolidColorBrush(Color.FromRgb(0xf8, 0xfa, 0xfc));
+            textSecondary = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8));
+        }
+        CpuText.Foreground = cpuPercent.HasValue ? textPrimary : textSecondary;
+        MemText.Foreground = memPercent.HasValue ? textPrimary : textSecondary;
+        RxText.Foreground = rxBps.HasValue ? textPrimary : textSecondary;
+        TxText.Foreground = txBps.HasValue ? textPrimary : textSecondary;
+        TcpText.Foreground = tcpCount.HasValue ? textPrimary : textSecondary;
+        UdpText.Foreground = udpCount.HasValue ? textPrimary : textSecondary;
 
         if (cpuPercent.HasValue)
         {
@@ -70,6 +102,52 @@ public partial class SshStatusBarControl : UserControl
                 _txHistory.RemoveAt(0);
         }
 
+        RedrawCharts();
+    }
+
+    /// <summary>显示RDP无SSH服务的提示，并将所有数据控件变灰色表示无效。</summary>
+    public void ShowRdpNoSshMessage()
+    {
+        StatusText.Text = "已连接 (无SSH)";
+        try
+        {
+            StatusText.Foreground = (SolidColorBrush)FindResource("TextSecondary");
+        }
+        catch
+        {
+            // 资源已清理时使用默认颜色
+            StatusText.Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8));
+        }
+
+        // 设置所有数据文本为灰色和默认值
+        SolidColorBrush textSecondary;
+        try
+        {
+            textSecondary = (SolidColorBrush)FindResource("TextSecondary");
+        }
+        catch
+        {
+            // 资源已清理时使用默认颜色
+            textSecondary = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8));
+        }
+        CpuText.Text = "—%";
+        CpuText.Foreground = textSecondary;
+        MemText.Text = "—%";
+        MemText.Foreground = textSecondary;
+        RxText.Text = "—";
+        RxText.Foreground = textSecondary;
+        TxText.Text = "—";
+        TxText.Foreground = textSecondary;
+        TcpText.Text = "—";
+        TcpText.Foreground = textSecondary;
+        UdpText.Text = "—";
+        UdpText.Foreground = textSecondary;
+
+        // 清空历史数据并重新绘制图表
+        _cpuHistory.Clear();
+        _memHistory.Clear();
+        _rxHistory.Clear();
+        _txHistory.Clear();
         RedrawCharts();
     }
 
