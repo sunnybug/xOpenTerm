@@ -226,17 +226,6 @@ public partial class MainWindow : Window
         BuildTree();
     }
 
-    private void MenuOpenConfigDir_Click(object sender, RoutedEventArgs e)
-    {
-        var configDir = StorageService.GetConfigDir();
-        Directory.CreateDirectory(configDir);
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = configDir,
-            UseShellExecute = true
-        });
-    }
-
     private void MenuRestoreConfig_Click(object sender, RoutedEventArgs e)
     {
         var win = new BackupRestoreWindow(this);

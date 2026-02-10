@@ -16,7 +16,6 @@
                 <MenuItem Header="字体" Click="MenuFontSettings_Click"/>
                 <MenuItem Header="登录凭证" Click="MenuCredentials_Click"/>
                 <MenuItem Header="隧道管理" Click="MenuTunnels_Click"/>
-                <MenuItem Header="配置目录" Click="MenuOpenConfigDir_Click"/>
                 <MenuItem Header="恢复配置" Click="MenuRestoreConfig_Click"/>
             </MenuItem>
             <MenuItem Header="帮助">
