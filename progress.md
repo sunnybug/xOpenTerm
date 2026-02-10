@@ -14,6 +14,7 @@ A high-performance, modern Windows SSH/Terminal batch management tool built with
 ## Prerequisites
 
 ### Required
+
 - Node.js 18+
 - Rust (latest stable)
 
@@ -21,11 +22,12 @@ A high-performance, modern Windows SSH/Terminal batch management tool built with
 
 1. Clone the repository
 2. Install frontend dependencies:
+
    ```bash
    npm install
    ```
-
 3. Install Rust (if not already installed):
+
    - Windows: Download from [rust-lang.org](https://www.rust-lang.org/tools/install)
 
 ## Development
@@ -47,6 +49,7 @@ npm run tauri dev
 ```
 
 这将：
+
 - 启动 Vite 开发服务器
 - 构建并运行 Tauri 应用
 - 启用前端和后端热重载
@@ -102,26 +105,27 @@ xOpenTerm/
 
 ## Phase 1 Completed ✅
 
-- [x] Initialize Tauri v2 project structure
-- [x] Install frontend dependencies
-- [x] Define Rust data structures (Node, AppConfig, etc.)
-- [x] Define frontend Zustand Store for state management
-- [x] Set up basic project configuration files
+- [X] Initialize Tauri v2 project structure
+- [X] Install frontend dependencies
+- [X] Define Rust data structures (Node, AppConfig, etc.)
+- [X] Define frontend Zustand Store for state management
+- [X] Set up basic project configuration files
 
 ## Phase 2 Completed ✅
 
-- [x] Sidebar Tree View component
-- [x] Main Tabs Bar component
-- [x] Xterm.js basic integration
-- [x] Basic layout structure
+- [X] Sidebar Tree View component
+- [X] Main Tabs Bar component
+- [X] Xterm.js basic integration
+- [X] Basic layout structure
 
 ## Phase 3 Completed ✅
 
 Rust 后端核心实现：
-- [x] PTY 管理器 (`pty_manager.rs`) - 管理所有活跃的终端会话
-- [x] SSH 会话模块 (`ssh_session.rs`) - 处理 SSH 协议连接
-- [x] 本地终端模块 (`local_session.rs`) - 处理 PowerShell/CMD 本地终端
-- [x] Tauri Commands 实现：
+
+- [X] PTY 管理器 (`pty_manager.rs`) - 管理所有活跃的终端会话
+- [X] SSH 会话模块 (`ssh_session.rs`) - 处理 SSH 协议连接
+- [X] 本地终端模块 (`local_session.rs`) - 处理 PowerShell/CMD 本地终端
+- [X] Tauri Commands 实现：
   - `connect_session` - 连接到 SSH 或本地终端
   - `write_to_session` - 写入数据到会话
   - `resize_session` - 调整终端 PTY 大小
@@ -142,22 +146,23 @@ src-tauri/src/
 ## Phase 4 Completed ✅
 
 前后端 IPC 通信实现：
-- [x] 后端事件发送机制 - PtyManager 通过 AppHandle 发送事件到前端
-- [x] SSH 会话数据回调 - 实现 SSH 数据接收并转发到前端
-- [x] 本地终端数据回调 - 实现本地终端数据接收并转发到前端
-- [x] 前端 Terminal 组件 IPC 通信：
+
+- [X] 后端事件发送机制 - PtyManager 通过 AppHandle 发送事件到前端
+- [X] SSH 会话数据回调 - 实现 SSH 数据接收并转发到前端
+- [X] 本地终端数据回调 - 实现本地终端数据接收并转发到前端
+- [X] 前端 Terminal 组件 IPC 通信：
   - 监听 `session_data_received` 事件并写入 Xterm
   - 监听 `session_closed` 事件处理会话关闭
   - `onData` 回调将用户输入发送到后端
-- [x] 终端 Resize 功能：
+- [X] 终端 Resize 功能：
   - 监听窗口大小变化
   - Tab 切换时自动 fit
   - 调用 `resize_session` 同步 PTY 大小
-- [x] Store 连接状态管理：
+- [X] Store 连接状态管理：
   - 添加 ConnectionStatus 类型
   - Tab 状态跟踪
   - 事件监听器初始化
-- [x] TabsBar 状态显示：
+- [X] TabsBar 状态显示：
   - 连接中图标（旋转加载）
   - 已连接图标（绿色对勾）
   - 错误/断开图标（警告）
@@ -183,14 +188,15 @@ src/
 ## Phase 5 Completed ✅
 
 右键菜单逻辑和批量连接功能：
-- [x] 右键菜单组件 (`ContextMenu.tsx`)
-- [x] 节点编辑对话框 (`NodeDialog.tsx`)
-- [x] 新建主机/组功能
-- [x] Connect All 批量连接功能 - 递归遍历分组下所有子孙节点并并发连接
-- [x] 编辑节点配置
-- [x] 复制节点功能
-- [x] 删除节点功能 - 分组支持递归删除所有子节点
-- [x] TreeView 右键菜单集成
+
+- [X] 右键菜单组件 (`ContextMenu.tsx`)
+- [X] 节点编辑对话框 (`NodeDialog.tsx`)
+- [X] 新建主机/组功能
+- [X] Connect All 批量连接功能 - 递归遍历分组下所有子孙节点并并发连接
+- [X] 编辑节点配置
+- [X] 复制节点功能
+- [X] 删除节点功能 - 分组支持递归删除所有子节点
+- [X] TreeView 右键菜单集成
 
 ### 新增文件
 
@@ -214,15 +220,18 @@ src/
 ### 功能说明
 
 #### 右键菜单
+
 - **分组节点**：新建分组、新建主机、连接全部、删除
 - **SSH/本地节点**：连接、复制、编辑、删除
 
 #### 批量连接 (Connect All)
+
 - 递归遍历分组下所有子孙节点
 - 并发启动所有非分组节点的连接
 - 自动打开对应的 Tab
 
 #### 节点编辑对话框
+
 - 支持创建/编辑分组、SSH连接、本地终端
 - SSH配置：主机、端口、用户名、认证方式（密码/密钥）、Agent 转发（复选框）
 - **测试连接**：SSH 节点配置区提供「测试连接」按钮，可验证当前主机/端口/认证是否可用（当前仅支持密码认证）
@@ -230,28 +239,29 @@ src/
 
 ## 完成进度
 
-- [x] Phase 1: 项目初始化和数据结构定义
-- [x] Phase 2: 前端 UI 骨架（Tree + Tabs + Terminal）
-- [x] Phase 3: Rust 后端核心（PTY 管理器与 SSH 连接）
-- [x] Phase 4: 前后端 IPC 通信（打通 Xterm I/O 流）
-- [x] Phase 5: 右键菜单逻辑（CRUD）和批量连接功能
-- [x] Phase 6: 代码质量检查和修复
+- [X] Phase 1: 项目初始化和数据结构定义
+- [X] Phase 2: 前端 UI 骨架（Tree + Tabs + Terminal）
+- [X] Phase 3: Rust 后端核心（PTY 管理器与 SSH 连接）
+- [X] Phase 4: 前后端 IPC 通信（打通 Xterm I/O 流）
+- [X] Phase 5: 右键菜单逻辑（CRUD）和批量连接功能
+- [X] Phase 6: 代码质量检查和修复
 
 ## Phase 6 代码质量修复 ✅
 
 ### 修复内容
 
 1. **TypeScript 编译错误修复**：
+
    - 修复 `ContextMenu.tsx` 中的 Node 类型冲突（自定义 Node 类型与 DOM Node 类型冲突）
    - 添加了 LucideIcon 类型导入
    - 修复了 Icon 组件和 action 函数可能为 undefined 的问题
-
 2. **ESLint 配置**：
+
    - 创建了 `eslint.config.js` 文件（适配 ESLint v9）
    - 安装了必要的依赖：`@eslint/js`、`typescript-eslint`、`eslint-plugin-react` 等
    - 配置了 React 17+ 规则（禁用了 `react-in-jsx-scope`）
-
 3. **React Hook 依赖警告修复**：
+
    - 使用 `useCallback` 包装了 `initializeConnection` 和 `updateTerminalSize` 函数
    - 优化了函数声明顺序，将 useCallback 定义的函数移到 useEffect 之前
    - 更新了 useEffect 的依赖数组，消除所有警告
@@ -305,31 +315,31 @@ src/
 #### SSH Agent 认证（Unix/Linux/macOS）
 
 1. 确保 ssh-agent 正在运行：
+
    ```bash
    # Linux/macOS
    eval "$(ssh-agent -s)"
    ```
-
 2. 添加密钥到 Agent：
+
    ```bash
    ssh-add ~/.ssh/id_rsa
    ```
-
 3. 在节点编辑对话框中选择"SSH Agent"认证方式
 4. 保存配置并连接
 
 #### SSH Agent 认证（Windows）
 
 1. 启动 **OpenSSH 身份验证代理** 服务：
+
    - 设置 → 应用 → 可选功能 → 确保已安装「OpenSSH 客户端」
    - 服务（`services.msc`）→ 找到「OpenSSH Authentication Agent」→ 启动类型设为「手动」或「自动」→ 启动服务
    - 或在管理员 PowerShell 中：`Set-Service ssh-agent -StartupType Manual; Start-Service ssh-agent`
-
 2. 添加密钥到 Agent：
+
    ```powershell
    ssh-add $env:USERPROFILE\.ssh\id_rsa
    ```
-
 3. 在节点编辑对话框中选择"SSH Agent"认证方式
 4. 保存配置并连接
 
@@ -342,11 +352,11 @@ src/
 
 ### 平台差异
 
-| 功能 | Unix/Linux/macOS | Windows |
-|------|------------------|---------|
-| 密码认证 | ✅ | ✅ |
-| 密钥文件认证 | ✅ | ✅ |
-| SSH Agent 认证 | ✅ | ✅ |
+| 功能           | Unix/Linux/macOS | Windows |
+| -------------- | ---------------- | ------- |
+| 密码认证       | ✅               | ✅      |
+| 密钥文件认证   | ✅               | ✅      |
+| SSH Agent 认证 | ✅               | ✅      |
 
 ### 安全性
 
@@ -366,9 +376,10 @@ src/
 SSH 节点认证支持二选一：
 
 1. **本节点单独配置**
-   - 在节点编辑对话框中填写 host、端口、用户名、认证方式（密码/密钥/Agent）等，仅作用于当前节点。
 
+   - 在节点编辑对话框中填写 host、端口、用户名、认证方式（密码/密钥/Agent）等，仅作用于当前节点。
 2. **登录凭证**
+
    - 登录凭证为可复用的认证配置（名称、用户名、密码/密钥/Agent），可被多个节点引用。
    - 节点编辑时选择「认证来源」→「使用登录凭证」并选择已保存的凭证；主机与端口仍由节点配置。
    - 凭证存储于 `credentials.yaml`（与 `nodes.yaml` 同目录），通过 **设置** → **登录凭证** 增删改查。
@@ -404,24 +415,38 @@ SSH 节点认证支持二选一：
 ## 待实现特性
 
 ### ~~SSH隧道 允许登录凭证中配置SSH隧道，通过SSH隧道进行该节点的SSH登录~~
-### ~~SSH隧道支持多级~~
-### ~~SSH隧道支持登录凭证~~（每跳可填 credentialId，后端已支持）
-### 菜单栏放到节点数和终端tab的顶部
-### ~~ssh隧道增加专门的管理界面，节点使用隧道时只是选择，或者点击按钮打开管理界面，进行隧道的增删改查。~~
-### ~~ssh隧道管理，添加隧道界面，每次只添加一个跳板机。至于跳板机会跳到哪里，由编辑节点界面填写。~~
-### 顶栏菜单-设置，加：隧道界面（用于管理隧道）
-### ssh跳板机管理要加一个测试连接按钮，测试跳板机是否能连通。
-### 顶栏菜单加一个帮助，里面放关于（显示版本号和作者信息/github信息）
-### 实现github actions自动构建和发布，自动更新版本号，自动生成发布包，自动上传到github releases。
-### 顶栏菜单帮助->更新，实现更新功能，最新版本从github的releases中检查
-### ~~节点数列表上的节点允许拖拽到其他节点下~~
-### 节点的隧道/登录凭证，加一个：同父节点。通过此配置继承了父节点的隧道/登录凭证等设置。父节点的加上设置选项，用于设置隧道和登录凭证
 
+### ~~SSH隧道支持多级~~
+
+### ~~SSH隧道支持登录凭证~~（每跳可填 credentialId，后端已支持）
+
+### 菜单栏放到节点数和终端tab的顶部
+
+### ~~ssh隧道增加专门的管理界面，节点使用隧道时只是选择，或者点击按钮打开管理界面，进行隧道的增删改查。~~
+
+### ~~ssh隧道管理，添加隧道界面，每次只添加一个跳板机。至于跳板机会跳到哪里，由编辑节点界面填写。~~
+
+### 顶栏菜单-设置，加：隧道界面（用于管理隧道）
+
+### ssh跳板机管理要加一个测试连接按钮，测试跳板机是否能连通。
+
+### 顶栏菜单加一个帮助，里面放关于（显示版本号和作者信息/github信息）
+
+### 实现github actions自动构建和发布，自动更新版本号，自动生成发布包，自动上传到github releases。
+
+### 顶栏菜单帮助->更新，实现更新功能，最新版本从github的releases中检查
+
+### ~~节点数列表上的节点允许拖拽到其他节点下~~
+
+### 节点的隧道/登录凭证，加一个：同父节点。通过此配置继承了父节点的隧道/登录凭证等设置。父节点的加上设置选项，用于设置隧道和登录凭证
 
 ssh节点和rdp节点的图标改一下。父节点有展开和未展开的图标改一下。
 rdp默认端口3389 用户名默认administrator 不用域 名称未填写时用主机地址
+
 ### 支持rdp windows远程桌面连接
+
 ### 节点树顶上加一行tab（服务器/远程文件），服务器tab下显示节点树。 当SSH tab连接成功后，切换到远程文件tab，显示远程文件列表。用SCP。
+
 节点设置界面，去掉认证来源，认证的下拉框增加：同父节点/SSH Agent/登录凭证
 顶栏菜单加个设置，可配置界面的字体和大小，还有ssh终端的字体和大小，并可预览
 远程文件中，鼠标右键可以对文件进行编辑（编辑后若发现文件内容变化，则提示是否上传）/删除/下载/上传。
@@ -460,7 +485,7 @@ rdp节点图标改为win图标
 配置文件修改时自动备份到备份目录中（备份目录为：%LocalAppData%\xOpenTerm\backup\YYMMDD-HHMMSS\），顶栏设置菜单中加入恢复配置：可以选择备份进行恢复（恢复前需要备份当前配置）。你要设计一个备份恢复界面，该界面列出备份时间和目录大小，在每个备份目录中显示恢复/打开按钮。
 启动时检查是否询问过设置主密码，若没有则询问。用户输入主密码后，对密码和secretkey采用主密码进行加密。导出时要进行解密。
 
-ssh连接后在连接tab最底下加状态栏，显示cpu/内存占用率/网络流量走势图/连接状态/tcp/udp连接数，3秒更新一次 【已实现：SshStatusBarControl + SshStatsHelper 远程执行 Linux 统计命令并解析，PuTTY/内置 SSH 均支持】
+ssh连接后在连接tab最底下加状态栏，显示cpu/内存占用率/网络流量走势图/连接状态/tcp/udp连接数，3秒更新一次
 
 bug:
 进程打开某个对话框后，转到其他进程，再转回来，有概率会看不到这个打开的对话框，这样会导致无法操作该进程的界面

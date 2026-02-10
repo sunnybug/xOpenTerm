@@ -21,7 +21,7 @@ public class Tunnel
     public string Username { get; set; } = "";
 
     [YamlMember(Alias = "authType")]
-    public AuthType AuthType { get; set; }
+    public AuthType? AuthType { get; set; }
 
     [YamlMember(Alias = "password")]
     public string? Password { get; set; }
@@ -34,4 +34,13 @@ public class Tunnel
 
     [YamlMember(Alias = "credentialId")]
     public string? CredentialId { get; set; }
+
+    [YamlMember(Alias = "parentId")]
+    public string? ParentId { get; set; }
+
+    [YamlMember(Alias = "authSource")]
+    public AuthSource? AuthSource { get; set; }
+
+    [YamlMember(Alias = "tunnelSource")]
+    public AuthSource? TunnelSource { get; set; }
 }

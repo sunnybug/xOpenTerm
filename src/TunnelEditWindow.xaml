@@ -26,7 +26,7 @@
             <TextBlock Text="端口" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
             <TextBox x:Name="PortBox" Width="80" MaxLength="5" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
         </StackPanel>
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8" x:Name="UsernameRow">
             <TextBlock Text="用户名" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
             <TextBox x:Name="UsernameBox" Width="280" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
         </StackPanel>
@@ -45,6 +45,10 @@
         <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,8" x:Name="KeyRow" Visibility="Collapsed">
             <TextBlock Text="私钥路径" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
             <TextBox x:Name="KeyPathBox" Width="280" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0"/>
+        </StackPanel>
+        <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,0,0,8" x:Name="TunnelParentRow">
+            <TextBlock Text="隧道" Width="72" VerticalAlignment="Center" Foreground="#e2e8f0"/>
+            <CheckBox x:Name="TunnelUseParentCheckBox" Content="使用父节点隧道" Foreground="#e2e8f0"/>
         </StackPanel>
         <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button x:Name="TestBtn" Content="测试连接" Style="{StaticResource SecondaryButtonStyle}" Width="80" Padding="6,4" Margin="0,0,8,0" Click="TestBtn_Click"/>

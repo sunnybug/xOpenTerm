@@ -29,13 +29,17 @@ public partial class TunnelEditWindow : Window
         _credentials = credentials;
         _storage = storage;
         Title = isNew ? "新增跳板机" : "编辑跳板机";
+        AuthCombo.Items.Add("同父节点");
         AuthCombo.Items.Add("登录凭证");
         AuthCombo.Items.Add("密码");
         AuthCombo.Items.Add("私钥");
         AuthCombo.Items.Add("SSH Agent");
         CredentialCombo.ItemsSource = _credentials.OrderBy(c => c.AuthType).ThenBy(c => c.Name).ToList();
         var useCredential = !string.IsNullOrEmpty(_tunnel.CredentialId);
-        AuthCombo.SelectedIndex = useCredential ? 0 : (_tunnel.AuthType switch { AuthType.key => 2, AuthType.agent => 3, _ => 1 });
+        AuthCombo.SelectedIndex = _tunnel.AuthSource == AuthSource.parent ? 0 : (useCredential ? 1 : (_tunnel.AuthType switch { AuthType.key => 3, AuthType.agent => 4, _ => 2 }));
+        TunnelUseParentCheckBox.Visibility = string.IsNullOrEmpty(_tunnel.ParentId) ? Visibility.Collapsed : Visibility.Visible;
+        var useParentTunnel = _tunnel.TunnelSource == AuthSource.parent;
+        TunnelUseParentCheckBox.IsChecked = useParentTunnel;
         NameBox.Text = _tunnel.Name;
         HostBox.Text = _tunnel.Host ?? "";
         PortBox.Text = (_tunnel.Port ?? 22).ToString();
@@ -79,48 +83,87 @@ public partial class TunnelEditWindow : Window
     private void UpdateAuthVisibility()
     {
         var idx = AuthCombo.SelectedIndex;
-        var isCredential = idx == 0;
-        var isKey = idx == 2;
-        var isAgent = idx == 3;
+        var isCredential = idx == 1;
+        var isKey = idx == 3;
+        var isAgent = idx == 4;
         CredentialRow.Visibility = isCredential ? Visibility.Visible : Visibility.Collapsed;
-        PasswordRow.Visibility = (idx == 1) ? Visibility.Visible : Visibility.Collapsed;
+        PasswordRow.Visibility = (idx == 2) ? Visibility.Visible : Visibility.Collapsed;
         KeyRow.Visibility = isKey ? Visibility.Visible : Visibility.Collapsed;
+        UsernameRow.Visibility = (idx == 0 || idx == 1) ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void TestBtn_Click(object sender, RoutedEventArgs e)
     {
-        var host = HostBox.Text?.Trim();
-        if (string.IsNullOrEmpty(host)) { MessageBox.Show(this, "请填写主机。", "xOpenTerm"); return; }
-        if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
-        var username = UsernameBox.Text?.Trim() ?? "";
-        if (string.IsNullOrEmpty(username)) { MessageBox.Show(this, "请填写用户名。", "xOpenTerm"); return; }
-        string? password = null;
-        string? keyPath = null;
-        string? keyPassphrase = null;
-        var useAgent = false;
         var authIdx = AuthCombo.SelectedIndex;
         if (authIdx == 0)
         {
-            if (CredentialCombo.SelectedValue is not string cid)
-            { MessageBox.Show(this, "请选择登录凭证。", "xOpenTerm"); return; }
-            var cred = _credentials.FirstOrDefault(c => c.Id == cid);
-            if (cred == null) { MessageBox.Show(this, "请选择登录凭证。", "xOpenTerm"); return; }
-            username = cred.Username ?? username;
-            switch (cred.AuthType)
+            if (string.IsNullOrEmpty(_tunnel.ParentId))
             {
-                case AuthType.password: password = cred.Password; break;
-                case AuthType.key: keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; break;
-                case AuthType.agent: useAgent = true; break;
+                MessageBox.Show(this, "同父节点请保存后在实际连接时验证。", "xOpenTerm");
+                return;
+            }
+            var tempTunnel = new Tunnel
+            {
+                ParentId = _tunnel.ParentId,
+                AuthSource = AuthSource.parent,
+                TunnelSource = TunnelUseParentCheckBox.IsChecked == true ? AuthSource.parent : null
+            };
+            try
+            {
+                var resolved = ConfigResolver.ResolveTunnel(tempTunnel, _all, _credentials);
+                var host = HostBox.Text?.Trim();
+                if (string.IsNullOrEmpty(host)) { MessageBox.Show(this, "请填写主机。", "xOpenTerm"); return; }
+                if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
+                var username = resolved.username ?? "";
+                var password = resolved.password;
+                var keyPath = resolved.keyPath;
+                var keyPassphrase = resolved.keyPassphrase;
+                var useAgent = resolved.useAgent;
+                var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
+                MessageBox.Show(this, result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "解析父节点凭证失败：\n" + ex.Message, "xOpenTerm");
+                return;
             }
         }
-        else if (authIdx == 1)
-            password = PasswordBox.Password;
-        else if (authIdx == 2)
-            keyPath = KeyPathBox.Text?.Trim();
         else
-            useAgent = true;
-        var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
-        MessageBox.Show(this, result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
+        {
+            var host = HostBox.Text?.Trim();
+            if (string.IsNullOrEmpty(host)) { MessageBox.Show(this, "请填写主机。", "xOpenTerm"); return; }
+            if (!ushort.TryParse(PortBox.Text, out var port) || port == 0) port = 22;
+            var username = UsernameBox.Text?.Trim() ?? "";
+            if (string.IsNullOrEmpty(username)) { MessageBox.Show(this, "请填写用户名。", "xOpenTerm"); return; }
+            string? password = null;
+            string? keyPath = null;
+            string? keyPassphrase = null;
+            var useAgent = false;
+            if (authIdx == 1)
+            {
+                if (CredentialCombo.SelectedValue is not string cid)
+                {
+                    MessageBox.Show(this, "请选择登录凭证。", "xOpenTerm"); return;
+                }
+                var cred = _credentials.FirstOrDefault(c => c.Id == cid);
+                if (cred == null) { MessageBox.Show(this, "请选择登录凭证。", "xOpenTerm"); return; }
+                username = cred.Username ?? username;
+                switch (cred.AuthType)
+                {
+                    case AuthType.password: password = cred.Password; break;
+                    case AuthType.key: keyPath = cred.KeyPath; keyPassphrase = cred.KeyPassphrase; break;
+                    case AuthType.agent: useAgent = true; break;
+                }
+            }
+            else if (authIdx == 2)
+                password = PasswordBox.Password;
+            else if (authIdx == 3)
+                keyPath = KeyPathBox.Text?.Trim();
+            else
+                useAgent = true;
+            var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
+            MessageBox.Show(this, result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
+        }
     }
 
     private void SaveBtn_Click(object sender, RoutedEventArgs e)
@@ -132,6 +175,16 @@ public partial class TunnelEditWindow : Window
         var authIdx = AuthCombo.SelectedIndex;
         if (authIdx == 0)
         {
+            _tunnel.AuthSource = AuthSource.parent;
+            _tunnel.CredentialId = null;
+            _tunnel.AuthType = AuthType.password;
+            _tunnel.Password = null;
+            _tunnel.KeyPath = null;
+            _tunnel.KeyPassphrase = null;
+        }
+        else if (authIdx == 1)
+        {
+            _tunnel.AuthSource = AuthSource.credential;
             _tunnel.CredentialId = CredentialCombo.SelectedValue as string;
             _tunnel.AuthType = AuthType.password;
             _tunnel.Password = null;
@@ -140,12 +193,14 @@ public partial class TunnelEditWindow : Window
         }
         else
         {
+            _tunnel.AuthSource = AuthSource.inline;
             _tunnel.CredentialId = null;
-            _tunnel.AuthType = authIdx switch { 2 => AuthType.key, 3 => AuthType.agent, _ => AuthType.password };
-            _tunnel.Password = authIdx == 1 ? PasswordBox.Password : null;
-            _tunnel.KeyPath = authIdx == 2 ? KeyPathBox.Text?.Trim() : null;
+            _tunnel.AuthType = authIdx switch { 3 => AuthType.key, 4 => AuthType.agent, _ => AuthType.password };
+            _tunnel.Password = authIdx == 2 ? PasswordBox.Password : null;
+            _tunnel.KeyPath = authIdx == 3 ? KeyPathBox.Text?.Trim() : null;
             _tunnel.KeyPassphrase = null;
         }
+        _tunnel.TunnelSource = TunnelUseParentCheckBox.IsChecked == true ? AuthSource.parent : null;
         var list = new List<Tunnel>(_all);
         var idx = list.FindIndex(t => t.Id == _tunnel.Id);
         if (idx >= 0) list[idx] = _tunnel;
