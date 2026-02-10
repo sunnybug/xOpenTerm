@@ -11,7 +11,9 @@
             <ColumnDefinition Width="8"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="8"/>
-            <ColumnDefinition Width="*" MinWidth="80"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="8"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="8"/>
@@ -23,26 +25,44 @@
             <TextBlock x:Name="StatusText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
         </StackPanel>
         <!-- CPU -->
-        <StackPanel Grid.Column="2" Orientation="Horizontal">
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="CPU:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
-            <TextBlock x:Name="CpuText" Text="—%" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+            <TextBlock x:Name="CpuText" Text="—%" Foreground="{StaticResource TextPrimary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <Border Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinWidth="60" MinHeight="20">
+                <Canvas x:Name="CpuChart" ClipToBounds="True"/>
+            </Border>
         </StackPanel>
         <!-- 内存 -->
-        <StackPanel Grid.Column="4" Orientation="Horizontal">
+        <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="内存:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
-            <TextBlock x:Name="MemText" Text="—%" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+            <TextBlock x:Name="MemText" Text="—%" Foreground="{StaticResource TextPrimary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <Border Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinWidth="60" MinHeight="20">
+                <Canvas x:Name="MemChart" ClipToBounds="True"/>
+            </Border>
         </StackPanel>
-        <!-- 网络流量走势图 -->
-        <Border Grid.Column="6" Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinHeight="24">
-            <Canvas x:Name="NetworkChart" ClipToBounds="True"/>
-        </Border>
+        <!-- 下载 -->
+        <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="下载:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="RxText" Text="—" Foreground="{StaticResource TextPrimary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <Border Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinWidth="80" MinHeight="20">
+                <Canvas x:Name="RxChart" ClipToBounds="True"/>
+            </Border>
+        </StackPanel>
+        <!-- 上传 -->
+        <StackPanel Grid.Column="8" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="上传:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="TxText" Text="—" Foreground="{StaticResource TextPrimary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+            <Border Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinWidth="80" MinHeight="20">
+                <Canvas x:Name="TxChart" ClipToBounds="True"/>
+            </Border>
+        </StackPanel>
         <!-- TCP -->
-        <StackPanel Grid.Column="8" Orientation="Horizontal">
+        <StackPanel Grid.Column="10" Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="TCP:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
             <TextBlock x:Name="TcpText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
         </StackPanel>
         <!-- UDP -->
-        <StackPanel Grid.Column="10" Orientation="Horizontal">
+        <StackPanel Grid.Column="12" Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="UDP:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
             <TextBlock x:Name="UdpText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
         </StackPanel>

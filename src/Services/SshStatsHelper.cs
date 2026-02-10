@@ -7,7 +7,7 @@ namespace xOpenTerm.Services;
 public static class SshStatsHelper
 {
     /// <summary>在 Linux 上采集 CPU/内存/网络/TCP/UDP 的单条命令（约 1 秒，含 sleep 1）。</summary>
-    public const string StatsCommand = "S1=$(grep '^cpu ' /proc/stat); echo \"CPU1:$S1\"; echo \"MEM:$(grep -E 'MemTotal|MemAvailable' /proc/meminfo)\"; N1=$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev); echo \"NET1:$N1\"; sleep 1; S2=$(grep '^cpu ' /proc/stat); echo \"CPU2:$S2\"; N2=$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev); echo \"NET2:$N2\"; echo \"TCP:$(ss -t -a 2>/dev/null | tail -n +2 | wc -l)\"; echo \"UDP:$(ss -u -a 2>/dev/null | tail -n +2 | wc -l)\"";
+    public const string StatsCommand = "S1=$(grep '^cpu ' /proc/stat); echo \"CPU1:$S1\"; echo \"MEM:$(grep -E 'MemTotal|MemAvailable|MemFree' /proc/meminfo | tr '\n' ' ')\"; N1=$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev); echo \"NET1:$N1\"; sleep 1; S2=$(grep '^cpu ' /proc/stat); echo \"CPU2:$S2\"; N2=$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev); echo \"NET2:$N2\"; echo \"TCP:$(if command -v ss >/dev/null 2>&1; then ss -t -a 2>/dev/null | tail -n +2 | wc -l; elif command -v netstat >/dev/null 2>&1; then netstat -t -a 2>/dev/null | tail -n +3 | wc -l; else echo 0; fi)\"; echo \"UDP:$(if command -v ss >/dev/null 2>&1; then ss -u -a 2>/dev/null | tail -n +2 | wc -l; elif command -v netstat >/dev/null 2>&1; then netstat -u -a 2>/dev/null | tail -n +3 | wc -l; else echo 0; fi)\"";
 
     /// <summary>解析远程命令输出，返回 CPU%、内存%、下行/上行字节每秒、TCP 数、UDP 数。解析失败则对应项为 null。</summary>
     public static (double? CpuPercent, double? MemPercent, double? RxBps, double? TxBps, int? TcpCount, int? UdpCount) ParseStatsOutput(string? output)
@@ -61,8 +61,15 @@ public static class SshStatsHelper
         {
             var totalKb = MatchNumberAfter(memLine, "MemTotal");
             var availKb = MatchNumberAfter(memLine, "MemAvailable");
-            if (totalKb.HasValue && availKb.HasValue && totalKb.Value > 0)
-                mem = 100.0 * (1.0 - (double)availKb.Value / totalKb.Value);
+            var freeKb = MatchNumberAfter(memLine, "MemFree");
+
+            if (totalKb.HasValue && totalKb.Value > 0)
+            {
+                if (availKb.HasValue)
+                    mem = 100.0 * (1.0 - (double)availKb.Value / totalKb.Value);
+                else if (freeKb.HasValue)
+                    mem = 100.0 * (1.0 - (double)freeKb.Value / totalKb.Value);
+            }
         }
 
         // NET: "rx_total tx_total" 两行，间隔 1 秒，差值为 bytes/s
