@@ -15,6 +15,7 @@ xOpenTerm 是一个 **C# WPF** 实现的 Windows SSH/本地终端批量管理工
 - **凭证管理**：独立的登录凭证系统，可被多个节点引用
 - **腾讯云同步**：支持从腾讯云导入并同步服务器列表
 - **阿里云同步**：支持从阿里云 ECS 与轻量应用服务器导入并同步服务器列表（地域→服务器）
+- **金山云同步**：支持从金山云 KEC 导入并同步服务器列表（地域→服务器）
 
 ## 构建和运行
 
@@ -51,6 +52,7 @@ xOpenTerm/
 │   │   ├── ConfigResolver.cs     # 配置解析（继承/凭证引用）
 │   │   ├── TencentCloudService.cs # 腾讯云 API 集成
 │   │   ├── AliCloudService.cs    # 阿里云 ECS API 集成
+│   │   ├── KingCloudService.cs   # 金山云 KEC API 集成
 │   │   ├── RemoteFileService.cs  # SCP 远程文件操作
 │   │   └── SshTester.cs          # SSH 连接测试
 │   ├── Controls/                 # 自定义控件
@@ -202,7 +204,7 @@ xOpenTerm/
 
 - 无内嵌 RDP 窗口（通过 mstsc 启动系统远程桌面）
 - 终端为自定义绘制 VT100（非 xterm.js）
-- 腾讯云、阿里云同步功能
+- 腾讯云、阿里云、金山云同步功能
 - MobaXterm 配置导入
 
 ## log位置

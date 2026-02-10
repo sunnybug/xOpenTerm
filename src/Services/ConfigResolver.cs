@@ -44,7 +44,7 @@ public static class ConfigResolver
         {
             var p = allNodes.FirstOrDefault(n => n.Id == id);
             if (p == null) return null;
-            if ((p.Type == NodeType.group || p.Type == NodeType.tencentCloudGroup || p.Type == NodeType.aliCloudGroup) && p.Config != null)
+            if ((p.Type == NodeType.group || p.Type == NodeType.tencentCloudGroup || p.Type == NodeType.aliCloudGroup || p.Type == NodeType.kingCloudGroup) && p.Config != null)
                 return p;
             id = p.ParentId;
         }
