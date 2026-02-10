@@ -15,8 +15,8 @@
             <TextBox x:Name="NameBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
         </StackPanel>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button x:Name="SaveBtn" Content="保存" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="SaveBtn_Click"/>
-            <Button Content="取消" Width="80" Padding="8,4" Click="CancelBtn_Click"/>
+            <Button x:Name="SaveBtn" Content="保存" Style="{StaticResource PrimaryButtonStyle}" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="SaveBtn_Click"/>
+            <Button Content="取消" Style="{StaticResource SecondaryButtonStyle}" Width="80" Padding="8,4" Click="CancelBtn_Click"/>
         </StackPanel>
     </Grid>
 </local:NodeEditWindowBase>

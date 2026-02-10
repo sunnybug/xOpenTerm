@@ -15,7 +15,7 @@
             <TextBox x:Name="IniPathBox" IsReadOnly="True" Width="380" Padding="6,4" Margin="0,0,8,0"
                      Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"
                      BorderBrush="{StaticResource BorderBrush}" VerticalAlignment="Center"/>
-            <Button x:Name="BrowseBtn" Content="选择 MobaXterm.ini…" Padding="8,4" Click="BrowseBtn_Click"/>
+            <Button x:Name="BrowseBtn" Content="选择 MobaXterm.ini…" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" Click="BrowseBtn_Click"/>
         </StackPanel>
         <TextBlock Grid.Row="1" Text="以目录为单位勾选要导入的会话，确定后将按 MobaXterm 中的目录结构导入。" 
                    Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,0,8"/>
@@ -32,8 +32,8 @@
             </TreeView.ItemTemplate>
         </TreeView>
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button x:Name="OkBtn" Content="确定" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="OkBtn_Click" IsEnabled="False"/>
-            <Button Content="取消" Width="80" Padding="8,4" IsCancel="True"/>
+            <Button x:Name="OkBtn" Content="确定" Style="{StaticResource PrimaryButtonStyle}" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="OkBtn_Click" IsEnabled="False"/>
+            <Button Content="取消" Style="{StaticResource SecondaryButtonStyle}" Width="80" Padding="8,4" IsCancel="True"/>
         </StackPanel>
     </Grid>
 </Window>

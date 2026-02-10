@@ -12,9 +12,9 @@
         <TextBlock x:Name="StatusText" Grid.Row="0" Foreground="#e2e8f0" TextWrapping="Wrap" Margin="0,0,0,12"/>
         <TextBlock x:Name="DetailText" Grid.Row="1" Foreground="#94a3b8" TextWrapping="Wrap" Visibility="Collapsed"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button x:Name="OpenDownloadBtn" Content="前往下载" Width="90" Padding="6,4" Margin="0,0,8,0" Click="OpenDownloadBtn_Click" Visibility="Collapsed"/>
-            <Button x:Name="RetryBtn" Content="重试" Width="70" Padding="6,4" Margin="0,0,8,0" Click="RetryBtn_Click" Visibility="Collapsed"/>
-            <Button Content="关闭" Width="70" Padding="6,4" IsCancel="True" Click="CloseBtn_Click"/>
+            <Button x:Name="OpenDownloadBtn" Content="前往下载" Style="{StaticResource PrimaryButtonStyle}" Width="90" Padding="6,4" Margin="0,0,8,0" Click="OpenDownloadBtn_Click" Visibility="Collapsed"/>
+            <Button x:Name="RetryBtn" Content="重试" Style="{StaticResource SecondaryButtonStyle}" Width="70" Padding="6,4" Margin="0,0,8,0" Click="RetryBtn_Click" Visibility="Collapsed"/>
+            <Button Content="关闭" Style="{StaticResource SecondaryButtonStyle}" Width="70" Padding="6,4" IsCancel="True" Click="CloseBtn_Click"/>
         </StackPanel>
     </Grid>
 </Window>

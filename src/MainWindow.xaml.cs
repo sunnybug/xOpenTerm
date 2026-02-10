@@ -51,6 +51,12 @@ public partial class MainWindow : Window
         var settings = _storage.LoadAppSettings();
         ApplyAppSettings(settings);
         ApplyWindowAndLayout(settings);
+        // 启动时检查是否已询问过主密码：未询问则弹窗设置，已设置则弹窗输入；取消输入则退出
+        if (!EnsureMasterPasswordThenContinue(settings))
+        {
+            Application.Current.Shutdown();
+            return;
+        }
         LoadData();
         // 恢复上次关闭时的选中节点（仅保留仍存在的节点）
         if (settings.ServerTreeSelectedIds != null && settings.ServerTreeSelectedIds.Count > 0)
@@ -71,6 +77,86 @@ public partial class MainWindow : Window
         RemotePathBox.Text = ".";
         Closing += MainWindow_Closing;
         Activated += MainWindow_Activated;
+    }
+
+    /// <summary>确保主密码已设置或已输入：未询问则弹窗设置，已设置则弹窗输入。返回 true 表示可继续加载数据，false 表示用户取消输入主密码应退出。</summary>
+    private bool EnsureMasterPasswordThenContinue(AppSettings settings)
+    {
+        if (settings.MasterPasswordSkipped)
+            return true; // 用户曾选择「不再提醒」，直接继续运行（使用原有固定密钥加解密）
+
+        if (!settings.MasterPasswordAsked)
+        {
+            // 构造函数中主窗口尚未 Show，不能设置 Owner，否则 WPF 抛错；无 Owner 时改为屏幕居中并置顶，否则窗口可能看不见
+            var dlg = new MasterPasswordWindow(isSetMode: true, salt: null, verifier: null);
+            if (IsLoaded) dlg.Owner = this; else { dlg.WindowStartupLocation = WindowStartupLocation.CenterScreen; dlg.Topmost = true; }
+            if (dlg.ShowDialog() != true)
+            {
+                if (dlg.DontRemindAgain)
+                {
+                    settings.MasterPasswordSkipped = true;
+                    _storage.SaveAppSettings(settings);
+                }
+                return true; // 用户取消设置或不再提醒，仍继续运行（使用原有固定密钥加解密）
+            }
+            var password = dlg.ResultPassword;
+            if (string.IsNullOrEmpty(password))
+                return true;
+            var salt = MasterPasswordService.GenerateSalt();
+            var key = MasterPasswordService.DeriveKey(password, salt);
+            var verifier = MasterPasswordService.GetVerifierFromKey(key);
+            settings.MasterPasswordAsked = true;
+            settings.MasterPasswordSalt = Convert.ToBase64String(salt);
+            settings.MasterPasswordVerifier = Convert.ToBase64String(verifier);
+            _storage.SaveAppSettings(settings);
+            SecretService.SetSessionMasterKey(key);
+            MasterPasswordService.SaveKeyToFile(key); // 保存到本地文件，以后启动无需输入主密码
+            return true;
+        }
+
+        byte[]? saltBytes = null;
+        byte[]? verifierBytes = null;
+        try
+        {
+            if (!string.IsNullOrEmpty(settings.MasterPasswordSalt))
+                saltBytes = Convert.FromBase64String(settings.MasterPasswordSalt);
+            if (!string.IsNullOrEmpty(settings.MasterPasswordVerifier))
+                verifierBytes = Convert.FromBase64String(settings.MasterPasswordVerifier);
+        }
+        catch
+        {
+            // 盐或验证码损坏，视为未设置，改为弹出设置主密码
+            settings.MasterPasswordAsked = false;
+            settings.MasterPasswordSalt = null;
+            settings.MasterPasswordVerifier = null;
+            _storage.SaveAppSettings(settings);
+            return EnsureMasterPasswordThenContinue(settings);
+        }
+
+        if (saltBytes == null || verifierBytes == null)
+        {
+            settings.MasterPasswordAsked = false;
+            _storage.SaveAppSettings(settings);
+            return EnsureMasterPasswordThenContinue(settings);
+        }
+
+        // 优先从本地文件读取已保存的密钥（DPAPI 加密），校验通过则无需弹窗
+        var savedKey = MasterPasswordService.TryLoadKeyFromFile(verifierBytes);
+        if (savedKey != null)
+        {
+            SecretService.SetSessionMasterKey(savedKey);
+            return true;
+        }
+
+        var enterDlg = new MasterPasswordWindow(isSetMode: false, saltBytes, verifierBytes);
+        if (IsLoaded) enterDlg.Owner = this; else { enterDlg.WindowStartupLocation = WindowStartupLocation.CenterScreen; enterDlg.Topmost = true; }
+        if (enterDlg.ShowDialog() != true)
+        {
+            // 取消或不再提醒均视为放弃输入，无法解密配置则退出
+            return false;
+        }
+        // 对话框内已设置会话密钥并在输入成功后保存到文件，此处直接返回
+        return true;
     }
 
     /// <summary>切回本程序时，若有打开的模态子窗口（设置等），将整条 Owner 链中最顶层的对话框带到前台，避免被主窗口挡住导致无法操作。</summary>
@@ -245,5 +331,62 @@ public partial class MainWindow : Window
     private void MenuUpdate_Click(object sender, RoutedEventArgs e)
     {
         new UpdateWindow(this).ShowDialog();
+    }
+
+    private void MenuMasterPasswordSet_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _storage.LoadAppSettings();
+        // 已设置主密码且未跳过时，提示先清除再设置
+        if (settings.MasterPasswordAsked && !settings.MasterPasswordSkipped
+            && !string.IsNullOrEmpty(settings.MasterPasswordSalt) && !string.IsNullOrEmpty(settings.MasterPasswordVerifier))
+        {
+            MessageBox.Show("您已设置主密码。若要修改请先使用「清除主密码」，再重新设置。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var dlg = new MasterPasswordWindow(isSetMode: true, salt: null, verifier: null);
+        dlg.Owner = this;
+        if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.ResultPassword))
+            return;
+        var password = dlg.ResultPassword;
+        var salt = MasterPasswordService.GenerateSalt();
+        var key = MasterPasswordService.DeriveKey(password, salt);
+        var verifier = MasterPasswordService.GetVerifierFromKey(key);
+        settings.MasterPasswordAsked = true;
+        settings.MasterPasswordSkipped = false;
+        settings.MasterPasswordSalt = Convert.ToBase64String(salt);
+        settings.MasterPasswordVerifier = Convert.ToBase64String(verifier);
+        _storage.SaveAppSettings(settings);
+        SecretService.SetSessionMasterKey(key);
+        MasterPasswordService.SaveKeyToFile(key);
+        // 用新主密码重新加密保存节点与凭证（当前内存中已是解密状态）
+        _storage.SaveNodes(_nodes);
+        _storage.SaveCredentials(_credentials);
+        MessageBox.Show("主密码已设置。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void MenuMasterPasswordClear_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _storage.LoadAppSettings();
+        var hasMasterPassword = settings.MasterPasswordAsked && !settings.MasterPasswordSkipped
+            && !string.IsNullOrEmpty(settings.MasterPasswordSalt) && !string.IsNullOrEmpty(settings.MasterPasswordVerifier);
+        if (!hasMasterPassword)
+        {
+            MessageBox.Show("当前未使用主密码。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (MessageBox.Show("清除后，下次启动将不再使用主密码；本地保存的密钥文件也会删除。配置中的密码将改用固定密钥重新保存。是否继续？",
+                "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        SecretService.SetSessionMasterKey(null);
+        settings.MasterPasswordAsked = false;
+        settings.MasterPasswordSalt = null;
+        settings.MasterPasswordVerifier = null;
+        settings.MasterPasswordSkipped = false;
+        _storage.SaveAppSettings(settings);
+        MasterPasswordService.DeleteSavedKeyFile();
+        // 用固定密钥重新保存节点与凭证（当前内存中已是解密状态，保存时会按无主密码加密）
+        _storage.SaveNodes(_nodes);
+        _storage.SaveCredentials(_credentials);
+        MessageBox.Show("主密码已清除。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 }

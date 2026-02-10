@@ -10,15 +10,15 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button x:Name="AddBtn" Content="新增" Width="70" Padding="6,4" Margin="0,0,8,0" Click="AddBtn_Click"/>
-            <Button x:Name="EditBtn" Content="编辑" Width="70" Padding="6,4" Margin="0,0,8,0" Click="EditBtn_Click" IsEnabled="False"/>
-            <Button x:Name="DelBtn" Content="删除" Width="70" Padding="6,4" Click="DelBtn_Click" IsEnabled="False"/>
+            <Button x:Name="AddBtn" Content="新增" Style="{StaticResource PrimaryButtonStyle}" Width="70" Padding="6,4" Margin="0,0,8,0" Click="AddBtn_Click"/>
+            <Button x:Name="EditBtn" Content="编辑" Style="{StaticResource SecondaryButtonStyle}" Width="70" Padding="6,4" Margin="0,0,8,0" Click="EditBtn_Click" IsEnabled="False"/>
+            <Button x:Name="DelBtn" Content="删除" Style="{StaticResource SecondaryButtonStyle}" Width="70" Padding="6,4" Click="DelBtn_Click" IsEnabled="False"/>
         </StackPanel>
         <ListBox x:Name="TunnelList" Grid.Row="1" Background="{StaticResource BgSidebar}" Foreground="{StaticResource TextPrimary}"
                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" SelectionChanged="TunnelList_SelectionChanged"
                  MouseDoubleClick="TunnelList_MouseDoubleClick"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button Content="关闭" Width="70" Padding="6,4" IsCancel="True" Click="CloseBtn_Click"/>
+            <Button Content="关闭" Style="{StaticResource SecondaryButtonStyle}" Width="70" Padding="6,4" IsCancel="True" Click="CloseBtn_Click"/>
         </StackPanel>
     </Grid>
 </Window>

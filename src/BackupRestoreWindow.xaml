@@ -15,7 +15,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="备份目录：%LocalAppData%\xOpenTerm\backup\YYMMDD-HHMMSS" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center"/>
-            <Button Grid.Column="1" x:Name="RefreshBtn" Content="刷新" Width="70" Padding="8,6" Click="RefreshBtn_Click"/>
+            <Button Grid.Column="1" x:Name="RefreshBtn" Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Width="70" Padding="8,6" Click="RefreshBtn_Click"/>
         </Grid>
         <Border Grid.Row="1" Background="{StaticResource BgSidebar}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusMd}" Padding="8">
             <ListBox x:Name="BackupList" Background="Transparent" Foreground="{StaticResource TextPrimary}" BorderThickness="0">
@@ -32,8 +32,8 @@
                                     <TextBlock Text="{Binding DisplayTime}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,12,0"/>
                                     <TextBlock Text="{Binding SizeDisplay}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="打开" Width="56" Padding="6,4" Margin="4,0" Click="OpenBtn_Click" Cursor="Hand"/>
-                                <Button Grid.Column="2" Content="恢复" Width="56" Padding="6,4" Margin="4,0" Click="RestoreBtn_Click" Cursor="Hand"/>
+                                <Button Grid.Column="1" Content="打开" Style="{StaticResource SecondaryButtonStyle}" Width="56" Padding="6,4" Margin="4,0" Click="OpenBtn_Click" Cursor="Hand"/>
+                                <Button Grid.Column="2" Content="恢复" Style="{StaticResource PrimaryButtonStyle}" Width="56" Padding="6,4" Margin="4,0" Click="RestoreBtn_Click" Cursor="Hand"/>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -41,7 +41,7 @@
             </ListBox>
         </Border>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="关闭" Width="76" Padding="8,6" IsCancel="True" Click="CloseBtn_Click"/>
+            <Button Content="关闭" Style="{StaticResource SecondaryButtonStyle}" Width="76" Padding="8,6" IsCancel="True" Click="CloseBtn_Click"/>
         </StackPanel>
     </Grid>
 </Window>

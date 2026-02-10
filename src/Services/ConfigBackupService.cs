@@ -43,12 +43,22 @@ public static class ConfigBackupService
             var backupDir = Path.Combine(backupRoot, folderName);
             Directory.CreateDirectory(backupDir);
 
+            var storage = new StorageService();
             foreach (var file in ConfigFiles)
             {
-                var src = Path.Combine(configDir, file);
-                if (!File.Exists(src)) continue;
                 var dst = Path.Combine(backupDir, file);
-                File.Copy(src, dst, overwrite: true);
+                if (file == SettingsFile)
+                {
+                    // 备份设置时不包含主密码（盐、验证码等），恢复后需重新设置主密码
+                    var settingsYaml = storage.SerializeAppSettingsForBackup();
+                    File.WriteAllText(dst, settingsYaml);
+                }
+                else
+                {
+                    var src = Path.Combine(configDir, file);
+                    if (!File.Exists(src)) continue;
+                    File.Copy(src, dst, overwrite: true);
+                }
             }
         }
         catch (Exception ex)
@@ -69,12 +79,21 @@ public static class ConfigBackupService
             var backupDir = Path.Combine(backupRoot, folderName);
             Directory.CreateDirectory(backupDir);
 
+            var storage = new StorageService();
             foreach (var file in ConfigFiles)
             {
-                var src = Path.Combine(configDir, file);
-                if (!File.Exists(src)) continue;
                 var dst = Path.Combine(backupDir, file);
-                File.Copy(src, dst, overwrite: true);
+                if (file == SettingsFile)
+                {
+                    var settingsYaml = storage.SerializeAppSettingsForBackup();
+                    File.WriteAllText(dst, settingsYaml);
+                }
+                else
+                {
+                    var src = Path.Combine(configDir, file);
+                    if (!File.Exists(src)) continue;
+                    File.Copy(src, dst, overwrite: true);
+                }
             }
 
             return backupDir;

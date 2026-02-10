@@ -18,6 +18,10 @@
                 <MenuItem Header="隧道管理" Click="MenuTunnels_Click"/>
                 <MenuItem Header="恢复配置" Click="MenuRestoreConfig_Click"/>
             </MenuItem>
+            <MenuItem Header="主密码">
+                <MenuItem Header="设置主密码" Click="MenuMasterPasswordSet_Click"/>
+                <MenuItem Header="清除主密码" Click="MenuMasterPasswordClear_Click"/>
+            </MenuItem>
             <MenuItem Header="帮助">
                 <MenuItem Header="关于" Click="MenuAbout_Click"/>
                 <MenuItem Header="检查更新" Click="MenuUpdate_Click"/>

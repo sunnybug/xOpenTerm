@@ -36,7 +36,7 @@
         </Border>
         <!-- PuTTY 设置说明（分步 + 方框） -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button x:Name="PuttyFontBtn" Content="在 PuTTY 中设置字体…" Padding="8,4" Click="PuttyFontBtn_Click"
+            <Button x:Name="PuttyFontBtn" Content="在 PuTTY 中设置字体…" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" Click="PuttyFontBtn_Click"
                     ToolTip="打开 PuTTY 配置窗口"/>
         </StackPanel>
         <Border Grid.Row="2" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="14,12" Margin="0,0,0,14" CornerRadius="{StaticResource RadiusMd}">
@@ -57,8 +57,8 @@
             </StackPanel>
         </Border>
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button x:Name="OkBtn" Content="确定" Width="84" Padding="10,6" Margin="0,0,10,0" Click="OkBtn_Click" IsDefault="True"/>
-            <Button Content="取消" Width="84" Padding="10,6" Click="CancelBtn_Click"/>
+            <Button x:Name="OkBtn" Content="确定" Style="{StaticResource PrimaryButtonStyle}" Width="84" Padding="10,6" Margin="0,0,10,0" Click="OkBtn_Click" IsDefault="True"/>
+            <Button Content="取消" Style="{StaticResource SecondaryButtonStyle}" Width="84" Padding="10,6" Click="CancelBtn_Click"/>
         </StackPanel>
     </Grid>
 </Window>

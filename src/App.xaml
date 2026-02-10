@@ -52,6 +52,13 @@
                     </Trigger>
                 </Style.Triggers>
             </Style>
+            <!-- 可编辑输入框激活时显示并闪烁光标：全局设置 CaretBrush，非只读时可见 -->
+            <Style TargetType="TextBox">
+                <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}"/>
+            </Style>
+            <Style TargetType="PasswordBox">
+                <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}"/>
+            </Style>
             <!-- 默认窗口字体 (现代化可读性) -->
             <Style TargetType="Window">
                 <Setter Property="FontFamily" Value="Segoe UI"/>

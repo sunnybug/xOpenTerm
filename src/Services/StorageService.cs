@@ -222,7 +222,24 @@ public class StorageService
         ConfigBackupService.BackupIfNeeded();
     }
 
-    /// <summary>将导出数据序列化为 YAML 字符串（节点与凭证均为明文）。</summary>
+    /// <summary>将应用设置序列化为 YAML 字符串（用于备份等）。</summary>
+    public string SerializeAppSettings(AppSettings settings)
+    {
+        return _serializer.Serialize(settings);
+    }
+
+    /// <summary>返回不包含主密码相关字段的设置 YAML，供配置备份使用。</summary>
+    public string SerializeAppSettingsForBackup()
+    {
+        var settings = LoadAppSettings();
+        settings.MasterPasswordAsked = false;
+        settings.MasterPasswordSalt = null;
+        settings.MasterPasswordVerifier = null;
+        settings.MasterPasswordSkipped = false;
+        return _serializer.Serialize(settings);
+    }
+
+    /// <summary>将导出数据序列化为 YAML 字符串（节点与凭证均为解密后的明文，便于迁移与备份）。</summary>
     public string SerializeExport(ExportYamlRoot data)
     {
         return _serializer.Serialize(data);

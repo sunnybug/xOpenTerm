@@ -44,8 +44,8 @@
             <TextBox x:Name="OctalBox" Width="80" Padding="6" Background="#1e293b" Foreground="#e2e8f0" CaretBrush="#e2e8f0" MaxLength="3" TextChanged="OctalBox_TextChanged"/>
         </StackPanel>
         <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button x:Name="ApplyBtn" Content="Apply" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="ApplyBtn_Click" Background="#22c55e" Foreground="White"/>
-            <Button Content="Cancel" Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click" Background="#ef4444" Foreground="White"/>
+            <Button x:Name="ApplyBtn" Content="Apply" Style="{StaticResource PrimaryButtonStyle}" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="ApplyBtn_Click"/>
+            <Button Content="Cancel" Style="{StaticResource SecondaryButtonStyle}" Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click"/>
         </StackPanel>
     </Grid>
 </Window>
