@@ -374,6 +374,21 @@ public partial class MainWindow : Window
             MessageBox.Show("当前未使用主密码。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        // 清除前要求输入当前主密码以确认身份
+        byte[]? saltBytes = null;
+        byte[]? verifierBytes = null;
+        if (!string.IsNullOrEmpty(settings.MasterPasswordSalt))
+            saltBytes = Convert.FromBase64String(settings.MasterPasswordSalt);
+        if (!string.IsNullOrEmpty(settings.MasterPasswordVerifier))
+            verifierBytes = Convert.FromBase64String(settings.MasterPasswordVerifier);
+        if (saltBytes == null || verifierBytes == null || verifierBytes.Length != 32)
+        {
+            MessageBox.Show("主密码配置异常，无法执行清除。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var verifyDlg = new MasterPasswordWindow(isSetMode: false, saltBytes, verifierBytes, verifyOnly: true);
+        if (verifyDlg.ShowDialog() != true)
+            return;
         if (MessageBox.Show("清除后，下次启动将不再使用主密码；本地保存的密钥文件也会删除。配置中的密码将改用固定密钥重新保存。是否继续？",
                 "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
