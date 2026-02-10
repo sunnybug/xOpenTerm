@@ -75,6 +75,7 @@ public class StorageService
             var wrapper = new NodesFile { Version = SecretService.CurrentConfigVersion, Nodes = list };
             var yaml = _serializer.Serialize(wrapper);
             File.WriteAllText(_nodesPath, yaml);
+            ConfigBackupService.BackupIfNeeded();
         }
         finally
         {
@@ -124,6 +125,7 @@ public class StorageService
             var wrapper = new CredentialsFile { Version = SecretService.CurrentConfigVersion, Credentials = list };
             var yaml = _serializer.Serialize(wrapper);
             File.WriteAllText(_credentialsPath, yaml);
+            ConfigBackupService.BackupIfNeeded();
         }
         finally
         {
@@ -173,6 +175,7 @@ public class StorageService
             var wrapper = new TunnelsFile { Version = SecretService.CurrentConfigVersion, Tunnels = list };
             var yaml = _serializer.Serialize(wrapper);
             File.WriteAllText(_tunnelsPath, yaml);
+            ConfigBackupService.BackupIfNeeded();
         }
         finally
         {
@@ -216,6 +219,7 @@ public class StorageService
     {
         var yaml = _serializer.Serialize(settings);
         File.WriteAllText(_settingsPath, yaml);
+        ConfigBackupService.BackupIfNeeded();
     }
 
     /// <summary>将导出数据序列化为 YAML 字符串（节点与凭证均为明文）。</summary>

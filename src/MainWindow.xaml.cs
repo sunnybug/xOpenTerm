@@ -237,6 +237,17 @@ public partial class MainWindow : Window
         });
     }
 
+    private void MenuRestoreConfig_Click(object sender, RoutedEventArgs e)
+    {
+        var win = new BackupRestoreWindow(this);
+        if (win.ShowDialog() == true)
+        {
+            LoadData();
+            BuildTree();
+            ApplyAppSettings(_storage.LoadAppSettings());
+        }
+    }
+
     private void MenuAbout_Click(object sender, RoutedEventArgs e)
     {
         new AboutWindow(this).ShowDialog();

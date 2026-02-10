@@ -1,4 +1,4 @@
-# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
+﻿# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
 
 param(
     [switch]$Release
