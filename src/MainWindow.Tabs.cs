@@ -17,7 +17,7 @@ public partial class MainWindow
 {
     private void OpenTab(Node node)
     {
-        if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingCloudGroup) return;
+        if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup) return;
         if (node.Type == NodeType.rdp)
         {
             OpenRdpTab(node);

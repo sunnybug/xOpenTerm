@@ -50,7 +50,6 @@ public partial class GroupSettingsWindow : Window
             CloudKeysPanel.Visibility = Visibility.Visible;
             TencentKeysPanel.Visibility = Visibility.Visible;
             AliKeysPanel.Visibility = Visibility.Collapsed;
-            KingKeysPanel.Visibility = Visibility.Collapsed;
             TencentSecretIdBox.Text = _groupNode.Config?.TencentSecretId ?? "";
             TencentSecretKeyBox.Password = _groupNode.Config?.TencentSecretKey ?? "";
             Height = 440;
@@ -60,19 +59,8 @@ public partial class GroupSettingsWindow : Window
             CloudKeysPanel.Visibility = Visibility.Visible;
             TencentKeysPanel.Visibility = Visibility.Collapsed;
             AliKeysPanel.Visibility = Visibility.Visible;
-            KingKeysPanel.Visibility = Visibility.Collapsed;
             AliAccessKeyIdBox.Text = _groupNode.Config?.AliAccessKeyId ?? "";
             AliAccessKeySecretBox.Password = _groupNode.Config?.AliAccessKeySecret ?? "";
-            Height = 440;
-        }
-        else if (_groupNode.Type == NodeType.kingCloudGroup)
-        {
-            CloudKeysPanel.Visibility = Visibility.Visible;
-            TencentKeysPanel.Visibility = Visibility.Collapsed;
-            AliKeysPanel.Visibility = Visibility.Collapsed;
-            KingKeysPanel.Visibility = Visibility.Visible;
-            KingAccessKeyIdBox.Text = _groupNode.Config?.KingAccessKeyId ?? "";
-            KingAccessKeySecretBox.Password = _groupNode.Config?.KingAccessKeySecret ?? "";
             Height = 440;
         }
     }
@@ -105,7 +93,7 @@ public partial class GroupSettingsWindow : Window
         var tunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => t.AuthType).ThenBy(t => t.Name).Select(t => t.Id).ToList();
 
         var hasCred = !string.IsNullOrEmpty(sshCredId) || !string.IsNullOrEmpty(rdpCredId);
-        var isCloudGroup = _groupNode.Type == NodeType.tencentCloudGroup || _groupNode.Type == NodeType.aliCloudGroup || _groupNode.Type == NodeType.kingCloudGroup;
+        var isCloudGroup = _groupNode.Type == NodeType.tencentCloudGroup || _groupNode.Type == NodeType.aliCloudGroup;
         if (!hasCred && (tunnelIds == null || tunnelIds.Count == 0) && !isCloudGroup)
         {
             _groupNode.Config = null;
@@ -129,11 +117,6 @@ public partial class GroupSettingsWindow : Window
             {
                 _groupNode.Config.AliAccessKeyId = AliAccessKeyIdBox.Text?.Trim() ?? "";
                 _groupNode.Config.AliAccessKeySecret = AliAccessKeySecretBox.Password ?? "";
-            }
-            else if (_groupNode.Type == NodeType.kingCloudGroup)
-            {
-                _groupNode.Config.KingAccessKeyId = KingAccessKeyIdBox.Text?.Trim() ?? "";
-                _groupNode.Config.KingAccessKeySecret = KingAccessKeySecretBox.Password ?? "";
             }
         }
 

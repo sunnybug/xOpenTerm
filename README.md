@@ -15,7 +15,6 @@
 - **隧道管理**：跳板机增删改查与测试连接
 - **腾讯云同步**：从腾讯云 API 导入服务器列表，支持增量更新；多地域并行拉取（CVM、轻量应用服务器）
 - **阿里云同步**：从阿里云 ECS 与轻量应用服务器 API 导入服务器列表，按地域→服务器构建节点树，支持增量更新；多地域并行拉取
-- **金山云同步**：从金山云 KEC（云服务器）API 导入服务器列表，按地域→服务器构建节点树，支持增量更新；多地域并行拉取
 - **关于 / 更新**：版本号、作者、GitHub 链接；从 GitHub Releases 检查更新
 - **持久化**：节点、凭证、隧道保存为 YAML（`config/nodes.yaml`、`credentials.yaml`、`tunnels.yaml`，位于 exe 同目录下的 `config/`）；节点树的展开状态与选中项在关闭时写入 `config/settings.yaml`，下次启动时恢复
 
@@ -27,7 +26,7 @@
 
 ## 项目结构
 
-- `src/` — 源码（输出到仓库根下 `bin/Debug`、`bin/Release`，中间文件在 `temp/`）
+- `src/` — 源码（编译生成物在仓库根下 `.temp/`，如 `.temp/bin/Debug`、`.temp/obj/`）
 - `test.ps1` — 构建并运行应用（支持 --release）
 - `script/` — 脚本：`build.ps1`、`publish.ps1`、`init_dev.ps1`
 - `bin/` — 工作目录：`config/` 配置、`log/` 日志、`var/` 临时覆盖配置
@@ -112,13 +111,11 @@ aidoc/ ai生成文档放到该目录
 test.ps1
 ```
 
-### test.ps1功能
-
-- 编译。调用build.ps1，默认是debug，若传参加上--release，则构建release
-- 强杀目标程序
-- 清除运行日志
-- 若项目为插件则安装到目标程序中
-- 启动目标程序
+### test.ps1运行流程
+1. 编译。调用build.ps1，默认是debug，若传参加上--release，则构建release
+2. 强杀目标程序
+3. 清除运行日志
+5. 启动目标程序
 
 ### 关于.gitignore/vscode的files.exclude
 

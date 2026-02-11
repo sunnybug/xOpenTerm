@@ -6,9 +6,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/bin/Debug/net8.0-windows/xOpenTerm.dll",
+      "program": "${workspaceFolder}/.temp/bin/Debug/net8.0-windows/xOpenTerm.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/src",
+      "cwd": "${workspaceFolder}/.run",
       "stopAtEntry": false,
       "console": "internalConsole"
     },
@@ -16,9 +16,9 @@
       "name": "Launch xOpenTerm (No Build)",
       "type": "coreclr",
       "request": "launch",
-      "program": "${workspaceFolder}/src/bin/Debug/net8.0-windows/xOpenTerm.dll",
+      "program": "${workspaceFolder}/.temp/bin/Debug/net8.0-windows/xOpenTerm.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/src",
+      "cwd": "${workspaceFolder}/.run",
       "stopAtEntry": false,
       "console": "internalConsole"
     },

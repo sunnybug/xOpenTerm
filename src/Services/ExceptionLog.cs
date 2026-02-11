@@ -33,7 +33,7 @@ public static class ExceptionLog
             if (_logDir != null) return _logDir;
             try
             {
-                _logDir = Path.Combine(Environment.CurrentDirectory, "log");
+                _logDir = Path.Combine(".run", "log");
                 if (!Directory.Exists(_logDir))
                     Directory.CreateDirectory(_logDir);
             }
@@ -51,13 +51,13 @@ public static class ExceptionLog
     public static void Log(LogLevel level, string message, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
     {
         var fileName = Path.GetFileName(filePath);
-        var logLine = $"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}] [{level.ToString().PadRight(5)}] [{fileName}:{lineNumber}] {message}{Environment.NewLine}";
+        var logLine = $"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}] [{level.ToString()}] [{fileName}:{lineNumber}] [{message}]{Environment.NewLine}";
 
         lock (Lock)
         {
             try
             {
-                var file = Path.Combine(LogDirectory, DateTime.Now.ToString("yyMMdd") + ".log");
+                var file = Path.Combine(LogDirectory, DateTime.Now.ToString("yyyy-MM-dd") + ".log");
                 File.AppendAllText(file, logLine, Encoding.UTF8);
             }
             catch
@@ -134,7 +134,7 @@ public static class ExceptionLog
         {
             try
             {
-                var file = Path.Combine(LogDirectory, DateTime.Now.ToString("yyyyMMdd") + "_crash.log");
+                var file = Path.Combine(LogDirectory, DateTime.Now.ToString("yyyy-MM-dd") + "_crash.log");
                 File.AppendAllText(file, content, Encoding.UTF8);
             }
             catch

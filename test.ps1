@@ -36,11 +36,35 @@ if ($Release) {
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed, exit code: $LASTEXITCODE" -ForegroundColor Red
-    Read-Host "Press Enter to close window"
     exit $LASTEXITCODE
 }
 
 Write-Host "Build successful, starting application..." -ForegroundColor Green
+
+# Kill existing xOpenTerm process
+Write-Host "Killing existing xOpenTerm process..." -ForegroundColor Yellow
+try {
+    $processes = Get-Process -Name "xOpenTerm" -ErrorAction SilentlyContinue
+    foreach ($process in $processes) {
+        Write-Host "Killing process: $($process.Id)" -ForegroundColor Yellow
+        $process.Kill()
+        $process.WaitForExit(2000)
+    }
+} catch {
+    Write-Host "Error killing process: $_" -ForegroundColor Yellow
+}
+
+# Clear runtime logs
+Write-Host "Clearing runtime logs..." -ForegroundColor Yellow
+try {
+    $logDir = Join-Path $RunDir "log"
+    if (Test-Path -Path $logDir -PathType Container) {
+        Get-ChildItem -Path $logDir -File | Remove-Item -Force
+        Write-Host "Logs cleared successfully" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "Error clearing logs: $_" -ForegroundColor Yellow
+}
 
 # Run application and capture error output
 try {
@@ -63,6 +87,10 @@ try {
         Write-Host "Application exited abnormally, exit code: $($process.ExitCode)" -ForegroundColor Red
 
         # Read error log
+        $logDir = Join-Path $RunDir "log"
+        if (!(Test-Path $logDir -PathType Container)) {
+            New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+        }
         if (Test-Path -Path $errorLogPath -PathType Leaf) {
             Write-Host "Error log content:" -ForegroundColor Yellow
             Get-Content $errorLogPath | Write-Host

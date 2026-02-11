@@ -148,7 +148,11 @@ public class StorageService
     private List<Node> TryLoadNodesFile(string yaml)
         {
             var logPath = Path.Combine(Environment.CurrentDirectory, ".run", "log", "xOpenTerm_debug.log");
-            Directory.CreateDirectory(Path.GetDirectoryName(logPath));
+            var logDir = Path.GetDirectoryName(logPath);
+            if (!string.IsNullOrEmpty(logDir))
+            {
+                Directory.CreateDirectory(logDir);
+            }
             try
             {
                 using (var writer = new StreamWriter(logPath, true))
