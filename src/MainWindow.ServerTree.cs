@@ -1133,6 +1133,8 @@ public partial class MainWindow
 
         if (runEx != null || t.Result == null)
         {
+            if (runEx != null)
+                ExceptionLog.Write(runEx, "阿里云同步失败", toCrashLog: false);
             var errMsg = runEx != null ? GetFullExceptionMessage(runEx) : "拉取失败或已取消";
             syncWin.ReportResult(errMsg, false);
             return;
@@ -1298,6 +1300,8 @@ public partial class MainWindow
 
         if (runEx != null || t.Result == null)
         {
+            if (runEx != null)
+                ExceptionLog.Write(runEx, "金山云同步失败", toCrashLog: false);
             var errMsg = runEx != null ? GetFullExceptionMessage(runEx) : "拉取失败或已取消";
             syncWin.ReportResult(errMsg, false);
             return;
@@ -1556,6 +1560,8 @@ public partial class MainWindow
 
         if (runEx != null || t.Result.Cvm == null || t.Result.Lighthouse == null)
         {
+            if (runEx != null)
+                ExceptionLog.Write(runEx, "腾讯云同步失败", toCrashLog: false);
             var errMsg = runEx != null ? GetFullExceptionMessage(runEx) : "拉取失败或已取消";
             syncWin.ReportResult(errMsg, false);
             return;

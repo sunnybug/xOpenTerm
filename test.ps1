@@ -1,4 +1,4 @@
-# Function: Build and run xOpenTerm project, default Debug, use --release for Release
+﻿# Function: Build and run xOpenTerm project, default Debug, use --release for Release
 # Runtime working directory is .run
 
 param(
@@ -67,23 +67,20 @@ try {
 }
 
 # Run application and capture error output
+# 使用项目根目录作为工作目录，这样应用内 .run\log 会正确解析为 <根>\.run\log（与脚本清空/查看的目录一致）
+$errorLogPath = Join-Path $RunDir "log\error.log"
 try {
-    # Switch to runtime working directory
-    Push-Location $RunDir
-
-    # Run application and capture output
-    $errorLogPath = Join-Path "log" "error.log"
-
-    # Use dotnet run to run project directly
     $projectPath = Join-Path $Root "src\xOpenTerm.csproj"
     $config = if ($Release) { "Release" } else { "Debug" }
-    $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config" -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
+    $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config" -WorkingDirectory $Root -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
 
     # Wait for application to exit
     $process.WaitForExit()
 
-    # Check exit code
-    if ($process.ExitCode -ne 0) {
+    # Check exit code ($null = 进程被终止或无法获取，例如无界面环境)
+    if ($null -eq $process.ExitCode) {
+        Write-Host "Application process ended without exit code (e.g. terminated or no GUI). Build succeeded." -ForegroundColor Yellow
+    } elseif ($process.ExitCode -ne 0) {
         Write-Host "Application exited abnormally, exit code: $($process.ExitCode)" -ForegroundColor Red
 
         # Read error log
@@ -99,6 +96,5 @@ try {
         Write-Host "Application exited normally" -ForegroundColor Green
     }
 } finally {
-    # Restore original directory
-    Pop-Location
+    # nothing to pop
 }

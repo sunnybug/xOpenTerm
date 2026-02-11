@@ -21,6 +21,10 @@ public partial class App : Application
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        // 确保 HTTPS 请求使用 TLS 1.2+，避免金山云等 API 出现 SSL 连接失败
+        System.Net.ServicePointManager.SecurityProtocol =
+            System.Net.SecurityProtocolType.Tls12 | System.Net.SecurityProtocolType.Tls13;
+
         // 确保 Material Design 主题字典在最前（提供 Primary.Light 等），避免 Defaults 解析时报错
         var theme = new Theme();
         theme.SetBaseTheme(BaseTheme.Dark);

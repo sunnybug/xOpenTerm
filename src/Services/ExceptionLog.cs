@@ -110,11 +110,13 @@ public static class ExceptionLog
     /// <summary>
     /// 写入一条异常日志（含时间、消息、堆栈），文件名带日期便于按天查看。
     /// </summary>
-    public static void Write(Exception ex, string? context = null, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
+    /// <param name="toCrashLog">为 true 时写入 _crash.log（未处理异常）；为 false 时仅写入当日普通日志（已处理的业务异常，如云同步失败）。</param>
+    public static void Write(Exception ex, string? context = null, bool toCrashLog = true, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
     {
         var sb = new StringBuilder();
         sb.AppendLine("----------------------------------------");
-        sb.AppendLine($"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}] [FATAL] [{Path.GetFileName(filePath)}:{lineNumber}] Exception occurred");
+        var level = toCrashLog ? "FATAL" : "ERR";
+        sb.AppendLine($"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}] [{level}] [{Path.GetFileName(filePath)}:{lineNumber}] Exception occurred");
         if (!string.IsNullOrEmpty(context))
             sb.AppendLine($"Context: {context}");
         sb.AppendLine($"Message: {ex.Message}");
@@ -134,7 +136,8 @@ public static class ExceptionLog
         {
             try
             {
-                var file = Path.Combine(LogDirectory, DateTime.Now.ToString("yyyy-MM-dd") + "_crash.log");
+                var fileName = DateTime.Now.ToString("yyyy-MM-dd") + (toCrashLog ? "_crash.log" : ".log");
+                var file = Path.Combine(LogDirectory, fileName);
                 File.AppendAllText(file, content, Encoding.UTF8);
             }
             catch

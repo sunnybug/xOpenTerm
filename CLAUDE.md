@@ -2,210 +2,148 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 项目概述
-
-xOpenTerm 是一个 **C# WPF** 实现的 Windows SSH/本地终端批量管理工具，参考原版 xOpenTerm (Tauri) 实现。
-
-核心功能：
-- **节点树管理**：支持分组、SSH、本地终端（PowerShell/CMD）、RDP 节点
-- **多标签连接**：支持同时打开多个终端/远程桌面会话
-- **SSH 连接**：密码/私钥/SSH Agent/登录凭证认证，支持跳板机多跳
-- **本地终端**：内置 PowerShell 和 CMD 终端
-- **RDP 连接**：通过系统 mstsc 启动远程桌面
-- **凭证管理**：独立的登录凭证系统，可被多个节点引用
-- **腾讯云同步**：支持从腾讯云导入并同步服务器列表
-- **阿里云同步**：支持从阿里云 ECS 与轻量应用服务器导入并同步服务器列表（地域→服务器）
-- **金山云同步**：支持从金山云 KEC 导入并同步服务器列表（地域→服务器）
-
-## 构建和运行
+## 构建与运行
 
 ```powershell
-# 编译并运行（Debug 模式）
+# 编译并运行 Debug（常用）
 .\test.ps1
 
 # 仅构建
 .\script\build.ps1           # Debug
 .\script\build.ps1 --release # Release
 
-# 构建并运行（Release 模式）
+# 编译并运行 Release
 .\test.ps1 --release
 
-# 发布到 dist 目录
-.\script\publish.ps1
-
-# 初始化开发环境（还原依赖、创建 bin/config 等）
+# 初始化开发环境（首次克隆项目后）
 .\script\init_dev.ps1
+
+# 发布到 dist 目录（带版本号）
+.\script\publish.ps1
 ```
 
-或使用 Visual Studio 打开 `xOpenTerm.sln` 后 F5 运行。
+**注意**：
+- 构建输出目录为 `.temp/bin/`，中间文件为 `.temp/obj/`
+- 运行时工作目录使用 `.run/`，配置文件位于 `.run/config/`，日志位于 `.run/log/`
+- test.ps1 会自动强杀现有 xOpenTerm 进程、清除日志后再启动
+- crash log ：log/YYYY-MM-DD_crash.log
+## 项目架构
 
-## 项目结构
+### 目录结构
+- `src/` — 源码（WPF XAML + C#）
+- `script/` — 构建脚本（build.ps1, publish.ps1, init_dev.ps1）
+- `bin/` — 工作目录（配置、日志、临时覆盖配置）
+- `.run/` — 运行时工作目录（与 bin 类似，作为运行时配置路径）
+- `.temp/` — 编译输出目录
+- `dist/` — 发布目录
+- `doc/`、`aidoc/` — 文档目录
 
-```
-xOpenTerm/
-├── src/                          # 源代码目录
-│   ├── Models/                   # 数据模型（Node、Credential、Tunnel、NodeType 等）
-│   ├── Services/                 # 业务逻辑服务
-│   │   ├── SessionManager.cs     # SSH/本地会话管理
-│   │   ├── StorageService.cs     # YAML 配置持久化
-│   │   ├── SecretService.cs      # 密码加密/解密
-│   │   ├── ConfigResolver.cs     # 配置解析（继承/凭证引用）
-│   │   ├── TencentCloudService.cs # 腾讯云 API 集成
-│   │   ├── AliCloudService.cs    # 阿里云 ECS API 集成
-│   │   ├── KingsoftCloudService.cs # 金山云 KEC API 集成
-│   │   ├── RemoteFileService.cs  # SCP 远程文件操作
-│   │   └── SshTester.cs          # SSH 连接测试
-│   ├── Controls/                 # 自定义控件
-│   │   ├── TerminalControl.xaml.cs     # 自定义 VT100 终端（ANSI 颜色/SGR）
-│   │   ├── TerminalSurface.cs          # 终端绘制表面（自定义绘制）
-│   │   ├── TerminalBuffer.cs           # 终端缓冲区
-│   │   ├── Vt100Parser.cs              # VT100/ANSI 解析器
-│   │   ├── SshPuttyHostControl.cs      # PuTTY 窗口嵌入控件
-│   │   └── RdpHostControl.cs           # RDP 宿主控件
-│   ├── MainWindow.xaml.cs        # 主窗口（核心逻辑）
-│   ├── MainWindow.ServerTree.cs  # 节点树逻辑（拖拽、右键菜单）
-│   ├── MainWindow.Tabs.cs        # 连接标签页管理
-│   ├── MainWindow.RemoteFile.cs  # 远程文件面板
-│   ├── App.xaml.cs               # 应用入口
-│   └── *.xaml / *.xaml.cs        # 各种对话框和窗口
-├── tests/                        # 单元测试
-├── test.ps1                      # 构建并运行应用（支持 --release）
-├── script/                       # PowerShell 脚本
-│   ├── build.ps1                 # 构建项目（支持 --release）
-│   ├── publish.ps1               # 发布到 dist 目录
-│   └── init_dev.ps1              # 初始化开发环境
-├── bin/                          # 工作目录（运行时）
-│   └── config/                   # 配置文件目录
-├── var/                          # 可变覆盖目录
-└── dist/                         # 发布目录
-```
+### 核心代码组织
 
-## 架构要点
+**Models/** — 数据模型
+- `Node.cs` — 节点树模型（分组/SSH/本地终端/RDP/云同步节点）
+- `ConnectionConfig.cs` — 连接配置（SSH/RDP/云 API 密钥等）
+- `Credential.cs` — 登录凭证模型
+- `Tunnel.cs`、`TunnelHop.cs` — 隧道/跳板机模型
+- `AppSettings.cs` — 应用设置（窗口状态、树展开状态等）
 
-### 1. 主窗口职责分离
+**Services/** — 核心服务层
+- `StorageService.cs` — YAML 持久化（节点/凭证/隧道/设置），自动加密/解密敏感字段
+- `SecretService.cs` — 密码加密服务，支持主密码（xot4）和固定密钥（xot2/xot3）
+- `MasterPasswordService.cs` — 主密码管理（DPAPI 存储派生密钥）
+- `ConfigBackupService.cs` — 配置自动备份（60 秒防抖，备份到 `%LocalAppData%\xOpenTerm\backup\`）
+- `SessionManager.cs` — SSH 会话管理
+- `TencentCloudService.cs`、`AliCloudService.cs`、`KingsoftCloudService.cs` — 云平台 API 同步服务
+- `SshTester.cs` — SSH 连接测试工具
+- `RdpLauncher.cs` — RDP 启动服务（生成 .rdp 文件、可选 cmdkey 写入凭据）
 
-`MainWindow.xaml.cs` 是应用的核心，已按功能拆分为多个 partial class：
-- `MainWindow.ServerTree.cs`：节点树操作（展开/折叠、右键菜单、拖拽、多选）
-- `MainWindow.Tabs.cs`：连接标签页管理（创建/切换/关闭、重连/断开）
-- `MainWindow.RemoteFile.cs`：远程文件面板（浏览、上传/下载、编辑）
+**Controls/** — 自定义控件
+- `TerminalControl.xaml.cs` — 终端控件容器
+- `TerminalSurface.cs` — 自绘 VT100 终端表面（ANSI 颜色、仅绘制可见行）
+- `TerminalBuffer.cs` — 终端缓冲区
+- `Vt100Parser.cs` — VT100 转义序列解析器
+- `SshPuttyHostControl.cs` — SSH 连接托管控件（PuTTY 集成）
+- `RdpHostControl.cs` — RDP 连接托管控件
+- `SshStatusBarControl.xaml.cs` — SSH 状态栏（CPU/内存/网络）
 
-**重要**：修改主窗口功能时，优先找到对应的 partial class 文件修改。
+**MainWindow.cs** — 主窗口（分文件 partial class）
+- `MainWindow.ServerTree.cs` — 服务器树操作（拖拽、右键菜单、多选）
+- `MainWindow.Tabs.cs` — 标签页管理（SSH/RDP/本地终端）
+- `MainWindow.RemoteFile.cs` — 远程文件面板（已废弃但代码仍存在）
 
-### 2. 会话管理 (SessionManager)
+**Window/*EditWindow.xaml.cs** — 各种节点编辑窗口
+- `GroupNodeEditWindow` — 分组节点
+- `SshNodeEditWindow` — SSH 节点
+- `LocalNodeEditWindow` — 本地终端节点
+- `RdpNodeEditWindow` — RDP 节点
+- `TencentCloudNodeEditWindow`、`AliCloudNodeEditWindow`、`KingsoftCloudNodeEditWindow` — 云同步分组节点
+- `TunnelEditWindow` — 隧道编辑
+- `CredentialEditWindow` — 凭证编辑
 
-`SessionManager` 负责所有 SSH 和本地终端会话的生命周期：
-- `CreateSshSession()`：创建 SSH 会话，支持直连或跳板机多跳
-- `CreateLocalSession()`：创建本地 PowerShell/CMD 会话
-- 通过事件向 UI 推送数据：`DataReceived`、`SessionClosed`、`SessionConnected`
-- 使用 `ConcurrentDictionary` 管理会话（线程安全）
+### 配置系统
 
-### 3. 终端实现
+**配置目录解析顺序**（StorageService.GetConfigDir）：
+1. `.run/config/`（运行时配置）
+2. `config/`（工作目录配置）
+3. `<exe所在目录>/config/`（默认配置）
 
-项目包含**两种**终端实现：
+**加密机制**（SecretService）：
+- `xot1:` — 旧版 DPAPI 加密（仅限本机当前用户）
+- `xot2:` — 版本 1 AES 加密（固定密钥，跨机器兼容）
+- `xot3:` — 版本 2 AES 加密（固定密钥，跨机器兼容）
+- `xot4:` — 主密码派生密钥加密（需要用户输入主密码）
 
-#### 自定义 VT100 终端（默认）
-- `Vt100Parser`：解析 ANSI/VT100 转义序列（颜色、光标、擦除）
-- `TerminalBuffer`：终端缓冲区（存储文本段、样式）
-- `TerminalSurface`：自定义绘制表面（仅绘制可见行）
-- **优点**：轻量、无需外部依赖、支持 ANSI 颜色和 SGR
-- **缺点**：功能有限，不支持 xterm.js 全部特性
+**密码字段**（自动加密/解密）：
+- `ConnectionConfig`: Password, KeyPassphrase, TencentSecretId/Key, AliAccessKeyId/Secret, KsyunAccessKeyId/Secret
+- `Credential`: Password, KeyPassphrase
+- `Tunnel`, `TunnelHop`: Password, KeyPassphrase
 
-#### PuTTY 嵌入终端（可选）
-- `SshPuttyHostControl`：嵌入 PuTTY/PuTTYNG 窗口
-- 使用命名管道传密码、SetParent/-hwndparent 嵌入窗口
-- **优点**：完整 PuTTY 功能、稳定可靠
-- **缺点**：依赖外部 PuTTY 可执行文件
+**导出功能**：导出 YAML 时所有敏感字段为**解密后的明文**，便于迁移。
 
-### 4. 配置解析与继承 (ConfigResolver)
+### 全局类型别名（GlobalUsings.cs）
 
-节点配置支持复杂的继承链：
-- **同父节点**：子节点可继承父节点的登录凭证、隧道配置
-- **登录凭证引用**：节点可通过 `credentialId` 引用凭证
-- **隧道引用**：节点可通过 `tunnelIds` 引用隧道列表
-- `ConfigResolver.ResolveFinalConfig()` 递归解析最终配置
+消除 WPF 与 WinForms 同名类型歧义，全局优先使用 WPF 类型：
+- `Application = System.Windows.Application`
+- `MessageBox = System.Windows.MessageBox`
+- `Button = System.Windows.Controls.Button`
+- 等等...
 
-### 5. 密码加密 (SecretService)
+### 云同步服务架构
 
-配置文件中的密码使用 AES 加密存储：
-- **版本 1**：AES-256（前缀 `xot2:`）
-- **版本 2**：AES-256-GCM（前缀 `xot3:`）
-- **旧版 DPAPI**：兼容旧配置（前缀 `xot1:`，仅限原机器）
-- **跨机器兼容**：密钥从固定种子派生，同一版本在所有机器上可解密同一配置
+所有云同步服务（腾讯云、阿里云、金山云）遵循统一模式：
+1. API 调用封装为独立的 `*CloudService` 类
+2. 多地域并行拉取（使用 Task.WhenAll）
+3. 按地域→服务器的层级构建节点树
+4. 支持增量更新（不删除已存在的手动配置节点）
+5. 同步窗口：`*CloudSyncWindow.xaml.cs`
+6. 分组添加窗口：`*CloudGroupAddWindow.xaml.cs`
+7. 节点编辑窗口：`*CloudNodeEditWindow.xaml.cs`
 
-### 6. 持久化 (StorageService)
+## 开发注意事项
 
-配置保存在 `config/` 目录：
-- `nodes.yaml`：节点树结构（与 xOpenTerm Tauri 版本兼容）
-- `credentials.yaml`：登录凭证
-- `tunnels.yaml`：SSH 隧道（跳板机）
-- `settings.yaml`：应用设置（窗口位置、面板宽度等）
+### PowerShell 脚本规范
+- 编码必须为 **UTF-8 with BOM**
+- 首行必须包含功能说明注释（中文）
+- 使用 `\` 路径分隔符时需用 `Join-Path` 或 `Split-Path`
+- 错误处理：使用 `$ErrorActionPreference = "Stop"` 和 `trap` 捕获异常
 
-配置目录优先级：
-1. 工作目录下的 `config/`（用于开发和覆盖测试）
-2. exe 所在目录下的 `config/`（生产环境）
+### 日志系统
+- 日志位置：`.run/log/`
+- 文件格式：`YYYY-MM-DD.log`（常规）、`YYYY-MM-DD_crash.log`（崩溃）
+- 日志级别：DEBUG/INFO/WARN/ERR/FATAL
+- 使用 `ExceptionLog.Write(ex, "上下文")` 记录异常
 
-### 7. 腾讯云集成 (TencentCloudService)
+### 版本管理
+- 版本号定义在 `src/xOpenTerm.csproj` 的 `<Version>` 节点
+- 发布时自动从 csproj 读取版本并创建 `dist/xOpenTerm-v<版本>/` 目录
 
-- 支持创建"腾讯云组"节点，从腾讯云 API 导入服务器列表
-- 同步功能：增量更新节点树，删除云上已不存在的服务器
-- 节点结构：机房 → 项目 → 服务器（SSH/RDP）
+### 不使用的功能（代码仍存在）
+- 远程文件面板（`MainWindow.RemoteFile.cs`）已废弃但代码保留
 
-## 核心依赖
+### WPF 资源
+- MaterialDesignThemes 主题
+- 图标：`src/icons/icon.ico`
 
-- **SSH.NET** (`Renci.SshNet`)：SSH 协议实现
-- **YamlDotNet**：YAML 序列化/反序列化
-- **MaterialDesignThemes**：Material Design WPF 主题库
-- **RoyalApps.Community.Rdp.WinForms**：RDP 连接封装
-- **TencentCloudSDK**：腾讯云 API SDK
-- **AlibabaCloud.SDK.Ecs20140526**：阿里云 ECS API SDK
-
-## 常见开发任务
-
-### 添加新的节点类型
-
-1. 在 `Models/NodeType.cs` 添加枚举值
-2. 在 `Models/ConnectionConfig.cs` 添加对应配置类
-3. 在 `MainWindow.ServerTree.cs` 更新节点图标和右键菜单
-4. 在 `MainWindow.Tabs.cs` 添加标签页创建逻辑
-
-### 修改终端行为
-
-- 自定义终端：修改 `Controls/Vt100Parser.cs`（解析器）、`Controls/TerminalSurface.cs`（绘制）
-- PuTTY 终端：修改 `Controls/SshPuttyHostControl.cs`（启动参数、窗口嵌入）
-
-### 添加新的认证方式
-
-1. 在 `Models/AuthType.cs` 添加枚举值
-2. 在 `Services/SessionManager.cs` 的 `CreateSshSession()` 中添加认证逻辑
-3. 在对应节点类型的编辑窗口（如 `SshNodeEditWindow.xaml.cs`、`RdpNodeEditWindow.xaml.cs`）添加对应控件
-
-### 修改配置文件结构
-
-1. 修改 `Models/` 中的数据模型
-2. 更新 `Services/StorageService.cs` 的序列化/反序列化逻辑
-3. 考虑向后兼容（`SecretService.CurrentConfigVersion`）
-
-## 重要约定
-
-- **中文注释**：所有新增代码必须使用中文注释
-- **UTF-8 BOM**：PowerShell 脚本必须使用 UTF-8 BOM 编码
-- **UTF-8**：BAT 文件必须使用 UTF-8 编码，开头添加 `chcp 65001`
-- **路径规范**：不允许使用写死的本地路径，使用相对路径或通过 `StorageService.GetConfigDir()` 获取
-- **README 更新**：新增或修改功能时，必须更新 README.md
-
-## 调试技巧
-
-- SSH 连接问题：检查 `Services/SshTester.cs` 的错误消息输出
-- 终端显示问题：在 `Controls/Vt100Parser.cs` 中添加日志查看转义序列
-- 配置加载问题：检查 `Services/StorageService.cs` 的异常处理
-- PuTTY 嵌入问题：检查 `Controls/SshPuttyHostControl.cs` 的窗口句柄和命名管道
-
-## 其他特性
-
-- 无内嵌 RDP 窗口（通过 mstsc 启动系统远程桌面）
-- 终端为自定义绘制 VT100（非 xterm.js）
-- 腾讯云、阿里云同步功能
-- MobaXterm 配置导入
-
-## log位置
-%LocalAppData%\xOpenTerm\logs\info_yyyy-MM-dd.log
+### 禁止
+- 不允许使用写死的本地路径（必须使用相对路径或从配置/环境变量获取）
+- 新增或修改功能时必须同步更新 README.md
