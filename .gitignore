@@ -27,4 +27,5 @@ obj/
 packages/
 *.nupkg
 project.lock.json
-**/.*/
+.run/
+.temp/
