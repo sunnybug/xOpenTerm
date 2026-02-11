@@ -44,6 +44,16 @@
                     <PasswordBox x:Name="AliAccessKeySecretBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
             </StackPanel>
+            <StackPanel x:Name="KingsoftKeysPanel" Orientation="Vertical" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="AccessKeyId" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="KsyunAccessKeyIdBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                    <TextBlock Text="AccessKeySecret" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <PasswordBox x:Name="KsyunAccessKeySecretBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
+                </StackPanel>
+            </StackPanel>
         </StackPanel>
         <StackPanel Grid.Row="4">
             <TextBlock Text="默认跳板" VerticalAlignment="Top" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6"/>

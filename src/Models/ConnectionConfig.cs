@@ -79,4 +79,12 @@ public class ConnectionConfig
     /// <summary>阿里云组节点：AccessKey Secret（加密存储）。</summary>
     [YamlMember(Alias = "aliAccessKeySecret")]
     public string? AliAccessKeySecret { get; set; }
+
+    /// <summary>金山云组节点：AccessKey Id（加密存储）。</summary>
+    [YamlMember(Alias = "ksyunAccessKeyId")]
+    public string? KsyunAccessKeyId { get; set; }
+
+    /// <summary>金山云组节点：AccessKey Secret（加密存储）。</summary>
+    [YamlMember(Alias = "ksyunAccessKeySecret")]
+    public string? KsyunAccessKeySecret { get; set; }
 }
