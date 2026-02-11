@@ -146,65 +146,75 @@ public class StorageService
     }
 
     private List<Node> TryLoadNodesFile(string yaml)
-    {
-        var logPath = Path.Combine(Environment.CurrentDirectory, ".run", "log", "xOpenTerm_debug.log");
-        Directory.CreateDirectory(Path.GetDirectoryName(logPath));
-        try
         {
-            using (var writer = new StreamWriter(logPath, true))
-            {
-                writer.WriteLine($"[{DateTime.Now}] 尝试解析为 NodesFile 类型");
-            }
-            var wrapper = _deserializer.Deserialize<NodesFile>(yaml);
-            if (wrapper?.Nodes != null)
+            var logPath = Path.Combine(Environment.CurrentDirectory, ".run", "log", "xOpenTerm_debug.log");
+            Directory.CreateDirectory(Path.GetDirectoryName(logPath));
+            try
             {
                 using (var writer = new StreamWriter(logPath, true))
                 {
-                    writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型成功，节点数量: {wrapper.Nodes.Count}");
+                    writer.WriteLine($"[{DateTime.Now}] 尝试解析为 NodesFile 类型");
                 }
-                return wrapper.Nodes;
+                var wrapper = _deserializer.Deserialize<NodesFile>(yaml);
+                if (wrapper?.Nodes != null)
+                {
+                    using (var writer = new StreamWriter(logPath, true))
+                    {
+                        writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型成功，节点数量: {wrapper.Nodes.Count}");
+                    }
+                    return wrapper.Nodes;
+                }
+                else
+                {
+                    using (var writer = new StreamWriter(logPath, true))
+                    {
+                        writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型成功，但 wrapper 或 Nodes 为 null");
+                    }
+                }
             }
-            else
+            catch (Exception ex)
             {
                 using (var writer = new StreamWriter(logPath, true))
                 {
-                    writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型成功，但 wrapper 或 Nodes 为 null");
+                    writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型失败: {ex.Message}");
+                    writer.WriteLine($"[{DateTime.Now}] 异常堆栈: {ex.StackTrace}");
+                    if (ex.InnerException != null)
+                    {
+                        writer.WriteLine($"[{DateTime.Now}] 内部异常: {ex.InnerException.Message}");
+                        writer.WriteLine($"[{DateTime.Now}] 内部异常堆栈: {ex.InnerException.StackTrace}");
+                    }
                 }
+                // 旧格式：根节点为列表
             }
-        }
-        catch (Exception ex)
-        {
-            using (var writer = new StreamWriter(logPath, true))
-            {
-                writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型失败: {ex.Message}");
-                writer.WriteLine($"[{DateTime.Now}] 异常堆栈: {ex.StackTrace}");
-            }
-            // 旧格式：根节点为列表
-        }
 
-        try
-        {
-            using (var writer = new StreamWriter(logPath, true))
+            try
             {
-                writer.WriteLine($"[{DateTime.Now}] 尝试解析为 List<Node> 类型");
+                using (var writer = new StreamWriter(logPath, true))
+                {
+                    writer.WriteLine($"[{DateTime.Now}] 尝试解析为 List<Node> 类型");
+                }
+                var list = _deserializer.Deserialize<List<Node>>(yaml);
+                using (var writer = new StreamWriter(logPath, true))
+                {
+                    writer.WriteLine($"[{DateTime.Now}] 解析为 List<Node> 类型成功，节点数量: {list?.Count ?? 0}");
+                }
+                return list ?? new List<Node>();
             }
-            var list = _deserializer.Deserialize<List<Node>>(yaml);
-            using (var writer = new StreamWriter(logPath, true))
+            catch (Exception ex)
             {
-                writer.WriteLine($"[{DateTime.Now}] 解析为 List<Node> 类型成功，节点数量: {list?.Count ?? 0}");
+                using (var writer = new StreamWriter(logPath, true))
+                {
+                    writer.WriteLine($"[{DateTime.Now}] 解析为 List<Node> 类型失败: {ex.Message}");
+                    writer.WriteLine($"[{DateTime.Now}] 异常堆栈: {ex.StackTrace}");
+                    if (ex.InnerException != null)
+                    {
+                        writer.WriteLine($"[{DateTime.Now}] 内部异常: {ex.InnerException.Message}");
+                        writer.WriteLine($"[{DateTime.Now}] 内部异常堆栈: {ex.InnerException.StackTrace}");
+                    }
+                }
+                return new List<Node>();
             }
-            return list ?? new List<Node>();
         }
-        catch (Exception ex)
-        {
-            using (var writer = new StreamWriter(logPath, true))
-            {
-                writer.WriteLine($"[{DateTime.Now}] 解析为 List<Node> 类型失败: {ex.Message}");
-                writer.WriteLine($"[{DateTime.Now}] 异常堆栈: {ex.StackTrace}");
-            }
-            return new List<Node>();
-        }
-    }
 
     public List<Credential> LoadCredentials()
     {

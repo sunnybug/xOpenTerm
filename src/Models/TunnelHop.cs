@@ -15,7 +15,7 @@ public class TunnelHop
     public string Username { get; set; } = "";
 
     [YamlMember(Alias = "authType")]
-    public AuthType AuthType { get; set; }
+    public AuthType? AuthType { get; set; }
 
     [YamlMember(Alias = "password")]
     public string? Password { get; set; }

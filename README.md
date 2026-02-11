@@ -82,3 +82,84 @@
 - 终端为自定义绘制 VT100 终端（ANSI 颜色/SGR、仅绘制可见行，无 xterm.js）
 - 隧道链配置与选择已支持，SSH 支持直连与多跳（经跳板机链本地端口转发连接目标）
 - 腾讯云同步功能
+
+## 项目目录架构（my-project 技能）
+
+### 技能描述
+
+定义工程的目录结构，对整个项目的目录结构进行重新整理，确保每个目录的职责清晰，避免重复和混乱。
+
+### 推荐目录架构
+
+```
+.gitignore
+.cursorignore
+README.md
+.github/
+  - publish.yml 当版本号变动时，打tag并发布版本到github的release
+.dist/ 本地生成的发布版本存放在这里
+script/ 脚本目录
+  - publish.ps1 发布脚本 将release（带版本号）发布到dist目录
+  - init_dev.ps1 初始化开发环境
+  - build.ps1 构建脚本，用于构建前后端，默认是debug，若传参加上--release，则构建release
+src/ 源码目录，若只有一个工程，则将代码放到该目录而不是再创建一个工程目录。src下面不应存在obj和bin等存放编译生成物的目录。
+doc/ 文档目录
+aidoc/ ai生成文档放到该目录
+.temp/ 将编译过程所有中间文件和输出文件存放到该目录，同时修改编译相关脚本和工程
+.run/ 运行时的工作路径，同时修改运行相关脚本和工程
+  - log/ 日志目录
+  - config/ 配置文件目录
+test.ps1
+```
+
+### test.ps1功能
+
+- 编译。调用build.ps1，默认是debug，若传参加上--release，则构建release
+- 强杀目标程序
+- 清除运行日志
+- 若项目为插件则安装到目标程序中
+- 启动目标程序
+
+### 关于.gitignore/vscode的files.exclude
+
+#### 不进入.gitignore/vscode的files.exclude
+
+- .vscode/
+- .cursor/
+- .claude/
+- .trae/
+- *.code-workspace
+
+#### 入vscode的files.exclude
+
+- .temp/
+- obj/
+
+#### 入gitignore
+
+- obj/
+- .run/
+
+### .vscode
+
+生成launch.json，用于调试，包含：
+
+- 编译和运行debug版本
+- 运行时若为web前端则自动打开浏览器访问
+- 运行时若为普通exe则运行exe
+- 运行时的工作目录为var/
+
+### 工程代码处理
+
+#### 若工程代码已存在
+
+- 将工程的工作目录设置为.run
+- 将配置文件（含旧内容和相关代码处理）移到.run/config/
+- 项目根目录下的代码目录和工程文件都移到src/
+
+#### log
+
+- 修改log相关代码，将生成的log文件生成到工作目录/log/
+- log分级为：DEBUG/INFO/WARN/ERR/FATAL，文件名：YYYY-MM-DD.log，log内容为：[YYYY-MM-DD HH:MM:SS] [LEVEL] [FILE:LINE] [MESSAGE]
+- 崩溃或者异常产生log，文件名：YYYY-MM-DD_crash.log
+- 除此外不要生成其他log文件

@@ -9,6 +9,8 @@ public enum NodeType
     aliCloudGroup,
     /// <summary>金山云组：根节点存密钥，子节点为 地域→服务器，支持同步。</summary>
     kingCloudGroup,
+    /// <summary>金山云组：根节点存密钥，子节点为 地域→服务器，支持同步。（kingsoftCloudGroup 别名）</summary>
+    kingsoftCloudGroup,
     ssh,
     local,
     rdp
