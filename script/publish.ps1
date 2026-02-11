@@ -24,10 +24,10 @@ if (-not $Version) { $Version = "0.0.0" }
 
 $ReleaseName = "xOpenTerm-v$Version"
 $ReleaseDir = Join-Path $DistDir $ReleaseName
-$BinRelease = Join-Path $Root "bin\release"
+$BinRelease = Join-Path $Root ".temp\bin\Release\net8.0-windows"
 
 if (-not (Test-Path $BinRelease)) {
-    Write-Host "未找到 bin\release 输出目录" -ForegroundColor Red
+    Write-Host "未找到 .temp\bin\Release\net8.0-windows 输出目录" -ForegroundColor Red
     exit 1
 }
 
