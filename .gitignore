@@ -27,3 +27,4 @@ obj/
 packages/
 *.nupkg
 project.lock.json
+**/.*/

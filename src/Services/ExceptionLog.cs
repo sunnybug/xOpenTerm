@@ -1,12 +1,25 @@
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Text;
 
 namespace xOpenTerm.Services;
 
 /// <summary>
+/// 日志级别枚举
+/// </summary>
+public enum LogLevel
+{
+    DEBUG,
+    INFO,
+    WARN,
+    ERR,
+    FATAL
+}
+
+/// <summary>
 /// 将未捕获异常写入日志文件，便于排查崩溃。
-/// 日志目录：%LocalAppData%\xOpenTerm\logs\ 或当前进程目录下的 logs 子目录。
+/// 日志目录：当前进程目录下的 log 子目录。
 /// </summary>
 public static class ExceptionLog
 {
@@ -20,33 +33,92 @@ public static class ExceptionLog
             if (_logDir != null) return _logDir;
             try
             {
-                var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                if (string.IsNullOrEmpty(baseDir))
-                    baseDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName) ?? ".";
-                _logDir = Path.Combine(baseDir, "xOpenTerm", "logs");
+                _logDir = Path.Combine(Environment.CurrentDirectory, "log");
                 if (!Directory.Exists(_logDir))
                     Directory.CreateDirectory(_logDir);
             }
             catch
             {
-                _logDir = Path.Combine(".", "logs");
+                _logDir = Path.Combine(".", "log");
             }
             return _logDir;
         }
     }
 
     /// <summary>
+    /// 写入一条日志
+    /// </summary>
+    public static void Log(LogLevel level, string message, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
+    {
+        var fileName = Path.GetFileName(filePath);
+        var logLine = $"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}] [{level.ToString().PadRight(5)}] [{fileName}:{lineNumber}] {message}{Environment.NewLine}";
+
+        lock (Lock)
+        {
+            try
+            {
+                var file = Path.Combine(LogDirectory, DateTime.Now.ToString("yyMMdd") + ".log");
+                File.AppendAllText(file, logLine, Encoding.UTF8);
+            }
+            catch
+            {
+                try { Trace.WriteLine("[xOpenTerm] ExceptionLog write failed: " + logLine); } catch { }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 写入调试日志
+    /// </summary>
+    public static void Debug(string message, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
+    {
+        Log(LogLevel.DEBUG, message, filePath, lineNumber);
+    }
+
+    /// <summary>
+    /// 写入信息日志
+    /// </summary>
+    public static void Info(string message, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
+    {
+        Log(LogLevel.INFO, message, filePath, lineNumber);
+    }
+
+    /// <summary>
+    /// 写入警告日志
+    /// </summary>
+    public static void Warn(string message, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
+    {
+        Log(LogLevel.WARN, message, filePath, lineNumber);
+    }
+
+    /// <summary>
+    /// 写入错误日志
+    /// </summary>
+    public static void Error(string message, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
+    {
+        Log(LogLevel.ERR, message, filePath, lineNumber);
+    }
+
+    /// <summary>
+    /// 写入致命错误日志
+    /// </summary>
+    public static void Fatal(string message, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
+    {
+        Log(LogLevel.FATAL, message, filePath, lineNumber);
+    }
+
+    /// <summary>
     /// 写入一条异常日志（含时间、消息、堆栈），文件名带日期便于按天查看。
     /// </summary>
-    public static void Write(Exception ex, string? context = null)
+    public static void Write(Exception ex, string? context = null, [System.Runtime.CompilerServices.CallerFilePath] string filePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int lineNumber = 0)
     {
         var sb = new StringBuilder();
         sb.AppendLine("----------------------------------------");
-        sb.AppendLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+        sb.AppendLine($"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}] [FATAL] [{Path.GetFileName(filePath)}:{lineNumber}] Exception occurred");
         if (!string.IsNullOrEmpty(context))
-            sb.AppendLine("Context: " + context);
-        sb.AppendLine("Message: " + ex.Message);
-        sb.AppendLine("Type: " + ex.GetType().FullName);
+            sb.AppendLine($"Context: {context}");
+        sb.AppendLine($"Message: {ex.Message}");
+        sb.AppendLine($"Type: {ex.GetType().FullName}");
         sb.AppendLine("StackTrace:");
         sb.AppendLine(ex.StackTrace);
         for (var inner = ex.InnerException; inner != null; inner = inner.InnerException)
@@ -62,7 +134,7 @@ public static class ExceptionLog
         {
             try
             {
-                var file = Path.Combine(LogDirectory, "exceptions_" + DateTime.Now.ToString("yyyy-MM-dd") + ".log");
+                var file = Path.Combine(LogDirectory, DateTime.Now.ToString("yyyyMMdd") + "_crash.log");
                 File.AppendAllText(file, content, Encoding.UTF8);
             }
             catch
@@ -77,15 +149,6 @@ public static class ExceptionLog
     /// </summary>
     public static void WriteInfo(string message)
     {
-        lock (Lock)
-        {
-            try
-            {
-                var file = Path.Combine(LogDirectory, "info_" + DateTime.Now.ToString("yyyy-MM-dd") + ".log");
-                var line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " " + message + Environment.NewLine;
-                File.AppendAllText(file, line, Encoding.UTF8);
-            }
-            catch { }
-        }
+        Info(message);
     }
 }

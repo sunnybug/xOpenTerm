@@ -44,6 +44,23 @@ public partial class BackupRestoreWindow : Window
 
     private void RefreshBtn_Click(object sender, RoutedEventArgs e) => LoadBackups();
 
+    private void CurrentConfigBtn_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var configDir = Services.StorageService.GetConfigDir();
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = configDir,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "无法打开当前配置目录：\n" + ex.Message, "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void OpenBtn_Click(object sender, RoutedEventArgs e)
     {
         var item = GetItemFromSender(sender);

@@ -1,21 +1,50 @@
 using System.IO;
+using System.Windows;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using xOpenTerm.Models;
+using xOpenTerm.Services;
 
 namespace xOpenTerm.Services;
 
 /// <summary>节点、凭证、隧道的 YAML 持久化</summary>
 public class StorageService
 {
-    /// <summary>解析配置目录：先尝试工作目录下的 config，不存在则使用 exe 所在目录下的 config。</summary>
+    /// <summary>解析配置目录：先尝试 .run/config，不存在则使用工作目录下的 config，最后使用 exe 所在目录下的 config。</summary>
     public static string GetConfigDir()
     {
         var workConfig = Path.Combine(Environment.CurrentDirectory, "config");
         var exeConfig = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
             "config");
-        return Directory.Exists(workConfig) ? workConfig : exeConfig;
+        var runConfig = Path.Combine(Environment.CurrentDirectory, ".run", "config");
+
+        // 写入调试信息到日志文件
+        ExceptionLog.Debug("解析配置目录开始");
+        ExceptionLog.Debug($"当前工作目录: {Environment.CurrentDirectory}");
+        ExceptionLog.Debug($"可执行文件目录: {AppDomain.CurrentDomain.BaseDirectory}");
+        ExceptionLog.Debug($"检查配置目录 - Run目录: {runConfig} (存在: {Directory.Exists(runConfig)})");
+        ExceptionLog.Debug($"检查配置目录 - 工作目录: {workConfig} (存在: {Directory.Exists(workConfig)})");
+        ExceptionLog.Debug($"检查配置目录 - 可执行文件目录: {exeConfig} (存在: {Directory.Exists(exeConfig)})");
+
+        // 优先检查 .run/config 目录
+        if (Directory.Exists(runConfig))
+        {
+            ExceptionLog.Debug($"使用配置目录: {runConfig}");
+            return runConfig;
+        }
+        if (Directory.Exists(workConfig))
+        {
+            ExceptionLog.Debug($"使用配置目录: {workConfig}");
+            return workConfig;
+        }
+        if (Directory.Exists(exeConfig))
+        {
+            ExceptionLog.Debug($"使用配置目录: {exeConfig}");
+            return exeConfig;
+        }
+        ExceptionLog.Debug($"未找到配置目录，使用工作目录下的config: {workConfig}");
+        return workConfig;
     }
 
     private const string NodesFile = "nodes.yaml";
@@ -51,17 +80,50 @@ public class StorageService
 
     public List<Node> LoadNodes()
     {
-        if (!File.Exists(_nodesPath)) return new List<Node>();
+        // 写入调试信息到日志文件
+        ExceptionLog.Debug("加载节点开始");
+        ExceptionLog.Debug($"节点文件路径: {_nodesPath}");
+        ExceptionLog.Debug($"文件是否存在: {File.Exists(_nodesPath)}");
+        if (File.Exists(_nodesPath))
+        {
+            try
+            {
+                var fileInfo = new FileInfo(_nodesPath);
+                ExceptionLog.Debug($"文件大小: {fileInfo.Length} bytes");
+            }
+            catch (Exception ex)
+            {
+                ExceptionLog.Debug($"获取文件信息失败: {ex.Message}");
+            }
+        }
+
+        if (!File.Exists(_nodesPath))
+        {
+            ExceptionLog.Debug("文件不存在，返回空列表");
+            return new List<Node>();
+        }
+
         try
         {
             var yaml = File.ReadAllText(_nodesPath);
+            ExceptionLog.Debug($"读取文件成功，内容长度: {yaml.Length} bytes");
             var list = TryLoadNodesFile(yaml);
             DecryptNodes(list);
+            ExceptionLog.Debug($"加载节点成功，节点数量: {list.Count}");
             return list;
         }
         catch (Exception ex)
         {
+            ExceptionLog.Error($"加载节点失败: {ex.Message}");
+            ExceptionLog.Error($"异常堆栈: {ex.StackTrace}");
             System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载节点失败: {ex.Message}");
+            ExceptionLog.Write(ex, "加载节点配置文件失败");
+            System.Windows.MessageBox.Show(
+                "加载节点配置文件失败，详情已写入日志。\n\n" + ex.Message +
+                "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
+                "xOpenTerm",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
             return new List<Node>();
         }
     }
@@ -85,18 +147,63 @@ public class StorageService
 
     private List<Node> TryLoadNodesFile(string yaml)
     {
+        var logPath = Path.Combine(Environment.CurrentDirectory, ".run", "log", "xOpenTerm_debug.log");
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath));
         try
         {
+            using (var writer = new StreamWriter(logPath, true))
+            {
+                writer.WriteLine($"[{DateTime.Now}] 尝试解析为 NodesFile 类型");
+            }
             var wrapper = _deserializer.Deserialize<NodesFile>(yaml);
             if (wrapper?.Nodes != null)
+            {
+                using (var writer = new StreamWriter(logPath, true))
+                {
+                    writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型成功，节点数量: {wrapper.Nodes.Count}");
+                }
                 return wrapper.Nodes;
+            }
+            else
+            {
+                using (var writer = new StreamWriter(logPath, true))
+                {
+                    writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型成功，但 wrapper 或 Nodes 为 null");
+                }
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            using (var writer = new StreamWriter(logPath, true))
+            {
+                writer.WriteLine($"[{DateTime.Now}] 解析为 NodesFile 类型失败: {ex.Message}");
+                writer.WriteLine($"[{DateTime.Now}] 异常堆栈: {ex.StackTrace}");
+            }
             // 旧格式：根节点为列表
         }
-        var list = _deserializer.Deserialize<List<Node>>(yaml);
-        return list ?? new List<Node>();
+
+        try
+        {
+            using (var writer = new StreamWriter(logPath, true))
+            {
+                writer.WriteLine($"[{DateTime.Now}] 尝试解析为 List<Node> 类型");
+            }
+            var list = _deserializer.Deserialize<List<Node>>(yaml);
+            using (var writer = new StreamWriter(logPath, true))
+            {
+                writer.WriteLine($"[{DateTime.Now}] 解析为 List<Node> 类型成功，节点数量: {list?.Count ?? 0}");
+            }
+            return list ?? new List<Node>();
+        }
+        catch (Exception ex)
+        {
+            using (var writer = new StreamWriter(logPath, true))
+            {
+                writer.WriteLine($"[{DateTime.Now}] 解析为 List<Node> 类型失败: {ex.Message}");
+                writer.WriteLine($"[{DateTime.Now}] 异常堆栈: {ex.StackTrace}");
+            }
+            return new List<Node>();
+        }
     }
 
     public List<Credential> LoadCredentials()
@@ -112,6 +219,13 @@ public class StorageService
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载凭证失败: {ex.Message}");
+            ExceptionLog.Write(ex, "加载凭证配置文件失败");
+            System.Windows.MessageBox.Show(
+                "加载凭证配置文件失败，详情已写入日志。\n\n" + ex.Message +
+                "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
+                "xOpenTerm",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
             return new List<Credential>();
         }
     }
@@ -162,6 +276,13 @@ public class StorageService
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载隧道失败: {ex.Message}");
+            ExceptionLog.Write(ex, "加载隧道配置文件失败");
+            System.Windows.MessageBox.Show(
+                "加载隧道配置文件失败，详情已写入日志。\n\n" + ex.Message +
+                "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
+                "xOpenTerm",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
             return new List<Tunnel>();
         }
     }
@@ -211,6 +332,13 @@ public class StorageService
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载设置失败: {ex.Message}");
+            ExceptionLog.Write(ex, "加载应用设置配置文件失败");
+            System.Windows.MessageBox.Show(
+                "加载应用设置配置文件失败，详情已写入日志。\n\n" + ex.Message +
+                "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
+                "xOpenTerm",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
             return new AppSettings();
         }
     }

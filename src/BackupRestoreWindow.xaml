@@ -13,9 +13,11 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="备份目录：%LocalAppData%\xOpenTerm\backup\YYMMDD-HHMMSS" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center"/>
-            <Button Grid.Column="1" x:Name="RefreshBtn" Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Width="70" Padding="8,6" Click="RefreshBtn_Click"/>
+            <Button Grid.Column="1" x:Name="CurrentConfigBtn" Content="当前配置" Style="{StaticResource SecondaryButtonStyle}" Width="90" Padding="8,6" Margin="0,0,8,0" Click="CurrentConfigBtn_Click"/>
+            <Button Grid.Column="2" x:Name="RefreshBtn" Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Width="70" Padding="8,6" Click="RefreshBtn_Click"/>
         </Grid>
         <Border Grid.Row="1" Background="{StaticResource BgSidebar}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusMd}" Padding="8">
             <ListBox x:Name="BackupList" Background="Transparent" Foreground="{StaticResource TextPrimary}" BorderThickness="0">

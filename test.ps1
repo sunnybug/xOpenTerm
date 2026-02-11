@@ -1,10 +1,10 @@
-# 功能说明：调用 build.ps1 构建后运行 xOpenTerm 应用（支持 --release）
+# 功能说明：构建并运行 xOpenTerm 项目，默认 Debug，传参 --release 时构建 Release
+# 运行时的工作目录为 .run
 
 param(
     [switch]$Release
 )
 
-# PowerShell 不会把 --release 绑定到 -Release，显式识别
 if ($args -contains "--release") { $Release = $true }
 
 $ErrorActionPreference = "Stop"
@@ -15,26 +15,64 @@ trap {
     break
 }
 
-# 保留日志目录，以便查看测试过程中的日志信息
-Write-Host "保留日志目录，以便查看测试过程中的日志信息" -ForegroundColor Gray
+$Root = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$BuildScript = Join-Path $Root "script\build.ps1"
+$RunDir = Join-Path $Root ".run"
+$ExePath = if ($Release) {
+    Join-Path $Root "bin\Release\net8.0-windows\xOpenTerm.exe"
+} else {
+    Join-Path $Root "bin\Debug\net8.0-windows\xOpenTerm.exe"
+}
 
-$BuildScript = Join-Path $PSScriptRoot "script\build.ps1"
+# 确保运行时目录存在
+if (! (Test-Path -Path $RunDir -PathType Container)) {
+    New-Item -ItemType Directory -Path $RunDir -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $RunDir "log") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $RunDir "config") -Force | Out-Null
+}
+
+# 构建项目
+Write-Host "开始构建项目..." -ForegroundColor Cyan
 if ($Release) {
-    & $BuildScript -Release
+    & $BuildScript --release
 } else {
     & $BuildScript
 }
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$Root = $PSScriptRoot
-$BinDir = Join-Path $Root "var\bin"
-$ProjectPath = Join-Path $Root "src\xOpenTerm.csproj"
-$Config = if ($Release) { "Release" } else { "Debug" }
-if (-not (Test-Path $BinDir)) { New-Item -ItemType Directory -Path $BinDir -Force | Out-Null }
-Write-Host "启动应用（工作目录: $BinDir）..." -ForegroundColor Cyan
-Push-Location $BinDir
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "构建失败，退出码: $LASTEXITCODE" -ForegroundColor Red
+    Read-Host "按 Enter 键关闭窗口"
+    exit $LASTEXITCODE
+}
+
+Write-Host "构建成功，开始运行应用程序..." -ForegroundColor Green
+
+# 运行应用程序，捕捉错误输出
 try {
-    dotnet run --project $ProjectPath -c $Config --no-build
+    # 切换到运行时工作目录
+    Push-Location $RunDir
+
+    # 运行应用程序并捕捉输出
+    $errorLogPath = Join-Path "log" "error.log"
+    $process = Start-Process -FilePath $ExePath -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
+
+    # 等待应用程序退出
+    $process.WaitForExit()
+
+    # 检查退出码
+    if ($process.ExitCode -ne 0) {
+        Write-Host "应用程序异常退出，退出码: $($process.ExitCode)" -ForegroundColor Red
+
+        # 读取错误日志
+        if (Test-Path -Path $errorLogPath -PathType Leaf) {
+            Write-Host "错误日志内容:" -ForegroundColor Yellow
+            Get-Content $errorLogPath | Write-Host
+        }
+    } else {
+        Write-Host "应用程序正常退出" -ForegroundColor Green
+    }
 } finally {
+    # 恢复原始目录
     Pop-Location
 }
+
