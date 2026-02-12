@@ -53,9 +53,12 @@ public sealed class SshPuttyHostControl : Panel
         _isPuttyNg = IsPuttyNg(puttyPath);
 
         var arguments = new List<string>();
+        // 与 mRemoteNG 一致：使用 Agent 时先 -load 已保存会话（如 Default Settings），使 PuTTY 使用该会话中的 Pageant 等认证设置，再以命令行覆盖 host/port/user
+        if (useAgent)
+            arguments.AddRange(["-load", "Default Settings"]);
         arguments.Add("-ssh");
         arguments.Add("-2");
-        // 仅在使用密码/单密钥时禁用 Pageant，避免多密钥导致 "Too many authentication failures"；使用 Agent 时必须允许 Pageant
+        // 与 mRemoteNG 一致：从不传 -noagent 时 PuTTY 会使用 Pageant；仅在不使用 Agent 时显式禁用，避免多密钥导致 "Too many authentication failures"
         if (!useAgent)
             arguments.Add("-noagent");
         // Windows 版 PuTTY 不支持 -fn；字体需在 PuTTY 选项或已保存会话中配置
@@ -85,12 +88,11 @@ public sealed class SshPuttyHostControl : Panel
         if (_isPuttyNg)
             arguments.AddRange(["-hwndparent", Handle.ToString()]);
 
-        var puttyDir = Path.GetDirectoryName(puttyPath);
+        // 与 mRemoteNG 一致：不设置 WorkingDirectory，子进程继承当前目录，避免影响 PuTTY 与 Pageant 的通信
         var startInfo = new ProcessStartInfo
         {
             FileName = puttyPath,
-            UseShellExecute = false,
-            WorkingDirectory = string.IsNullOrEmpty(puttyDir) ? Environment.CurrentDirectory : puttyDir
+            UseShellExecute = false
         };
         foreach (var a in arguments)
             startInfo.ArgumentList.Add(a);
