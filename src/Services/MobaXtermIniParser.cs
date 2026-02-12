@@ -228,7 +228,7 @@ public class MobaXtermSessionItem
             ? $"{SessionName} ({Host}:{Port})"
             : $"{FolderPath} | {SessionName} ({Host}:{Port})";
 
-    public Node ToNode(string parentId)
+    public Node ToNode(string? parentId)
     {
         var type = IsRdp ? NodeType.rdp : NodeType.ssh;
         var config = new ConnectionConfig

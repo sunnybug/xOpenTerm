@@ -427,6 +427,7 @@ public partial class MainWindow
             menu.Items.Add(new Separator());
             // 导入子菜单
             var importSub = new MenuItem { Header = "[I] 导入" };
+            importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(null)));
             importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(null)));
             menu.Items.Add(importSub);
             // 导出子菜单
@@ -694,17 +695,18 @@ public partial class MainWindow
         }
     }
 
-    private void ImportMobaXterm(Node parentNode)
+    private void ImportMobaXterm(Node? parentNode)
     {
         var dlg = new ImportMobaXtermWindow(this);
         if (dlg.ShowDialog() != true || dlg.SelectedSessions.Count == 0) return;
-        // 按目录结构创建父节点：path -> 已创建的分组 Node
-        var pathToGroupId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [""] = parentNode.Id };
+        // 按目录结构创建父节点：path -> 已创建的分组 Node；根级别时 parentNode 为 null
+        var rootParentId = parentNode?.Id;
+        var pathToGroupId = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase) { [""] = rootParentId };
         foreach (var item in dlg.SelectedSessions.OrderBy(s => s.FolderPath ?? ""))
         {
             var path = item.FolderPath ?? "";
             var parts = string.IsNullOrEmpty(path) ? Array.Empty<string>() : path.Split(new[] { " / " }, StringSplitOptions.None);
-            var currentParentId = parentNode.Id;
+            var currentParentId = rootParentId;
             var currentPath = "";
             foreach (var segment in parts)
             {
