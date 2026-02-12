@@ -13,6 +13,7 @@
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
     <FileVersion>0.1.0.0</FileVersion>
     <SupportedOSPlatform>windows</SupportedOSPlatform>
+    <StartupObject>xOpenTerm.Program</StartupObject>
     <ApplicationIcon>icons\icon.ico</ApplicationIcon>
     <BaseOutputPath>..\.temp\bin\</BaseOutputPath>
     <IntermediateOutputPath>..\.temp\obj\</IntermediateOutputPath>

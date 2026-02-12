@@ -151,6 +151,13 @@ public sealed class SshPuttyHostControl : Panel
     public void Close()
     {
         ExceptionLog.WriteInfo("PuTTY Close 开始");
+        var handle = _puttyHandle;
+        _puttyHandle = IntPtr.Zero;
+        // 先解除父子窗口，再结束进程，避免原生窗口在销毁时向宿主投递消息导致 SEHException
+        if (handle != IntPtr.Zero && _puttyProcess != null)
+        {
+            try { NativeMethods.SetParent(handle, IntPtr.Zero); } catch { }
+        }
         try
         {
             if (_puttyProcess != null && !_puttyProcess.HasExited)
@@ -163,7 +170,6 @@ public sealed class SshPuttyHostControl : Panel
         }
         catch { }
         _puttyProcess = null;
-        _puttyHandle = IntPtr.Zero;
         ExceptionLog.WriteInfo("PuTTY Close 结束");
     }
 
