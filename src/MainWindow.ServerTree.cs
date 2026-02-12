@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using xOpenTerm.Controls;
 using xOpenTerm.Models;
 using xOpenTerm.Services;
 
@@ -246,7 +247,8 @@ public partial class MainWindow
         var textPrimary = (Brush)FindResource("TextPrimary");
         var bgInput = FindResource("BgInput");
         var borderBrush = FindResource("BorderBrush");
-        var textBox = new System.Windows.Controls.TextBox
+
+        var textBox = new InlineEditTextBox
         {
             Text = displayName,
             Foreground = textPrimary,
@@ -257,14 +259,9 @@ public partial class MainWindow
             MinWidth = 120,
             VerticalAlignment = VerticalAlignment.Center
         };
-        tvi.Header = textBox;
-        textBox.Focus();
-        textBox.SelectAll();
 
-        void EndEdit(bool commit)
+        textBox.EditEnded += (_, commit) =>
         {
-            textBox.KeyDown -= OnKeyDown;
-            textBox.LostFocus -= OnLostFocus;
             if (commit)
             {
                 var newName = textBox.Text?.Trim() ?? "";
@@ -283,21 +280,10 @@ public partial class MainWindow
             }
             else
                 tvi.Header = originalHeader;
-        }
+        };
 
-        void OnKeyDown(object _, KeyEventArgs args)
-        {
-            if (args.Key == Key.Enter) { args.Handled = true; EndEdit(true); }
-            else if (args.Key == Key.Escape) { args.Handled = true; EndEdit(false); }
-        }
-
-        void OnLostFocus(object _, RoutedEventArgs args)
-        {
-            EndEdit(true);
-        }
-
-        textBox.KeyDown += OnKeyDown;
-        textBox.LostFocus += OnLostFocus;
+        tvi.Header = textBox;
+        textBox.BeginEdit();
     }
 
     private void ServerTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
