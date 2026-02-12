@@ -15,15 +15,15 @@ public static class SshStatsHelper
     /// <summary>解析远程命令输出，返回 CPU%、内存%、下行/上行字节每秒、TCP 数、UDP 数。解析失败则对应项为 null。</summary>
     public static (double? CpuPercent, double? MemPercent, double? RxBps, double? TxBps, int? TcpCount, int? UdpCount) ParseStatsOutput(string? output)
     {
-        ExceptionLog.WriteInfo($"[SshStatsHelper] 开始解析输出，长度: {(output?.Length ?? 0)}");
+        ExceptionLog.Debug($"[SshStatsHelper] 开始解析输出，长度: {(output?.Length ?? 0)}");
         if (!string.IsNullOrEmpty(output))
         {
-            ExceptionLog.WriteInfo($"[SshStatsHelper] 输出内容: {output}");
+            ExceptionLog.Debug($"[SshStatsHelper] 输出内容: {output}");
         }
 
         if (string.IsNullOrWhiteSpace(output))
         {
-            ExceptionLog.WriteInfo("[SshStatsHelper] 输出为空，返回 null");
+            ExceptionLog.Debug("[SshStatsHelper] 输出为空，返回 null");
             return (null, null, null, null, null, null);
         }
 
@@ -39,13 +39,13 @@ public static class SshStatsHelper
         string? memTotal = null, memFree = null;
         string? net1 = null, net2 = null;
 
-        ExceptionLog.WriteInfo($"[SshStatsHelper] 解析到 {lines.Length} 行数据");
+        ExceptionLog.Debug($"[SshStatsHelper] 解析到 {lines.Length} 行数据");
 
         // 使用分隔符 --- 来识别不同的数据段
         int sectionIndex = 0;
         foreach (var line in lines)
         {
-            ExceptionLog.WriteInfo($"[SshStatsHelper] 处理行: {line}, 段索引: {sectionIndex}");
+            ExceptionLog.Debug($"[SshStatsHelper] 处理行: {line}, 段索引: {sectionIndex}");
             if (line == "---")
             {
                 sectionIndex++;
@@ -100,7 +100,7 @@ public static class SshStatsHelper
         }
 
         // CPU: 两行 cpu 行，格式 "cpu  user nice sys idle iowait ..."
-        ExceptionLog.WriteInfo($"[SshStatsHelper] CPU1: {cpu1}, CPU2: {cpu2}");
+        ExceptionLog.Debug($"[SshStatsHelper] CPU1: {cpu1}, CPU2: {cpu2}");
         if (!string.IsNullOrEmpty(cpu1) && !string.IsNullOrEmpty(cpu2))
         {
             if (ParseCpuLine(cpu1, out var u1, out var t1) && ParseCpuLine(cpu2, out var u2, out var t2))
@@ -112,10 +112,10 @@ public static class SshStatsHelper
         }
 
         // MEM: 分别解析 MemTotal 和 MemFree
-        ExceptionLog.WriteInfo($"[SshStatsHelper] 内存总量行: {memTotal}, 空闲行: {memFree}");
+        ExceptionLog.Debug($"[SshStatsHelper] 内存总量行: {memTotal}, 空闲行: {memFree}");
         var totalKb = MatchNumberAfter(memTotal ?? "", "MemTotal");
         var freeKb = MatchNumberAfter(memFree ?? "", "MemFree");
-        ExceptionLog.WriteInfo($"[SshStatsHelper] 内存总量: {totalKb}, 空闲: {freeKb}");
+        ExceptionLog.Debug($"[SshStatsHelper] 内存总量: {totalKb}, 空闲: {freeKb}");
 
         if (totalKb.HasValue && freeKb.HasValue && totalKb.Value > 0)
         {
@@ -123,7 +123,7 @@ public static class SshStatsHelper
         }
 
         // NET: "rx_total tx_total" 两行，间隔 1 秒，差值为 bytes/s
-        ExceptionLog.WriteInfo($"[SshStatsHelper] NET1: {net1}, NET2: {net2}");
+        ExceptionLog.Debug($"[SshStatsHelper] NET1: {net1}, NET2: {net2}");
         if (!string.IsNullOrEmpty(net1) && !string.IsNullOrEmpty(net2))
         {
             var parts1 = net1.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
@@ -141,7 +141,7 @@ public static class SshStatsHelper
             }
         }
 
-        ExceptionLog.WriteInfo($"[SshStatsHelper] 解析结果 - CPU: {cpu}, 内存: {mem}, 下行: {rxBps}, 上行: {txBps}, TCP: {tcp}, UDP: {udp}");
+        ExceptionLog.Debug($"[SshStatsHelper] 解析结果 - CPU: {cpu}, 内存: {mem}, 下行: {rxBps}, 上行: {txBps}, TCP: {tcp}, UDP: {udp}");
         return (cpu, mem, rxBps, txBps, tcp, udp);
     }
 

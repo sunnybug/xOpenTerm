@@ -114,8 +114,6 @@ public class StorageService
         }
         catch (Exception ex)
         {
-            ExceptionLog.Error($"加载节点失败: {ex.Message}");
-            ExceptionLog.Error($"异常堆栈: {ex.StackTrace}");
             System.Diagnostics.Debug.WriteLine($"[xOpenTerm] 加载节点失败: {ex.Message}");
             ExceptionLog.Write(ex, "加载节点配置文件失败");
             System.Windows.MessageBox.Show(

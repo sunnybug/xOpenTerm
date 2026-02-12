@@ -31,7 +31,7 @@ public partial class SshStatusBarControl : UserControl
     public void UpdateStats(bool connected, double? cpuPercent, double? memPercent,
         double? rxBps, double? txBps, int? tcpCount, int? udpCount)
     {
-        ExceptionLog.WriteInfo($"[SshStatusBar] 更新状态 - 连接: {connected}, CPU: {cpuPercent}, 内存: {memPercent}, 下行: {rxBps}, 上行: {txBps}, TCP: {tcpCount}, UDP: {udpCount}");
+        ExceptionLog.Debug($"[SshStatusBar] 更新状态 - 连接: {connected}, CPU: {cpuPercent}, 内存: {memPercent}, 下行: {rxBps}, 上行: {txBps}, TCP: {tcpCount}, UDP: {udpCount}");
 
         StatusText.Text = connected ? "已连接" : "未连接";
         try
