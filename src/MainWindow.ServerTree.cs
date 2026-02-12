@@ -186,6 +186,10 @@ public partial class MainWindow
 
     private void ServerTree_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // 如果当前焦点在内联编辑文本框中，不处理任何快捷键，让文本框自行处理
+        if (Keyboard.FocusedElement is InlineEditTextBox)
+            return;
+
         // 优先以 _selectedNodeIds 解析操作目标，避免 BuildTree 后 SelectedItem 错位导致误删父节点
         List<Node>? nodesToAct = null;
         if (_selectedNodeIds.Count > 0)
@@ -242,8 +246,9 @@ public partial class MainWindow
 
     private void StartInlineRename(TreeViewItem tvi, Node node)
     {
+        // 使用原始 Name（而非显示名），避免 RDP 等节点在按 F2 未修改时 Name 被意外更改
+        var originalName = node.Name ?? "";
         var displayName = GetNodeDisplayName(node);
-        var originalHeader = tvi.Header;
         var textPrimary = (Brush)FindResource("TextPrimary");
         var bgInput = FindResource("BgInput");
         var borderBrush = FindResource("BorderBrush");
@@ -268,18 +273,25 @@ public partial class MainWindow
                 if (!string.IsNullOrEmpty(newName))
                 {
                     // 腾讯云项目节点：保留原节点名中的项目 ID，便于同步时匹配
-                    var pid = GetTencentProjectIdFromName(node.Name);
+                    var pid = GetTencentProjectIdFromName(originalName);
                     if (pid != "0" && !newName.EndsWith(" (" + pid + ")", StringComparison.Ordinal))
                         newName = newName + " (" + pid + ")";
+
+                    // 如果名称未实际改变，仅局部刷新节点显示
+                    if (newName == originalName)
+                    {
+                        UpdateTreeItem(node);
+                        return;
+                    }
                     node.Name = newName;
                     _storage.SaveNodes(_nodes);
                     BuildTree();
                 }
                 else
-                    tvi.Header = originalHeader;
+                    UpdateTreeItem(node);
             }
             else
-                tvi.Header = originalHeader;
+                UpdateTreeItem(node);
         };
 
         tvi.Header = textBox;
@@ -665,7 +677,64 @@ public partial class MainWindow
             if (idx >= 0) _nodes[idx] = dlg.SavedNode;
             else _nodes.Add(dlg.SavedNode);
             _storage.SaveNodes(_nodes);
-            BuildTree();
+            // 局部更新节点，避免重刷整个树
+            UpdateTreeItem(node);
+        }
+    }
+
+    /// <summary>局部更新树中指定节点的显示，避免重刷整个树。</summary>
+    private void UpdateTreeItem(Node node)
+    {
+        var tvi = FindTreeViewItemByNodeId(ServerTree, node.Id);
+        if (tvi == null) return;
+
+        // 更新 Tag 为最新的节点引用
+        tvi.Tag = node;
+
+        // 先清除 Header，强制清理视觉树
+        tvi.Header = null;
+
+        // 重新构建 Header
+        var expand = tvi.IsExpanded;
+        var textPrimary = (Brush)FindResource("TextPrimary");
+        var textSecondary = (Brush)FindResource("TextSecondary");
+        var header = new StackPanel { Orientation = Orientation.Horizontal };
+        var iconBlock = new TextBlock
+        {
+            Text = ServerTreeItemBuilder.NodeIcon(node, isGroupExpanded: expand),
+            Margin = new Thickness(0, 0, 6, 0),
+            Foreground = ServerTreeItemBuilder.NodeColor(node)
+        };
+        header.Children.Add(iconBlock);
+        var displayName = GetNodeDisplayName(node);
+        header.Children.Add(new TextBlock
+        {
+            Text = displayName ?? "",
+            Foreground = textPrimary,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        if (node.Type == NodeType.ssh && !string.IsNullOrEmpty(node.Config?.Host))
+        {
+            header.Children.Add(new TextBlock
+            {
+                Text = " " + node.Config.Host,
+                Foreground = textSecondary,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        }
+
+        tvi.Header = header;
+
+        // 对于分组节点，重新绑定展开/折叠事件以更新图标
+        if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingsoftCloudGroup)
+        {
+            void UpdateGroupIcon()
+            {
+                iconBlock.Text = ServerTreeItemBuilder.NodeIcon(node, tvi.IsExpanded);
+            }
+            tvi.Expanded += (_, _) => UpdateGroupIcon();
+            tvi.Collapsed += (_, _) => UpdateGroupIcon();
         }
     }
 
@@ -677,7 +746,8 @@ public partial class MainWindow
             var idx = _nodes.FindIndex(n => n.Id == groupNode.Id);
             if (idx >= 0) _nodes[idx] = groupNode;
             _storage.SaveNodes(_nodes);
-            BuildTree();
+            // 局部更新节点，避免重刷整个树
+            UpdateTreeItem(groupNode);
         }
     }
 
