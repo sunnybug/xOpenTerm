@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using KSYUN.SDK.KEC;
 
@@ -19,10 +20,19 @@ public record KsyunKecInstance(
     bool IsWindows);
 
 /// <summary>拉取金山云 KEC 实例列表：先 DescribeRegions 获取有权限地域，再按地域 DescribeInstances，支持进度与取消。</summary>
+/// <remarks>
+/// 请求由 KSYUN.SDK.KEC 发出，若出现 SSL/网络错误，可排查以下地址（金山云 KEC 地域化 API）：
+/// - 主机名：<c>kec.api.ksyun.com</c>（或按地域如 <c>kec.cn-beijing-6.api.ksyun.com</c>，以 SDK 实际为准）
+/// - 协议：HTTPS
+/// - 使用的 API：DescribeRegions（Version=2016-03-04）、DescribeInstances（Version=2016-03-04），地域参数 Region=cn-beijing-6 等
+/// </remarks>
 public static class KingsoftCloudService
 {
     /// <summary>调用 DescribeRegions 时使用的默认地域（金山云 KEC 地域化 API 需指定一个地域作为 endpoint）。</summary>
     private const string DefaultRegionForApi = "cn-beijing-6";
+
+    /// <summary>不拉取实例的地域（该地域 DescribeInstances 在某些环境下会 SSL 连接失败，跳过以保障同步可用）。</summary>
+    private static readonly HashSet<string> ExcludedRegionIds = new(StringComparer.OrdinalIgnoreCase) { "cn-northwest-1", "cn-northwest-3", "cn-northwest-4" };
 
     /// <summary>拉取所有有权限地域的 KEC 实例，多地域并行拉取，报告进度并支持取消。</summary>
     public static List<KsyunKecInstance> ListInstances(
@@ -44,7 +54,7 @@ public static class KingsoftCloudService
             {
                 var regionId = item["Region"]?.ToString();
                 var regionName = item["RegionName"]?.ToString() ?? regionId ?? "";
-                if (!string.IsNullOrEmpty(regionId))
+                if (!string.IsNullOrEmpty(regionId) && !ExcludedRegionIds.Contains(regionId))
                     regionList.Add((regionId, regionName));
             }
         }
@@ -57,71 +67,78 @@ public static class KingsoftCloudService
 
         var bag = new ConcurrentBag<KsyunKecInstance>();
         var totalRegions = regionList.Count;
-        var completed = 0;
-        const int maxParallel = 8;
-        var options = new ParallelOptions { MaxDegreeOfParallelism = maxParallel, CancellationToken = cancellationToken };
+        int completed = 0;
+        const int maxResults = 100;
+        var options = new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = cancellationToken };
 
         Parallel.ForEach(regionList, options, (region) =>
         {
             var (regionId, regionName) = region;
-            var regionClient = new KsyunKecClient(regionId, "https", accessKeyId, accessKeySecret);
-            int marker = 0;
-            const int maxResults = 100;
-
-            while (true)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var query = new JObject
-                {
-                    ["Action"] = "DescribeInstances",
-                    ["Version"] = "2016-03-04",
-                    ["MaxResults"] = maxResults,
-                    ["Marker"] = marker
-                };
-                var listResp = regionClient.DescribeInstances(query);
-                var instancesSet = listResp.data?["InstancesSet"] as JArray;
-                if (instancesSet == null) break;
+                var regionClient = new KsyunKecClient(regionId, "https", accessKeyId, accessKeySecret);
+                int marker = 0;
 
-                foreach (var ins in instancesSet.OfType<JObject>())
+                while (true)
                 {
-                    var instanceId = ins["InstanceId"]?.ToString();
-                    if (string.IsNullOrEmpty(instanceId)) continue;
-
-                    var instanceName = ins["InstanceName"]?.ToString() ?? instanceId;
-                    var privateIp = ins["PrivateIpAddress"]?.ToString();
-                    string? publicIp = null;
-                    var netSet = ins["NetworkInterfaceSet"] as JArray;
-                    if (netSet != null)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var query = new JObject
                     {
-                        foreach (var ni in netSet.OfType<JObject>())
+                        ["Action"] = "DescribeInstances",
+                        ["Version"] = "2016-03-04",
+                        ["MaxResults"] = maxResults,
+                        ["Marker"] = marker
+                    };
+                    var listResp = regionClient.DescribeInstances(query);
+                    var instancesSet = listResp.data?["InstancesSet"] as JArray;
+                    if (instancesSet == null) break;
+
+                    foreach (var ins in instancesSet.OfType<JObject>())
+                    {
+                        var instanceId = ins["InstanceId"]?.ToString();
+                        if (string.IsNullOrEmpty(instanceId)) continue;
+
+                        var instanceName = ins["InstanceName"]?.ToString() ?? instanceId;
+                        var privateIp = ins["PrivateIpAddress"]?.ToString();
+                        string? publicIp = null;
+                        var netSet = ins["NetworkInterfaceSet"] as JArray;
+                        if (netSet != null)
                         {
-                            var pip = ni["PublicIp"]?.ToString();
-                            if (!string.IsNullOrEmpty(pip)) { publicIp = pip; break; }
+                            foreach (var ni in netSet.OfType<JObject>())
+                            {
+                                var pip = ni["PublicIp"]?.ToString();
+                                if (!string.IsNullOrEmpty(pip)) { publicIp = pip; break; }
+                            }
                         }
+                        if (string.IsNullOrEmpty(publicIp))
+                            publicIp = ins["PublicIpAddress"]?.ToString();
+
+                        var imageId = ins["ImageId"]?.ToString() ?? "";
+                        var osName = ins["OsName"]?.ToString() ?? imageId;
+                        var isWin = (osName.Contains("Windows", System.StringComparison.OrdinalIgnoreCase))
+                            || (ins["Platform"]?.ToString() ?? "").Equals("windows", System.StringComparison.OrdinalIgnoreCase);
+
+                        bag.Add(new KsyunKecInstance(
+                            regionId,
+                            regionName,
+                            instanceId,
+                            instanceName,
+                            publicIp,
+                            privateIp,
+                            osName,
+                            isWin));
                     }
-                    if (string.IsNullOrEmpty(publicIp))
-                        publicIp = ins["PublicIpAddress"]?.ToString();
 
-                    var imageId = ins["ImageId"]?.ToString() ?? "";
-                    var osName = ins["OsName"]?.ToString() ?? imageId;
-                    var isWin = (osName.Contains("Windows", System.StringComparison.OrdinalIgnoreCase))
-                        || (ins["Platform"]?.ToString() ?? "").Equals("windows", System.StringComparison.OrdinalIgnoreCase);
-
-                    bag.Add(new KsyunKecInstance(
-                        regionId,
-                        regionName,
-                        instanceId,
-                        instanceName,
-                        publicIp,
-                        privateIp,
-                        osName,
-                        isWin));
+                    var instanceCount = listResp.data?["InstanceCount"]?.Value<int>() ?? 0;
+                    if (instancesSet.Count < maxResults || marker + instancesSet.Count >= instanceCount)
+                        break;
+                    marker += maxResults;
                 }
-
-                var instanceCount = listResp.data?["InstanceCount"]?.Value<int>() ?? 0;
-                if (instancesSet.Count < maxResults || marker + instancesSet.Count >= instanceCount)
-                    break;
-                marker += maxResults;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"金山云拉取实例失败，地域 RegionId={regionId}, RegionName={regionName}。", ex);
             }
 
             var c = Interlocked.Increment(ref completed);
