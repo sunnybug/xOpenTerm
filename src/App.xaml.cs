@@ -7,6 +7,7 @@ namespace xOpenTerm;
 
 public partial class App : Application
 {
+    private static bool _isHandlingDispatcherException = false;
     public App()
     {
         Startup += OnStartup;
@@ -33,15 +34,22 @@ public partial class App : Application
 
     private void OnDispatcherUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        if (_isHandlingDispatcherException) return;
+        _isHandlingDispatcherException = true;
+
         ExceptionLog.Write(e.Exception, "DispatcherUnhandledException");
-        e.Handled = true; // 先标记已处理，避免 WPF 再抛一层
-        MessageBox.Show(
-            "程序发生未处理的错误，详情已写入日志。\n\n" + e.Exception.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
-            "xOpenTerm",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
-        // 用户确认后正常退出进程，保证能走 Shutdown/Exit 等清理流程
-        Application.Current.Shutdown(1);
+        e.Handled = true;
+
+        try
+        {
+            MessageBox.Show(
+                "程序发生未处理的错误，详情已写入日志。\n\n" + e.Exception.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
+                "xOpenTerm",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        catch { }
+        Environment.Exit(1);
     }
 
     private void OnUnhandledException(object? sender, UnhandledExceptionEventArgs e)

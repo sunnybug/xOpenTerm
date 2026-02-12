@@ -56,8 +56,7 @@
                                       BorderThickness="0" SelectedItemChanged="ServerTree_SelectedItemChanged"
                                       MouseDoubleClick="ServerTree_MouseDoubleClick" MouseRightButtonDown="ServerTree_MouseRightButtonDown"
                                       ContextMenuOpening="ServerTree_ContextMenuOpening"
-                                      AllowDrop="True" PreviewMouseLeftButtonDown="ServerTree_PreviewMouseLeftButtonDown"
-                                      PreviewMouseMove="ServerTree_PreviewMouseMove" DragOver="ServerTree_DragOver" Drop="ServerTree_Drop"
+                                      AllowDrop="False" PreviewMouseLeftButtonDown="ServerTree_PreviewMouseLeftButtonDown"
                                       PreviewKeyDown="ServerTree_PreviewKeyDown">
                                 <TreeView.ContextMenu>
                                     <!-- 占位：无此占位时 WPF 在首次右键不会触发 ContextMenuOpening，菜单在 Opening 中动态替换 -->

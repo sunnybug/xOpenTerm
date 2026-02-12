@@ -13,7 +13,7 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm;
 
-/// <summary>主窗口：服务器树、节点 CRUD、拖拽排序。</summary>
+/// <summary>主窗口：服务器树、节点 CRUD。</summary>
 public partial class MainWindow
 {
     private void BuildTree(bool expandNodes = true, HashSet<string>? initialExpandedIds = null)
@@ -186,10 +186,6 @@ public partial class MainWindow
 
     private void ServerTree_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // 如果当前焦点在内联编辑文本框中，不处理任何快捷键，让文本框自行处理
-        if (Keyboard.FocusedElement is InlineEditTextBox)
-            return;
-
         // 优先以 _selectedNodeIds 解析操作目标，避免 BuildTree 后 SelectedItem 错位导致误删父节点
         List<Node>? nodesToAct = null;
         if (_selectedNodeIds.Count > 0)
@@ -202,16 +198,7 @@ public partial class MainWindow
 
         if (nodesToAct == null || nodesToAct.Count == 0) return;
 
-        if (e.Key == Key.F2)
-        {
-            if (nodesToAct.Count != 1) return;
-            e.Handled = true;
-            var node = nodesToAct[0];
-            var targetTvi = FindTreeViewItemByNodeId(ServerTree, node.Id);
-            if (targetTvi != null)
-                StartInlineRename(targetTvi, node);
-        }
-        else if (e.Key == Key.Delete)
+        if (e.Key == Key.Delete)
         {
             e.Handled = true;
             if (nodesToAct.Count > 1)
@@ -244,66 +231,11 @@ public partial class MainWindow
         return m.Success ? m.Groups[1].Value.TrimEnd() : name;
     }
 
-    private void StartInlineRename(TreeViewItem tvi, Node node)
-    {
-        // 使用原始 Name（而非显示名），避免 RDP 等节点在按 F2 未修改时 Name 被意外更改
-        var originalName = node.Name ?? "";
-        var displayName = GetNodeDisplayName(node);
-        var textPrimary = (Brush)FindResource("TextPrimary");
-        var bgInput = FindResource("BgInput");
-        var borderBrush = FindResource("BorderBrush");
-
-        var textBox = new InlineEditTextBox
-        {
-            Text = displayName,
-            Foreground = textPrimary,
-            Background = bgInput as Brush ?? Brushes.Transparent,
-            BorderBrush = borderBrush as Brush,
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(4, 2, 4, 2),
-            MinWidth = 120,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        textBox.EditEnded += (_, commit) =>
-        {
-            if (commit)
-            {
-                var newName = textBox.Text?.Trim() ?? "";
-                if (!string.IsNullOrEmpty(newName))
-                {
-                    // 腾讯云项目节点：保留原节点名中的项目 ID，便于同步时匹配
-                    var pid = GetTencentProjectIdFromName(originalName);
-                    if (pid != "0" && !newName.EndsWith(" (" + pid + ")", StringComparison.Ordinal))
-                        newName = newName + " (" + pid + ")";
-
-                    // 如果名称未实际改变，仅局部刷新节点显示
-                    if (newName == originalName)
-                    {
-                        UpdateTreeItem(node);
-                        return;
-                    }
-                    node.Name = newName;
-                    _storage.SaveNodes(_nodes);
-                    BuildTree();
-                }
-                else
-                    UpdateTreeItem(node);
-            }
-            else
-                UpdateTreeItem(node);
-        };
-
-        tvi.Header = textBox;
-        textBox.BeginEdit();
-    }
-
     private void ServerTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left) return;
         var item = FindClickedNode(e.OriginalSource);
         if (item?.Tag is not Node node) return;
-        // 分组与云组（腾讯云）双击仅展开/折叠；仅可连接节点（ssh/local/rdp）双击打开标签
         if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingsoftCloudGroup)
             return;
         OpenTab(node);
@@ -313,7 +245,6 @@ public partial class MainWindow
     {
         var tvi = FindClickedNode(e.OriginalSource);
         _contextMenuNode = tvi?.Tag as Node;
-        // 仅记录右键目标节点，不修改任何选择状态
         e.Handled = true;
     }
 
@@ -1890,8 +1821,6 @@ public partial class MainWindow
     {
         var item = FindClickedNode(e.OriginalSource);
         var node = item?.Tag as Node;
-        _draggedNode = node;
-        _dragStartPoint = e.GetPosition(null);
 
         if (node == null) return;
 
@@ -2025,107 +1954,5 @@ public partial class MainWindow
                     yield return child;
             }
         }
-    }
-
-    private void ServerTree_PreviewMouseMove(object sender, MouseEventArgs e)
-    {
-        if (e.LeftButton != MouseButtonState.Pressed || _draggedNode == null) return;
-        var pos = e.GetPosition(null);
-        if (Math.Abs(pos.X - _dragStartPoint.X) < 4 && Math.Abs(pos.Y - _dragStartPoint.Y) < 4) return;
-        try
-        {
-            var idsToDrag = _selectedNodeIds.Contains(_draggedNode.Id) && _selectedNodeIds.Count > 0
-                ? _selectedNodeIds.ToList()
-                : new List<string> { _draggedNode.Id };
-            var payload = string.Join(",", idsToDrag);
-            DragDrop.DoDragDrop(ServerTree, payload, DragDropEffects.Move);
-        }
-        finally
-        {
-            _draggedNode = null;
-        }
-    }
-
-    private void ServerTree_DragOver(object sender, DragEventArgs e)
-    {
-        e.Effects = DragDropEffects.None;
-        if (!e.Data.GetDataPresent(DataFormats.Text)) return;
-        var payload = e.Data.GetData(DataFormats.Text) as string;
-        if (string.IsNullOrEmpty(payload)) return;
-        var draggedIds = payload.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
-        if (draggedIds.Count == 0) return;
-        var target = GetNodeAtPosition(ServerTree, e.GetPosition(ServerTree));
-        // 拖到空白处视为拖到根节点
-        if (target == null)
-        {
-            e.Effects = DragDropEffects.Move;
-            e.Handled = true;
-            return;
-        }
-        if (target.Type != NodeType.group && target.Type != NodeType.tencentCloudGroup && target.Type != NodeType.aliCloudGroup && target.Type != NodeType.kingsoftCloudGroup) return;
-        if (draggedIds.Any(id => id == target.Id || IsDescendant(target.Id, id)))
-            return;
-        e.Effects = DragDropEffects.Move;
-        e.Handled = true;
-    }
-
-    private void ServerTree_Drop(object sender, DragEventArgs e)
-    {
-        if (!e.Data.GetDataPresent(DataFormats.Text)) return;
-        var payload = e.Data.GetData(DataFormats.Text) as string;
-        if (string.IsNullOrEmpty(payload)) return;
-        var draggedIds = payload.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
-        if (draggedIds.Count == 0) return;
-        var target = GetNodeAtPosition(ServerTree, e.GetPosition(ServerTree));
-        string? parentId;
-        if (target == null)
-        {
-            // 拖到空白处视为拖到根节点
-            parentId = null;
-        }
-        else
-        {
-            if (target.Type != NodeType.group && target.Type != NodeType.tencentCloudGroup && target.Type != NodeType.aliCloudGroup && target.Type != NodeType.kingsoftCloudGroup) return;
-            if (draggedIds.Any(id => id == target.Id || IsDescendant(target.Id, id)))
-                return;
-            parentId = target.Id;
-        }
-        var modified = false;
-        foreach (var id in draggedIds)
-        {
-            var idx = _nodes.FindIndex(n => n.Id == id);
-            if (idx >= 0)
-            {
-                _nodes[idx].ParentId = parentId;
-                modified = true;
-            }
-        }
-        if (modified)
-        {
-            _storage.SaveNodes(_nodes);
-            BuildTree();
-        }
-        e.Handled = true;
-    }
-
-    private Node? GetNodeAtPosition(DependencyObject container, Point pos)
-    {
-        var hit = VisualTreeHelper.HitTest(container as Visual ?? throw new InvalidOperationException(), pos);
-        if (hit?.VisualHit == null) return null;
-        for (var p = hit.VisualHit as DependencyObject; p != null; p = VisualTreeHelper.GetParent(p))
-            if (p is TreeViewItem tvi && tvi.Tag is Node n)
-                return n;
-        return null;
-    }
-
-    private bool IsDescendant(string potentialAncestorId, string nodeId)
-    {
-        var current = _nodes.FirstOrDefault(n => n.Id == nodeId);
-        while (current?.ParentId != null)
-        {
-            if (current.ParentId == potentialAncestorId) return true;
-            current = _nodes.FirstOrDefault(n => n.Id == current!.ParentId);
-        }
-        return false;
     }
 }
