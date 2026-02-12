@@ -33,7 +33,11 @@ public static class ExceptionLog
             if (_logDir != null) return _logDir;
             try
             {
-                _logDir = Path.Combine(".run", "log");
+                // 工作路径为 .run 时日志用 log，否则用 .run\log（与 test.ps1 约定一致）
+                var cwd = Environment.CurrentDirectory;
+                _logDir = string.Equals(Path.GetFileName(cwd), ".run", StringComparison.OrdinalIgnoreCase)
+                    ? Path.Combine(cwd, "log")
+                    : Path.Combine(cwd, ".run", "log");
                 if (!Directory.Exists(_logDir))
                     Directory.CreateDirectory(_logDir);
             }

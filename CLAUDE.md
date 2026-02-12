@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **注意**：
 - 构建输出目录为 `.temp/bin/`，中间文件为 `.temp/obj/`
-- 运行时工作目录使用 `.run/`，配置文件位于 `.run/config/`，日志位于 `.run/log/`
+- test.ps1 启动时**工作路径为 .run**，配置文件从 工作路径\config（即 `.run/config/`）读取，日志在 `.run/log/`
 - test.ps1 会自动强杀现有 xOpenTerm 进程、清除日志后再启动
 - crash log ：log/YYYY-MM-DD_crash.log
 ## 项目架构

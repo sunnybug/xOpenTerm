@@ -25,7 +25,7 @@ public sealed class SshPuttyHostControl : Panel
     private bool _isPuttyNg;
     private readonly DisplayScale _display = new();
 
-    /// <summary>默认 PuTTY 路径：优先使用应用目录 bin/PuTTYNG.exe，否则为 PuTTYNG.exe。</summary>
+    /// <summary>默认 PuTTY 路径：优先使用当前工作目录下的 PuTTYNG.exe，否则为 PATH 中的 PuTTYNG.exe。</summary>
     public static string DefaultPuttyPath { get; set; } = GetDefaultPuttyPath();
 
     public event EventHandler? Closed;
@@ -45,6 +45,8 @@ public sealed class SshPuttyHostControl : Panel
     {
         if (string.IsNullOrWhiteSpace(puttyPath) || !File.Exists(puttyPath))
         {
+            var pathForLog = string.IsNullOrWhiteSpace(puttyPath) ? "(未配置或为空)" : puttyPath;
+            ExceptionLog.WriteInfo($"PuTTY 路径无效或文件不存在: {pathForLog}");
             throw new FileNotFoundException("未找到 PuTTY 程序，请指定有效路径。", puttyPath);
         }
 
@@ -226,17 +228,14 @@ public sealed class SshPuttyHostControl : Panel
 
     private static string GetDefaultPuttyPath()
     {
-        var appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        // 1) 应用目录下的 bin\PuTTYNG.exe（例如部署时把 PuTTY 放在 exe 同级的 bin 子目录）
-        var binPuttyNg = Path.Combine(appDir, "bin", "PuTTYNG.exe");
-        if (File.Exists(binPuttyNg)) return binPuttyNg;
-        // 2) 输出在 bin\Debug\net8.0-windows 时，上一级 bin 目录的 PuTTYNG.exe（项目根 bin）
-        var parentBin = Path.GetDirectoryName(Path.GetDirectoryName(appDir));
-        if (!string.IsNullOrEmpty(parentBin))
+        // 1) 当前工作目录下的 PuTTYNG.exe
+        var cwd = Environment.CurrentDirectory;
+        if (!string.IsNullOrEmpty(cwd))
         {
-            var puttyInParentBin = Path.Combine(parentBin, "PuTTYNG.exe");
-            if (File.Exists(puttyInParentBin)) return puttyInParentBin;
+            var puttyInCwd = Path.Combine(cwd, "PuTTYNG.exe");
+            if (File.Exists(puttyInCwd)) return puttyInCwd;
         }
+        // 2) 未找到则使用环境变量 PATH 中的 PuTTYNG.exe
         return "PuTTYNG.exe";
     }
 

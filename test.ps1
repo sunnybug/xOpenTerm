@@ -1,4 +1,4 @@
-﻿# Function: Build and run xOpenTerm project, default Debug, use --release for Release
+# Function: Build and run xOpenTerm project, default Debug, use --release for Release
 # Runtime working directory is .run
 
 param(
@@ -67,12 +67,12 @@ try {
 }
 
 # Run application and capture error output
-# 使用项目根目录作为工作目录，这样应用内 .run\log 会正确解析为 <根>\.run\log（与脚本清空/查看的目录一致）
+# 工作路径为 .run，配置文件从 工作路径\config（即 .run\config）读取，日志在 .run\log
 $errorLogPath = Join-Path $RunDir "log\error.log"
 try {
     $projectPath = Join-Path $Root "src\xOpenTerm.csproj"
     $config = if ($Release) { "Release" } else { "Debug" }
-    $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config" -WorkingDirectory $Root -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
+    $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config" -WorkingDirectory $RunDir -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
 
     # Wait for application to exit
     $process.WaitForExit()

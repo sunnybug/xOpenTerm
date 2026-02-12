@@ -132,6 +132,7 @@ public partial class MainWindow
             }
             catch (Exception ex)
             {
+                ExceptionLog.Write(ex, "PuTTY 启动失败", toCrashLog: false);
                 MessageBox.Show("PuTTY 启动失败：" + ex.Message, "xOpenTerm");
                 CloseTab(tabId);
             }
@@ -404,12 +405,14 @@ public partial class MainWindow
                 }
                 catch (Exception ex)
                 {
+                    ExceptionLog.Write(ex, "PuTTY 重连失败", toCrashLog: false);
                     MessageBox.Show("重连失败：" + ex.Message, "xOpenTerm");
                 }
             }));
         }
         catch (Exception ex)
         {
+            ExceptionLog.Write(ex, "重连失败", toCrashLog: false);
             MessageBox.Show("重连失败：" + ex.Message, "xOpenTerm");
         }
     }
