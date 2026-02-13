@@ -43,10 +43,6 @@
                     <TextBlock Text="密码" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <PasswordBox x:Name="PasswordBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="域" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <TextBox x:Name="DomainBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}" ToolTip="可选，如 COMPANY"/>
-                </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
                     <CheckBox x:Name="UseConsoleCheck" Content="使用控制台会话 (/admin)" Foreground="{StaticResource TextPrimary}" Margin="0,0,16,0"/>
                     <CheckBox x:Name="RedirectClipboardCheck" Content="剪贴板重定向" Foreground="{StaticResource TextPrimary}"/>

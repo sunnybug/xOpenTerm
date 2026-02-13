@@ -6,7 +6,7 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm;
 
-/// <summary>RDP 节点编辑窗口：主机、端口、认证、域、控制台/剪贴板/智能缩放（参考 mRemoteNG）。</summary>
+/// <summary>RDP 节点编辑窗口：主机、端口、认证、控制台/剪贴板/智能缩放（参考 mRemoteNG）。</summary>
 public partial class RdpNodeEditWindow : NodeEditWindowBase
 {
     private readonly string _initialName;
@@ -14,7 +14,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
     private readonly string _initialPort;
     private readonly string _initialUsername;
     private readonly string _initialPassword;
-    private readonly string _initialDomain;
     private readonly int _initialAuthIndex;
     private readonly string? _initialCredentialId;
     private readonly bool _initialUseConsole;
@@ -29,7 +28,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
         PortBox.Text = node.Config?.Port?.ToString() ?? "3389";
         UsernameBox.Text = node.Config?.Username ?? "administrator";
         PasswordBox.Password = node.Config?.Password ?? "";
-        DomainBox.Text = node.Config?.Domain ?? "";
 
         AuthCombo.Items.Add("同父节点");
         AuthCombo.Items.Add("登录凭证");
@@ -60,7 +58,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
         _initialPort = PortBox.Text ?? "";
         _initialUsername = UsernameBox.Text ?? "";
         _initialPassword = PasswordBox.Password ?? "";
-        _initialDomain = DomainBox.Text ?? "";
         _initialAuthIndex = AuthCombo.SelectedIndex;
         _initialCredentialId = CredentialCombo.SelectedValue as string;
         _initialUseConsole = UseConsoleCheck.IsChecked == true;
@@ -75,7 +72,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
         if ((PortBox.Text ?? "") != _initialPort) return true;
         if ((UsernameBox.Text ?? "") != _initialUsername) return true;
         if (PasswordBox.Password != _initialPassword) return true;
-        if ((DomainBox.Text ?? "") != _initialDomain) return true;
         if (AuthCombo.SelectedIndex != _initialAuthIndex) return true;
         var credNow = CredentialCombo.SelectedValue as string;
         if (!string.Equals(credNow, _initialCredentialId, StringComparison.Ordinal)) return true;
@@ -103,7 +99,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
         _node.Config.CredentialId = authIdx == 1 && CredentialCombo.SelectedValue is string rdpCid ? rdpCid : null;
         _node.Config.Password = authIdx != 0 && authIdx != 1 ? PasswordBox.Password : null;
         _node.Config.Username = (authIdx == 0 || authIdx == 1) ? null : (UsernameBox.Text?.Trim() ?? "administrator");
-        _node.Config.Domain = string.IsNullOrWhiteSpace(DomainBox.Text) ? null : DomainBox.Text?.Trim();
 
         _node.Config.RdpUseConsoleSession = UseConsoleCheck.IsChecked == true;
         _node.Config.RdpRedirectClipboard = RedirectClipboardCheck.IsChecked == true;
