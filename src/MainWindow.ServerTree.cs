@@ -686,6 +686,7 @@ public partial class MainWindow
     {
         var dlg = new ImportMobaXtermWindow(this);
         if (dlg.ShowDialog() != true || dlg.SelectedSessions.Count == 0) return;
+        var passwordLookup = dlg.PasswordLookup;
         // 按目录结构创建父节点：path -> 已创建的分组 Node；根级别时 parentNode 为 null
         var rootParentId = parentNode?.Id;
         var pathToGroupId = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase) { [""] = rootParentId };
@@ -717,6 +718,21 @@ public partial class MainWindow
                 currentParentId = groupId;
             }
             var sessionNode = item.ToNode(currentParentId);
+            // 若提供了密码文件且为密码类型节点且用户名为 [配置名]，从密码文件填充用户名和密码
+            if (passwordLookup != null && sessionNode.Config != null)
+            {
+                var isPasswordType = item.IsRdp || string.IsNullOrEmpty(item.KeyPath);
+                var un = item.Username?.Trim() ?? "";
+                if (isPasswordType && un.StartsWith("[", StringComparison.Ordinal) && un.Contains("]"))
+                {
+                    var key = un[1..un.IndexOf(']')].Trim();
+                    if (!string.IsNullOrEmpty(key) && passwordLookup.TryGetValue(key, out var cred))
+                    {
+                        sessionNode.Config.Username = cred.Username;
+                        sessionNode.Config.Password = cred.Password;
+                    }
+                }
+            }
             _nodes.Add(sessionNode);
         }
         _storage.SaveNodes(_nodes);

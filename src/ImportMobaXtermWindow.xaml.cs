@@ -7,13 +7,16 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm;
 
-/// <summary>选择 MobaXterm.ini 并按目录多选要导入的会话，确定后由主窗口按目录结构导入到当前父节点下。</summary>
+/// <summary>选择 MobaXterm.ini 和可选密码文件，并按目录多选要导入的会话，确定后由主窗口按目录结构导入到当前父节点下。</summary>
 public partial class ImportMobaXtermWindow : Window
 {
     private List<MobaFolderNode> _folderRoots = new();
 
     /// <summary>用户点击确定时选中的会话（来自勾选的目录）；取消或未选则为空。</summary>
     public List<MobaXtermSessionItem> SelectedSessions { get; private set; } = new();
+
+    /// <summary>若用户选择了密码文件，则为 配置名 → (Username, Password)；否则为 null。</summary>
+    public IReadOnlyDictionary<string, (string Username, string Password)>? PasswordLookup { get; private set; }
 
     public ImportMobaXtermWindow(Window owner, string? initialIniPath = null)
     {
@@ -52,6 +55,21 @@ public partial class ImportMobaXtermWindow : Window
         }
     }
 
+    private void BrowsePasswordBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "选择密码文件（可选）",
+            Filter = "文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*",
+            FileName = string.IsNullOrEmpty(PasswordPathBox.Text) ? "" : Path.GetFileName(PasswordPathBox.Text),
+            InitialDirectory = string.IsNullOrEmpty(PasswordPathBox.Text)
+                ? (string.IsNullOrEmpty(IniPathBox.Text) ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) : Path.GetDirectoryName(IniPathBox.Text)!)
+                : Path.GetDirectoryName(PasswordPathBox.Text)
+        };
+        if (dlg.ShowDialog() == true)
+            PasswordPathBox.Text = dlg.FileName;
+    }
+
     private void LoadSessions()
     {
         var path = IniPathBox.Text?.Trim();
@@ -74,6 +92,11 @@ public partial class ImportMobaXtermWindow : Window
         foreach (var root in _folderRoots)
             CollectSessionsFromSelectedFolders(root, selected, hasSelectedAncestor: false);
         SelectedSessions = selected;
+        var pwdPath = PasswordPathBox.Text?.Trim();
+        if (!string.IsNullOrEmpty(pwdPath) && File.Exists(pwdPath))
+            PasswordLookup = MobaXtermIniParser.ParsePasswordFile(pwdPath);
+        else
+            PasswordLookup = null;
         DialogResult = true;
         Close();
     }

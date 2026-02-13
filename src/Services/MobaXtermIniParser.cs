@@ -99,6 +99,58 @@ public static class MobaXtermIniParser
         return items;
     }
 
+    /// <summary>解析 MobaXterm 导出的密码文件。格式：配置名(真正的用户名) = 真正的密码。返回 key=配置名 → (Username, Password)。编码尝试 UTF-8 再 GBK。</summary>
+    public static Dictionary<string, (string Username, string Password)> ParsePasswordFile(string filePath)
+    {
+        var result = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath)) return result;
+        var lines = ReadAllLinesForPasswordFile(filePath);
+        foreach (var line in lines)
+        {
+            var t = ParsePasswordFileLine(line);
+            if (t.HasValue)
+                result[t.Value.Key] = (t.Value.Username, t.Value.Password);
+        }
+        return result;
+    }
+
+    private static string[] ReadAllLinesForPasswordFile(string filePath)
+    {
+        var bytes = File.ReadAllBytes(filePath);
+        // 尝试 UTF-8（含 BOM）
+        if (bytes.Length >= 3 && bytes[0] == Utf8Bom[0] && bytes[1] == Utf8Bom[1] && bytes[2] == Utf8Bom[2])
+        {
+            var enc = new UTF8Encoding(false);
+            return enc.GetString(bytes.AsSpan(3)).Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        }
+        try
+        {
+            var enc = new UTF8Encoding(false, true);
+            var s = enc.GetString(bytes).Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            return s;
+        }
+        catch (DecoderFallbackException) { /* 非 UTF-8 */ }
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var gbk = Encoding.GetEncoding("GBK");
+        return gbk.GetString(bytes).Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+    }
+
+    /// <summary>解析单行：配置名(真正的用户名) = 真正的密码。返回 (Key=配置名, Username, Password) 或 null。</summary>
+    private static (string Key, string Username, string Password)? ParsePasswordFileLine(string line)
+    {
+        var trimmed = line.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        var openIdx = trimmed.IndexOf('(');
+        var closeIdx = trimmed.IndexOf(')', openIdx + 1);
+        var eqIdx = trimmed.IndexOf('=', closeIdx >= 0 ? closeIdx + 1 : 0);
+        if (openIdx <= 0 || closeIdx <= openIdx || eqIdx <= closeIdx) return null;
+        var key = trimmed[..openIdx].Trim();
+        var username = trimmed[(openIdx + 1)..closeIdx].Trim();
+        var password = trimmed[(eqIdx + 1)..].Trim();
+        if (string.IsNullOrEmpty(key)) return null;
+        return (key, username, password);
+    }
+
     /// <summary>将扁平会话列表按 FolderPath 构建为目录树，用于按目录多选导入。</summary>
     public static List<MobaFolderNode> BuildFolderTree(List<MobaXtermSessionItem> sessions)
     {

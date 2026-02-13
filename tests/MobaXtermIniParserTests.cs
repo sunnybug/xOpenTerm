@@ -97,4 +97,58 @@ public class MobaXtermIniParserTests
         Assert.That(tree, Is.Not.Null);
         Assert.That(tree, Is.Empty);
     }
+
+    [Test]
+    public void ParsePasswordFile_ValidFormat_ParsesKeyUsernamePassword()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "xot_moba_test_" + Guid.NewGuid().ToString("N") + ".txt");
+        try
+        {
+            File.WriteAllText(path, "MySession(root) = secret123\nProd(admin) = pwd456\n", Encoding.UTF8);
+            var dict = MobaXtermIniParser.ParsePasswordFile(path);
+            Assert.That(dict, Is.Not.Null);
+            Assert.That(dict.Count, Is.EqualTo(2));
+            Assert.That(dict["MySession"].Username, Is.EqualTo("root"));
+            Assert.That(dict["MySession"].Password, Is.EqualTo("secret123"));
+            Assert.That(dict["Prod"].Username, Is.EqualTo("admin"));
+            Assert.That(dict["Prod"].Password, Is.EqualTo("pwd456"));
+        }
+        finally { try { File.Delete(path); } catch { /* 忽略 */ } }
+    }
+
+    [Test]
+    public void ParsePasswordFile_KeyLookupIsCaseInsensitive()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "xot_moba_test_" + Guid.NewGuid().ToString("N") + ".txt");
+        try
+        {
+            File.WriteAllText(path, "MySession(root) = secret\n", Encoding.UTF8);
+            var dict = MobaXtermIniParser.ParsePasswordFile(path);
+            Assert.That(dict["mysession"].Username, Is.EqualTo("root"));
+            Assert.That(dict["mysession"].Password, Is.EqualTo("secret"));
+        }
+        finally { try { File.Delete(path); } catch { /* 忽略 */ } }
+    }
+
+    [Test]
+    public void ParsePasswordFile_NonExistent_ReturnsEmpty()
+    {
+        var dict = MobaXtermIniParser.ParsePasswordFile(@"C:\NonExistent\pass.txt");
+        Assert.That(dict, Is.Not.Null);
+        Assert.That(dict, Is.Empty);
+    }
+
+    [Test]
+    public void ParsePasswordFile_EmptyFile_ReturnsEmpty()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "xot_moba_test_" + Guid.NewGuid().ToString("N") + ".txt");
+        try
+        {
+            File.WriteAllText(path, "", Encoding.UTF8);
+            var dict = MobaXtermIniParser.ParsePasswordFile(path);
+            Assert.That(dict, Is.Not.Null);
+            Assert.That(dict, Is.Empty);
+        }
+        finally { try { File.Delete(path); } catch { /* 忽略 */ } }
+    }
 }
