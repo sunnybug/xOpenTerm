@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:xOpenTerm"
-        Title="RDP 节点设置" Height="560" Width="500" WindowStartupLocation="CenterOwner"
+        Title="RDP 节点设置" Height="620" Width="500" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False" Background="{StaticResource BgDark}" ResizeMode="CanResizeWithGrip">
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -14,34 +14,34 @@
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
             <TextBlock Text="名称" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-            <TextBox x:Name="NameBox" Width="300" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+            <TextBox x:Name="NameBox" Width="300" MinHeight="36" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
         </StackPanel>
         <TextBlock Grid.Row="1" Text="连接配置" Foreground="{StaticResource TextSecondary}" Margin="0,8,0,6"/>
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="主机" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <TextBox x:Name="HostBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="HostBox" Width="280" MinHeight="36" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="端口" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <TextBox x:Name="PortBox" Width="80" MaxLength="5" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="PortBox" Width="80" MinHeight="36" MaxLength="5" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="认证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <ComboBox x:Name="AuthCombo" Width="120" Style="{StaticResource SimpleComboBoxStyle}" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionChanged="AuthCombo_SelectionChanged"/>
+                    <ComboBox x:Name="AuthCombo" Width="120" MinHeight="36" Style="{StaticResource SimpleComboBoxStyle}" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionChanged="AuthCombo_SelectionChanged"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
                     <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <ComboBox x:Name="CredentialCombo" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
+                    <ComboBox x:Name="CredentialCombo" Width="280" MinHeight="36" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="UsernameRow" Visibility="Collapsed">
                     <TextBlock Text="用户名" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <TextBox x:Name="UsernameBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+                    <TextBox x:Name="UsernameBox" Width="280" MinHeight="36" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="PasswordRow" Visibility="Collapsed">
                     <TextBlock Text="密码" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                    <PasswordBox x:Name="PasswordBox" Width="280" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
+                    <PasswordBox x:Name="PasswordBox" Width="280" MinHeight="36" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
                     <CheckBox x:Name="UseConsoleCheck" Content="使用控制台会话 (/admin)" Foreground="{StaticResource TextPrimary}" Margin="0,0,16,0"/>
