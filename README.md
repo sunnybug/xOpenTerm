@@ -21,7 +21,7 @@
 - **关于 / 更新**：版本号、作者、GitHub 链接；从 GitHub Releases 检查更新
 - **持久化**：节点、凭证、隧道保存为 YAML（`config/nodes.yaml`、`credentials.yaml`、`tunnels.yaml`，位于 exe 同目录下的 `config/`）；节点树的展开状态与选中项在关闭时写入 `config/settings.yaml`，下次启动时恢复
 - **编辑框输入历史**：除密码与节点名外，各编辑窗口（SSH/RDP/隧道/凭证/分组/本地/云同步等）的文本框（如主机、端口、用户名、私钥路径、SecretId、AccessKeyId 等）会记住输入历史；输入时按文字过滤并以下拉列表展示，可点击历史项快速填入；保存时写入历史，持久化到 `config/input_history.yaml`，程序重启后有效
-- **快捷键**：Ctrl+Q 聚焦节点树快速过滤框（无内容时显示提示「CTRL+Q」），光标置于末尾
+- **快捷键**：Ctrl+Q 聚焦节点树快速过滤框（无内容时显示提示「Ctrl+Q」），光标置于末尾
 
 ## 技术栈
 

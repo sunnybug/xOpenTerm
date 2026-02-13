@@ -53,7 +53,7 @@
                                          BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                                          TextChanged="ServerSearchBox_TextChanged"
                                          ToolTip="按节点名称、主机地址、用户名快速过滤"/>
-                                <TextBlock x:Name="ServerSearchBoxPlaceholder" Text="CTRL+Q"
+                                <TextBlock x:Name="ServerSearchBoxPlaceholder" Text="Ctrl+Q"
                                            Margin="10,8,8,8" VerticalAlignment="Center"
                                            Foreground="{StaticResource TextSecondary}"
                                            IsHitTestVisible="False"/>
