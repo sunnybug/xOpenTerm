@@ -69,6 +69,17 @@ public partial class MainWindow
     {
         var tvi = FindClickedNode(e.OriginalSource);
         _contextMenuNode = tvi?.Tag as Node;
+        // 右键菜单触发时，将选择改为鼠标处的节点
+        if (_contextMenuNode != null && tvi != null)
+        {
+            _selectedNodeIds.Clear();
+            _selectedNodeIds.Add(_contextMenuNode.Id);
+            _lastSelectedNodeId = _contextMenuNode.Id;
+            _suppressTreeViewSelection = true;
+            tvi.IsSelected = true;
+            _suppressTreeViewSelection = false;
+            UpdateTreeSelectionVisuals();
+        }
         e.Handled = true;
     }
 
