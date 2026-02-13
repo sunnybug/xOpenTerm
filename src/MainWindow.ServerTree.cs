@@ -276,9 +276,9 @@ public partial class MainWindow
     private ContextMenu BuildContextMenuMultiSelect(List<Node> selectedNodes)
     {
         var menu = new ContextMenu();
-        menu.Items.Add(CreateMenuItem("[L] 连接", () => ConnectSelected(selectedNodes)));
+        menu.Items.Add(CreateMenuItem("连接(_L)", () => ConnectSelected(selectedNodes)));
         menu.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("[D] 删除", () => DeleteSelected(selectedNodes)));
+        menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteSelected(selectedNodes)));
         return menu;
     }
 
@@ -346,131 +346,131 @@ public partial class MainWindow
         if (node == null)
         {
             // 新建子菜单
-            var newSub = new MenuItem { Header = "[N] 新建" };
-            newSub.Items.Add(CreateMenuItem("[G] 分组", () => AddNode(NodeType.group, null)));
-            newSub.Items.Add(CreateMenuItem("[T] 分组 - 腾讯云", () => AddTencentCloudGroup(null)));
-            newSub.Items.Add(CreateMenuItem("[A] 分组 - 阿里云", () => AddAliCloudGroup(null)));
-            newSub.Items.Add(CreateMenuItem("[K] 分组 - 金山云", () => AddKingsoftCloudGroup(null)));
-            newSub.Items.Add(CreateMenuItem("[H] 主机", () => AddNode(NodeType.ssh, null)));
+            var newSub = new MenuItem { Header = "新建(_N)" };
+            newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, null)));
+            newSub.Items.Add(CreateMenuItem("分组 - 腾讯云(_T)", () => AddTencentCloudGroup(null)));
+            newSub.Items.Add(CreateMenuItem("分组 - 阿里云(_A)", () => AddAliCloudGroup(null)));
+            newSub.Items.Add(CreateMenuItem("分组 - 金山云(_K)", () => AddKingsoftCloudGroup(null)));
+            newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, null)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
             // 导入子菜单
-            var importSub = new MenuItem { Header = "[I] 导入" };
-            importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(null)));
-            importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(null)));
+            var importSub = new MenuItem { Header = "导入(_I)" };
+            importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(null)));
+            importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(null)));
             menu.Items.Add(importSub);
             // 导出子菜单
-            var exportSub = new MenuItem { Header = "[E] 导出" };
-            exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
+            var exportSub = new MenuItem { Header = "导出(_E)" };
+            exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             return menu;
         }
         if (node.Type == NodeType.group)
         {
             // 新建子菜单（云组及其任意层级子节点下不允许再嵌套云组）
-            var newSub = new MenuItem { Header = "[N] 新建" };
-            newSub.Items.Add(CreateMenuItem("[G] 分组", () => AddNode(NodeType.group, node.Id)));
+            var newSub = new MenuItem { Header = "新建(_N)" };
+            newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, node.Id)));
             if (!HasAncestorOrSelfCloudGroup(node))
             {
-                newSub.Items.Add(CreateMenuItem("[T] 分组 - 腾讯云", () => AddTencentCloudGroup(node.Id)));
-                newSub.Items.Add(CreateMenuItem("[A] 分组 - 阿里云", () => AddAliCloudGroup(node.Id)));
-                newSub.Items.Add(CreateMenuItem("[K] 分组 - 金山云", () => AddKingsoftCloudGroup(node.Id)));
+                newSub.Items.Add(CreateMenuItem("分组 - 腾讯云(_T)", () => AddTencentCloudGroup(node.Id)));
+                newSub.Items.Add(CreateMenuItem("分组 - 阿里云(_A)", () => AddAliCloudGroup(node.Id)));
+                newSub.Items.Add(CreateMenuItem("分组 - 金山云(_K)", () => AddKingsoftCloudGroup(node.Id)));
             }
-            newSub.Items.Add(CreateMenuItem("[H] 主机", () => AddNode(NodeType.ssh, node.Id)));
+            newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
             // 导入子菜单
-            var importSub = new MenuItem { Header = "[I] 导入" };
-            importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
-            importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(node)));
+            var importSub = new MenuItem { Header = "导入(_I)" };
+            importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
+            importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
             menu.Items.Add(importSub);
             // 导出子菜单
-            var exportSub = new MenuItem { Header = "[E] 导出" };
-            exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
+            var exportSub = new MenuItem { Header = "导出(_E)" };
+            exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[S] 设置", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditGroupSettings(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[A] 连接全部", () => ConnectAll(node.Id)));
+            menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[X] 删除（含子节点）", () => DeleteNodeRecursive(node)));
+            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
         else if (node.Type == NodeType.tencentCloudGroup)
         {
             // 新建子菜单（云组下不允许再嵌套任何云组）
-            var newSub = new MenuItem { Header = "[N] 新建" };
-            newSub.Items.Add(CreateMenuItem("[G] 分组", () => AddNode(NodeType.group, node.Id)));
-            newSub.Items.Add(CreateMenuItem("[H] 主机", () => AddNode(NodeType.ssh, node.Id)));
+            var newSub = new MenuItem { Header = "新建(_N)" };
+            newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, node.Id)));
+            newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
             // 导入子菜单
-            var importSub = new MenuItem { Header = "[I] 导入" };
-            importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
-            importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(node)));
+            var importSub = new MenuItem { Header = "导入(_I)" };
+            importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
+            importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
             menu.Items.Add(importSub);
             // 导出子菜单
-            var exportSub = new MenuItem { Header = "[E] 导出" };
-            exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
+            var exportSub = new MenuItem { Header = "导出(_E)" };
+            exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[S] 设置", () => EditGroupSettings(node)));
-            menu.Items.Add(CreateMenuItem("[Y] 同步", () => SyncTencentCloudGroup(node)));
+            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncTencentCloudGroup(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[A] 连接全部", () => ConnectAll(node.Id)));
+            menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[X] 删除（含子节点）", () => DeleteNodeRecursive(node)));
+            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
         else if (node.Type == NodeType.aliCloudGroup)
         {
-            var newSub = new MenuItem { Header = "[N] 新建" };
-            newSub.Items.Add(CreateMenuItem("[G] 分组", () => AddNode(NodeType.group, node.Id)));
-            newSub.Items.Add(CreateMenuItem("[H] 主机", () => AddNode(NodeType.ssh, node.Id)));
+            var newSub = new MenuItem { Header = "新建(_N)" };
+            newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, node.Id)));
+            newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
-            var importSub = new MenuItem { Header = "[I] 导入" };
-            importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
-            importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(node)));
+            var importSub = new MenuItem { Header = "导入(_I)" };
+            importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
+            importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
             menu.Items.Add(importSub);
-            var exportSub = new MenuItem { Header = "[E] 导出" };
-            exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
+            var exportSub = new MenuItem { Header = "导出(_E)" };
+            exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[S] 设置", () => EditGroupSettings(node)));
-            menu.Items.Add(CreateMenuItem("[Y] 同步", () => SyncAliCloudGroup(node)));
+            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncAliCloudGroup(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[A] 连接全部", () => ConnectAll(node.Id)));
+            menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[X] 删除（含子节点）", () => DeleteNodeRecursive(node)));
+            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
         else if (node.Type == NodeType.kingsoftCloudGroup)
         {
-            var newSub = new MenuItem { Header = "[N] 新建" };
-            newSub.Items.Add(CreateMenuItem("[G] 分组", () => AddNode(NodeType.group, node.Id)));
-            newSub.Items.Add(CreateMenuItem("[H] 主机", () => AddNode(NodeType.ssh, node.Id)));
+            var newSub = new MenuItem { Header = "新建(_N)" };
+            newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, node.Id)));
+            newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
-            var importSub = new MenuItem { Header = "[I] 导入" };
-            importSub.Items.Add(CreateMenuItem("[M] 导入 MobaXterm", () => ImportMobaXterm(node)));
-            importSub.Items.Add(CreateMenuItem("[Y] 导入 YAML", () => ImportYaml(node)));
+            var importSub = new MenuItem { Header = "导入(_I)" };
+            importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
+            importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
             menu.Items.Add(importSub);
-            var exportSub = new MenuItem { Header = "[E] 导出" };
-            exportSub.Items.Add(CreateMenuItem("[Y] 导出 YAML", () => ExportYaml()));
+            var exportSub = new MenuItem { Header = "导出(_E)" };
+            exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[S] 设置", () => EditGroupSettings(node)));
-            menu.Items.Add(CreateMenuItem("[Y] 同步", () => SyncKingsoftCloudGroup(node)));
+            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncKingsoftCloudGroup(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[A] 连接全部", () => ConnectAll(node.Id)));
+            menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[X] 删除（含子节点）", () => DeleteNodeRecursive(node)));
+            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
         else
         {
-            menu.Items.Add(CreateMenuItem("[L] 连接", () => OpenTab(node)));
-            menu.Items.Add(CreateMenuItem("[C] 克隆", () => DuplicateNode(node)));
-            menu.Items.Add(CreateMenuItem("[S] 设置", () => EditNode(node)));
+            menu.Items.Add(CreateMenuItem("连接(_L)", () => OpenTab(node)));
+            menu.Items.Add(CreateMenuItem("克隆(_C)", () => DuplicateNode(node)));
+            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditNode(node)));
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("[D] 删除", () => DeleteNode(node)));
+            menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteNode(node)));
         }
         return menu;
     }

@@ -12,19 +12,19 @@
         </Grid.RowDefinitions>
         <!-- 顶栏菜单 (现代化间距) -->
         <Menu Grid.Row="0" Background="{StaticResource BgSidebar}" Foreground="{StaticResource TextPrimary}" Padding="6,4">
-            <MenuItem Header="设置">
-                <MenuItem Header="字体" Click="MenuFontSettings_Click"/>
-                <MenuItem Header="登录凭证" Click="MenuCredentials_Click"/>
-                <MenuItem Header="隧道管理" Click="MenuTunnels_Click"/>
-                <MenuItem Header="恢复配置" Click="MenuRestoreConfig_Click"/>
+            <MenuItem Header="设置(_S)">
+                <MenuItem Header="字体(_F)" Click="MenuFontSettings_Click"/>
+                <MenuItem Header="登录凭证(_P)" Click="MenuCredentials_Click"/>
+                <MenuItem Header="隧道管理(_T)" Click="MenuTunnels_Click"/>
+                <MenuItem Header="恢复配置(_R)" Click="MenuRestoreConfig_Click"/>
             </MenuItem>
-            <MenuItem Header="主密码">
-                <MenuItem Header="设置主密码" Click="MenuMasterPasswordSet_Click"/>
-                <MenuItem Header="清除主密码" Click="MenuMasterPasswordClear_Click"/>
+            <MenuItem Header="主密码(_M)">
+                <MenuItem Header="设置主密码(_S)" Click="MenuMasterPasswordSet_Click"/>
+                <MenuItem Header="清除主密码(_C)" Click="MenuMasterPasswordClear_Click"/>
             </MenuItem>
-            <MenuItem Header="帮助">
-                <MenuItem Header="关于" Click="MenuAbout_Click"/>
-                <MenuItem Header="检查更新" Click="MenuUpdate_Click"/>
+            <MenuItem Header="帮助(_H)">
+                <MenuItem Header="关于(_A)" Click="MenuAbout_Click"/>
+                <MenuItem Header="检查更新(_U)" Click="MenuUpdate_Click"/>
             </MenuItem>
         </Menu>
         <Grid Grid.Row="1">
@@ -95,12 +95,12 @@
                                      PreviewKeyDown="RemoteFileList_PreviewKeyDown">
                                 <ListView.ContextMenu>
                                     <ContextMenu x:Name="RemoteFileListContextMenu">
-                                        <MenuItem x:Name="RemoteFileMenuEdit"   Header="编辑" Click="RemoteFileList_Edit_Click"/>
-                                        <MenuItem x:Name="RemoteFileMenuRename" Header="改名" Click="RemoteFileList_Rename_Click"/>
-                                        <MenuItem x:Name="RemoteFileMenuPermissions" Header="编辑权限" Click="RemoteFileList_Permissions_Click"/>
-                                        <MenuItem x:Name="RemoteFileMenuDelete" Header="删除" Click="RemoteFileList_Delete_Click"/>
-                                        <MenuItem x:Name="RemoteFileMenuDownload" Header="下载" Click="RemoteFileList_Download_Click"/>
-                                        <MenuItem x:Name="RemoteFileMenuUpload" Header="上传" Click="RemoteFileList_Upload_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuEdit"   Header="编辑(_E)" Click="RemoteFileList_Edit_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuRename" Header="改名(_R)" Click="RemoteFileList_Rename_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuPermissions" Header="编辑权限(_P)" Click="RemoteFileList_Permissions_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuDelete" Header="删除(_D)" Click="RemoteFileList_Delete_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuDownload" Header="下载(_L)" Click="RemoteFileList_Download_Click"/>
+                                        <MenuItem x:Name="RemoteFileMenuUpload" Header="上传(_U)" Click="RemoteFileList_Upload_Click"/>
                                     </ContextMenu>
                                 </ListView.ContextMenu>
                                 <ListView.View>

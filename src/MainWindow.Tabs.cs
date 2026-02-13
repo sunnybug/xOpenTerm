@@ -269,11 +269,11 @@ public partial class MainWindow
     private ContextMenu CreateTabContextMenu(string tabId)
     {
         var menu = new ContextMenu();
-        var reconnectItem = new MenuItem { Header = "[R] 重连" };
+        var reconnectItem = new MenuItem { Header = "重连(_R)" };
         reconnectItem.Click += (_, _) => ReconnectTab(tabId);
-        var disconnectItem = new MenuItem { Header = "[D] 断开" };
+        var disconnectItem = new MenuItem { Header = "断开(_D)" };
         disconnectItem.Click += (_, _) => DisconnectTab(tabId);
-        var closeItem = new MenuItem { Header = "[W] 关闭" };
+        var closeItem = new MenuItem { Header = "关闭(_W)" };
         closeItem.Click += (_, _) => CloseTabWithConfirm(tabId);
         menu.Items.Add(reconnectItem);
         menu.Items.Add(disconnectItem);
