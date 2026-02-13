@@ -6,7 +6,7 @@ using xOpenTerm.Native;
 
 namespace xOpenTerm.Controls;
 
-/// <summary>在独立线程上以 WinForms 消息循环承载 RDP，通过 SetParent 嵌入到 WPF 的 Panel 中，避免 RDP ActiveX 在 WPF 消息循环中触发 SEHException（参考 mRemoteNG）。</summary>
+/// <summary>在独立 STA 线程上以 WinForms 消息循环承载 RDP，通过 SetParent 嵌入到 WPF 的 Panel 中，避免 RDP ActiveX 在 WPF 消息循环中触发 SEHException；每会话一线程以支持多 RDP 标签同时打开。</summary>
 [SupportedOSPlatform("windows")]
 public sealed class RdpEmbeddedSession
 {
@@ -19,7 +19,7 @@ public sealed class RdpEmbeddedSession
     private readonly Panel _panel;
     private readonly SynchronizationContext _uiContext;
     private readonly BlockingCollection<IntPtr> _parentHandleQueue = new();
-    private volatile RdpEmbeddedForm? _form;
+    private volatile RdpEmbeddedFormMstsc? _form;
     private Thread? _thread;
     private bool _closed;
 
@@ -95,7 +95,7 @@ public sealed class RdpEmbeddedSession
 
             if (_closed) return;
 
-            using var form = new RdpEmbeddedForm(_host, _port, _username, _domain, _password, _options);
+            using var form = new RdpEmbeddedFormMstsc(_host, _port, _username, _domain, _password, _options);
             form.Connected += (s, e) => _uiContext.Post(_ => Connected?.Invoke(this, EventArgs.Empty), null);
             form.Disconnected += (s, e) => _uiContext.Post(_ => Disconnected?.Invoke(this, EventArgs.Empty), null);
             form.ErrorOccurred += (s, msg) => _uiContext.Post(_ => ErrorOccurred?.Invoke(this, msg!), null);
@@ -105,16 +105,25 @@ public sealed class RdpEmbeddedSession
 
             if (_closed) { form.Close(); return; }
 
+            // 必须在 SetParent 之前完成配置与 Connect，否则嵌入到 WPF 窗口后 RDP COM 会与 RCW 分离
+            form.DoConnect();
+
             NativeMethods.SetParent(form.Handle, parentHandle);
             if (NativeMethods.GetClientRect(parentHandle, out var r))
                 form.ResizeToClientArea(r.Width, r.Height);
 
-            form.DoConnect();
             System.Windows.Forms.Application.Run(form);
         }
         catch (Exception ex)
         {
-            _uiContext.Post(_ => ErrorOccurred?.Invoke(this, "RDP 线程异常: " + ex.Message), null);
+            var msg = ex.Message;
+            if (msg.Contains("External component has thrown an exception", StringComparison.OrdinalIgnoreCase))
+                msg = "RDP 连接失败（可能因未填写密码或控件初始化异常）。请填写密码或使用「使用 mstsc 打开」在外部连接。";
+            else if (msg.Contains("IMsRdpExCoreApi", StringComparison.OrdinalIgnoreCase) || msg.Contains("E_NOINTERFACE", StringComparison.OrdinalIgnoreCase) || msg.Contains("80004002"))
+                msg = "内嵌 RDP 控件在此环境下不可用（MsRdpEx 接口不支持）。请使用右键菜单「使用 mstsc 打开」连接。";
+            else
+                msg = "RDP 线程异常: " + msg;
+            _uiContext.Post(_ => ErrorOccurred?.Invoke(this, msg), null);
         }
         finally
         {
@@ -124,7 +133,7 @@ public sealed class RdpEmbeddedSession
 
     public void Disconnect()
     {
-        try { _form?.Invoke(() => _form.DoDisconnect()); } catch { }
+        try { _form?.Invoke(() => _form!.DoDisconnect()); } catch { }
     }
 
     public void Close()
@@ -135,7 +144,7 @@ public sealed class RdpEmbeddedSession
         {
             _form?.Invoke(() =>
             {
-                try { _form?.Close(); } catch { }
+                try { _form!.Close(); } catch { }
             });
         }
         catch { }

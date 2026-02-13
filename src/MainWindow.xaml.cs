@@ -57,6 +57,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, (string host, int port, string username, string? password)> _tabIdToRdpStatsParams = new();
     /// <summary>Tab 连接状态跟踪：tabId -> 是否已断开</summary>
     private readonly Dictionary<string, bool> _tabIdToDisconnected = new();
+    /// <summary>上次关闭 RDP 会话的时间（UTC），关闭后短时内再打开则延迟执行以减轻 COM/RCW 已分离问题。</summary>
+    private DateTime _lastRdpCloseUtc = DateTime.MinValue;
 
     public MainWindow()
     {

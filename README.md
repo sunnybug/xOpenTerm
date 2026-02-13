@@ -8,7 +8,7 @@
 - **连接管理**：双击或右键「连接」打开标签页，支持多标签
 - **本地终端**：内置 PowerShell 或 CMD
 - **SSH**：认证下拉（密码/私钥/同父节点/SSH Agent/登录凭证）、跳板机多选、节点/凭证/隧道内「测试连接」
-- **RDP**：内嵌 RDP 标签页（RoyalApps.MsRdpEx）或通过 mstsc 启动；支持域、控制台会话、剪贴板重定向、智能缩放、RD Gateway（参考 mRemoteNG）；临时 .rdp 与可选 cmdkey 凭据；默认端口 3389、用户名 administrator
+- **RDP**：内嵌 RDP 标签页使用系统 **MSTSCAX**（mstscax.dll），参考 mRemoteNG，不依赖 MsRdpEx；或通过 mstsc 启动；支持域、控制台会话、剪贴板重定向、智能缩放、RD Gateway；临时 .rdp 与可选 cmdkey 凭据；默认端口 3389、用户名 administrator
 - **顶栏菜单**：设置 → 登录凭证、隧道管理、恢复配置；帮助 → 关于、检查更新
 - **配置备份与恢复**：配置文件修改时自动备份到 `%LocalAppData%\xOpenTerm\backup\YYMMDD-HHMMSS\`（60 秒防抖）；设置 → 恢复配置可打开备份列表，按时间与大小显示，支持打开备份目录或恢复（恢复前会先备份当前配置）
 - **登录凭证**：独立管理窗口，可被多个节点引用
@@ -55,6 +55,16 @@
 ```
 
 或使用 Visual Studio 打开 `xOpenTerm.sln` 后 F5 运行。
+
+### 内嵌 RDP 互操作程序集（开发/打包用）
+
+内嵌 RDP 使用系统 mstscax.dll 的互操作（参考 mRemoteNG）。若从源码构建且 `src/References/` 下尚无 `AxMSTSCLib.dll`、`MSTSCLib.dll`，可运行（需已安装 Visual Studio 或 Windows SDK）：
+
+```powershell
+.\script\gen_mstsc_interop.ps1
+```
+
+再将生成的两个 DLL 放入 `src/References/` 后重新构建。
 
 ## 配置目录
 

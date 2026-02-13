@@ -514,10 +514,29 @@ public partial class MainWindow
     {
         try
         {
+            // 关闭 RDP 后 COM 需时间释放，短时内再打开则延迟执行以减轻“COM 已分离”错误
+            var elapsed = DateTime.UtcNow - _lastRdpCloseUtc;
+            if (elapsed < TimeSpan.FromSeconds(1.2))
+            {
+                var delayMs = (int)Math.Max(100, (1.2 - elapsed.TotalSeconds) * 1000);
+                var nodeToOpen = node;
+                Task.Run(async () =>
+                {
+                    await Task.Delay(delayMs);
+                    await Dispatcher.InvokeAsync(() => OpenRdpTab(nodeToOpen));
+                });
+                return;
+            }
+
             var (host, port, username, domain, password, rdpOptions) = ConfigResolver.ResolveRdp(node, _nodes, _credentials);
             if (string.IsNullOrWhiteSpace(host))
             {
                 MessageBox.Show("请填写 RDP 主机地址。", "xOpenTerm");
+                return;
+            }
+            if (string.IsNullOrEmpty(password))
+            {
+                MessageBox.Show("未填写密码或未选择登录凭证，内嵌 RDP 无法自动登录。请填写密码或选择凭证后再连接，或使用右键菜单「使用 mstsc 打开」在外部连接并手动输入密码。", "xOpenTerm");
                 return;
             }
 
@@ -616,6 +635,7 @@ public partial class MainWindow
         if (_tabIdToRdpSession.TryGetValue(tabId, out var rdpSession))
         {
             rdpSession.Close();
+            _lastRdpCloseUtc = DateTime.UtcNow;
             _tabIdToRdpSession.Remove(tabId);
             var nodeId = _tabIdToNodeId.TryGetValue(tabId, out var nid) ? nid : null;
             _tabIdToNodeId.Remove(tabId);
