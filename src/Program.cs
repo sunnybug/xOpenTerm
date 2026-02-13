@@ -25,13 +25,13 @@ internal static class Program
         }
         catch (SEHException ex)
         {
-            ExceptionLog.Write(ex, "SEHException in message loop (likely from native component e.g. PuTTY)");
+            ExceptionLog.Write(ex, "SEHException in message loop (likely from native component e.g. PuTTY/RDP)");
             if (!IsTestRdpMode)
             {
                 try
                 {
                     MessageBox.Show(
-                        "程序因外部组件异常退出，详情已写入日志。\n\n" + ex.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
+                        "程序因内嵌的远程桌面(RDP)或 PuTTY 等原生组件异常而退出，详情已写入日志。\n\n建议：关闭其他标签页后重试，或更新 Windows / PuTTY。\n\n" + ex.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
                         "xOpenTerm",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);

@@ -77,7 +77,7 @@
 
 ## 其他特性
 
-- RDP 支持内嵌标签页与 mstsc 两种方式；节点可配置域、控制台会话、剪贴板重定向、智能缩放、RD Gateway
+- RDP 支持内嵌标签页与 mstsc 两种方式；内嵌 RDP 在独立线程的 WinForms 消息循环中承载（通过 SetParent 嵌入），避免在 WPF 消息循环中触发 SEHException（参考 mRemoteNG）；节点可配置域、控制台会话、剪贴板重定向、智能缩放、RD Gateway
 - 无「远程文件」面板与 `list_remote_dir`
 - 终端为自定义绘制 VT100 终端（ANSI 颜色/SGR、仅绘制可见行，无 xterm.js）
 - 隧道链配置与选择已支持，SSH 支持直连与多跳（经跳板机链本地端口转发连接目标）

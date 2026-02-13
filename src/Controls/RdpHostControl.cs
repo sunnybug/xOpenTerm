@@ -18,6 +18,7 @@ public class RdpHostControl : System.Windows.Forms.UserControl
     private readonly string _username;
     private readonly string _domain;
     private readonly string? _password;
+    private readonly RdpConnectionOptions? _options;
 
     public event EventHandler? Disconnected;
     public event EventHandler? Connected;
@@ -33,6 +34,7 @@ public class RdpHostControl : System.Windows.Forms.UserControl
         _username = username ?? "";
         _domain = domain ?? "";
         _password = password;
+        _options = options;
         Dock = DockStyle.Fill;
         MinimumSize = new System.Drawing.Size(400, 300);
 
@@ -40,16 +42,7 @@ public class RdpHostControl : System.Windows.Forms.UserControl
         _rdpControl.OnDisconnected += Rdp_OnDisconnected;
         _rdpControl.OnConnected += Rdp_OnConnected;
         Controls.Add(_rdpControl);
-
-        var config = _rdpControl.RdpConfiguration;
-        config.Server = _host;
-        config.Port = _port;
-        config.Credentials.Username = _username;
-        config.Credentials.Domain = _domain;
-        if (!string.IsNullOrEmpty(_password))
-            config.Credentials.Password = new SensitiveString(_password);
-
-        ApplyOptions(config, options);
+        // 不在构造时访问 RdpConfiguration，延后到 DoConnect() 中统一设置，避免在未嵌入 WPF 时触发 ActiveX 导致 SEHException
     }
 
     private static void ApplyOptions(dynamic config, RdpConnectionOptions? options)
@@ -98,6 +91,15 @@ public class RdpHostControl : System.Windows.Forms.UserControl
         {
             try
             {
+                if (!_rdpControl.IsHandleCreated) return;
+                var config = _rdpControl.RdpConfiguration;
+                config.Server = _host;
+                config.Port = _port;
+                config.Credentials.Username = _username;
+                config.Credentials.Domain = _domain;
+                if (!string.IsNullOrEmpty(_password))
+                    config.Credentials.Password = new SensitiveString(_password);
+                ApplyOptions(config, _options);
                 _rdpControl.Connect();
             }
             catch (Exception ex)

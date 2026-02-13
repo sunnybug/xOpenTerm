@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
@@ -37,20 +38,25 @@ public partial class App : Application
         if (_isHandlingDispatcherException) return;
         _isHandlingDispatcherException = true;
 
-        ExceptionLog.Write(e.Exception, "DispatcherUnhandledException");
+        var isSeh = e.Exception is SEHException;
+        ExceptionLog.Write(e.Exception, isSeh ? "DispatcherUnhandledException (SEH, native component)" : "DispatcherUnhandledException");
         e.Handled = true;
 
         if (!Program.IsTestRdpMode)
         {
             try
             {
-                MessageBox.Show(
-                    "程序发生未处理的错误，详情已写入日志。\n\n" + e.Exception.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
-                    "xOpenTerm",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                var msg = isSeh
+                    ? "程序因内嵌的远程桌面(RDP)或 PuTTY 等原生组件异常而退出，详情已写入日志。\n\n建议：关闭其他标签页后重试，或更新 Windows / PuTTY。\n\n" + e.Exception.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory
+                    : "程序发生未处理的错误，详情已写入日志。\n\n" + e.Exception.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory;
+                MessageBox.Show(msg, "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch { }
+            if (isSeh)
+            {
+                try { Shutdown(1); } catch { }
+                return;
+            }
         }
     }
 

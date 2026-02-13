@@ -30,7 +30,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, TerminalControl> _tabIdToTerminal = new();
     private readonly Dictionary<string, SshPuttyHostControl> _tabIdToPuttyControl = new();
     private readonly Dictionary<string, string> _tabIdToNodeId = new();
-    private readonly Dictionary<string, RdpHostControl> _tabIdToRdpControl = new();
+    private readonly Dictionary<string, RdpEmbeddedSession> _tabIdToRdpSession = new();
     /// <summary>仅断开（未关闭）的 PuTTY tab，用于右键重连。</summary>
     private readonly HashSet<string> _disconnectedPuttyTabIds = new();
     private ContextMenu? _treeContextMenu;
@@ -129,11 +129,11 @@ public partial class MainWindow : Window
         {
             connected = true;
             ExceptionLog.WriteInfo("TestRDP: Connected successfully");
-            if (_tabIdToRdpControl.TryGetValue("test-rdp", out var ctrl))
+            if (_tabIdToRdpSession.TryGetValue("test-rdp", out var session))
             {
-                ctrl.Connected -= OnConnected;
-                ctrl.Disconnected -= OnDisconnected;
-                ctrl.ErrorOccurred -= OnError;
+                session.Connected -= OnConnected;
+                session.Disconnected -= OnDisconnected;
+                session.ErrorOccurred -= OnError;
             }
             taskCompletionSource.TrySetResult(true);
         }
@@ -162,14 +162,15 @@ public partial class MainWindow : Window
         try
         {
             var (host, port, username, domain, password, rdpOptions) = ConfigResolver.ResolveRdp(rdpNode, _nodes, _credentials);
-            var rdpControl = new RdpHostControl(host, port, username, domain, password, rdpOptions);
-            rdpControl.Connected += OnConnected;
-            rdpControl.Disconnected += OnDisconnected;
-            rdpControl.ErrorOccurred += OnError;
+            var panel = new System.Windows.Forms.Panel { Dock = System.Windows.Forms.DockStyle.Fill, MinimumSize = new System.Drawing.Size(400, 300) };
+            var session = new RdpEmbeddedSession(host, port, username, domain, password, rdpOptions, panel, SynchronizationContext.Current!);
+            session.Connected += OnConnected;
+            session.Disconnected += OnDisconnected;
+            session.ErrorOccurred += OnError;
 
-            _tabIdToRdpControl[tabId] = rdpControl;
+            _tabIdToRdpSession[tabId] = session;
 
-            var hostWpf = new WindowsFormsHost { Child = rdpControl };
+            var hostWpf = new WindowsFormsHost { Child = panel };
             var statusBar = new SshStatusBarControl();
             statusBar.UpdateStats(false, null, null, null, null, null, null);
             var dock = new DockPanel();
@@ -187,7 +188,7 @@ public partial class MainWindow : Window
             TabsControl.SelectedItem = tabItem;
             _tabIdToNodeId[tabId] = rdpNode.Id;
 
-            rdpControl.Connect();
+            session.Start();
 
             var timeout = TimeSpan.FromSeconds(30);
             var delayTask = Task.Delay(timeout);
@@ -416,15 +417,15 @@ public partial class MainWindow : Window
         _tabIdToStatsCts.Clear();
         ExceptionLog.WriteInfo($"进程退出: 状态栏轮询已停止 (共 {statsCtsCount} 个)");
 
-        var rdpCount = _tabIdToRdpControl.Count;
-        foreach (var tabId in _tabIdToRdpControl.Keys.ToList())
+        var rdpCount = _tabIdToRdpSession.Count;
+        foreach (var tabId in _tabIdToRdpSession.Keys.ToList())
         {
-            if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+            if (_tabIdToRdpSession.TryGetValue(tabId, out var session))
             {
-                try { rdp.Disconnect(); rdp.Dispose(); } catch { }
+                try { session.Close(); } catch { }
             }
         }
-        _tabIdToRdpControl.Clear();
+        _tabIdToRdpSession.Clear();
         ExceptionLog.WriteInfo($"进程退出: RDP 已关闭 (共 {rdpCount} 个)");
         var puttyCount = _tabIdToPuttyControl.Count;
         foreach (var tabId in _tabIdToPuttyControl.Keys.ToList())

@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Forms;
 using System.Windows.Forms.Integration;
 using xOpenTerm.Controls;
 using xOpenTerm.Models;
@@ -282,9 +283,9 @@ public partial class MainWindow
 
     private void DisconnectTab(string tabId)
     {
-        if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+        if (_tabIdToRdpSession.TryGetValue(tabId, out var rdpSession))
         {
-            rdp.Disconnect();
+            rdpSession.Disconnect();
             return;
         }
         if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
@@ -431,9 +432,11 @@ public partial class MainWindow
         // 更新标签页图标
         UpdateTabHeaderIcon(tabId);
 
-        if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+        if (_tabIdToRdpSession.TryGetValue(tabId, out var rdpSession))
         {
-            rdp.Connect();
+            // RDP 嵌入会话无法原地重连，关闭当前 tab 后重新打开同一节点
+            CloseTab(tabId);
+            OpenTab(node!);
             return;
         }
         if (_disconnectedPuttyTabIds.Contains(tabId))
@@ -523,55 +526,52 @@ public partial class MainWindow
             var tabTitle = sameCount == 0 ? displayName : $"{displayName} ({sameCount + 1})";
             var tabId = "rdp-" + DateTime.UtcNow.Ticks;
 
-            var rdpControl = new RdpHostControl(host, port, username, domain, password, rdpOptions);
-            rdpControl.ErrorOccurred += (_, msg) =>
+            var panel = new System.Windows.Forms.Panel { Dock = DockStyle.Fill, MinimumSize = new System.Drawing.Size(400, 300) };
+            var session = new RdpEmbeddedSession(host, port, username, domain, password, rdpOptions, panel, SynchronizationContext.Current!);
+            session.ErrorOccurred += (_, msg) =>
             {
                 Dispatcher.Invoke(() => MessageBox.Show(msg, "xOpenTerm"));
             };
-            rdpControl.Disconnected += (_, _) =>
-        {
-            Dispatcher.Invoke(() =>
+            session.Disconnected += (_, _) =>
             {
-                if (_tabIdToRdpControl.ContainsKey(tabId))
-                    CloseTab(tabId);
-            });
-        };
-        rdpControl.Connected += (_, _) =>
-        {
-            Dispatcher.BeginInvoke(() =>
+                Dispatcher.Invoke(() =>
+                {
+                    if (_tabIdToRdpSession.ContainsKey(tabId))
+                        CloseTab(tabId);
+                });
+            };
+            session.Connected += (_, _) =>
             {
-                if (_tabIdToRdpStatsParams.TryGetValue(tabId, out var p))
-                    StartRdpStatusBarPolling(tabId, p.host, (ushort)p.port, p.username, p.password);
-            });
-        };
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (_tabIdToRdpStatsParams.TryGetValue(tabId, out var p))
+                        StartRdpStatusBarPolling(tabId, p.host, (ushort)p.port, p.username, p.password);
+                });
+            };
 
-            var hostWpf = new WindowsFormsHost { Child = rdpControl };
-        var statusBar = new SshStatusBarControl();
-        statusBar.UpdateStats(false, null, null, null, null, null, null);
-        var dock = new DockPanel();
-        DockPanel.SetDock(statusBar, Dock.Bottom);
-        dock.Children.Add(statusBar);
-        dock.Children.Add(hostWpf);
-        var tabItem = new TabItem
-        {
-            Header = CreateTabHeader(tabTitle, tabId, node),
-            Content = dock,
-            Tag = tabId,
-            ContextMenu = CreateTabContextMenu(tabId),
-            Style = (Style)FindResource("AppTabItemStyle")
-        };
-        TabsControl.Items.Add(tabItem);
-        TabsControl.SelectedItem = tabItem;
-        _tabIdToRdpControl[tabId] = rdpControl;
-        _tabIdToRdpStatusBar[tabId] = statusBar;
-        _tabIdToRdpStatsParams[tabId] = (host, port, username, password);
-        _tabIdToNodeId[tabId] = node.Id;
-
-            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
+            var hostWpf = new WindowsFormsHost { Child = panel };
+            var statusBar = new SshStatusBarControl();
+            statusBar.UpdateStats(false, null, null, null, null, null, null);
+            var dock = new DockPanel();
+            DockPanel.SetDock(statusBar, Dock.Bottom);
+            dock.Children.Add(statusBar);
+            dock.Children.Add(hostWpf);
+            var tabItem = new TabItem
             {
-                if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
-                    rdp.Connect();
-            }));
+                Header = CreateTabHeader(tabTitle, tabId, node),
+                Content = dock,
+                Tag = tabId,
+                ContextMenu = CreateTabContextMenu(tabId),
+                Style = (Style)FindResource("AppTabItemStyle")
+            };
+            TabsControl.Items.Add(tabItem);
+            TabsControl.SelectedItem = tabItem;
+            _tabIdToRdpSession[tabId] = session;
+            _tabIdToRdpStatusBar[tabId] = statusBar;
+            _tabIdToRdpStatsParams[tabId] = (host, port, username, password);
+            _tabIdToNodeId[tabId] = node.Id;
+
+            session.Start();
         }
         catch (Exception ex)
         {
@@ -613,11 +613,10 @@ public partial class MainWindow
             RemoveTabItem(tabId);
             return;
         }
-        if (_tabIdToRdpControl.TryGetValue(tabId, out var rdp))
+        if (_tabIdToRdpSession.TryGetValue(tabId, out var rdpSession))
         {
-            rdp.Disconnect();
-            rdp.Dispose();
-            _tabIdToRdpControl.Remove(tabId);
+            rdpSession.Close();
+            _tabIdToRdpSession.Remove(tabId);
             var nodeId = _tabIdToNodeId.TryGetValue(tabId, out var nid) ? nid : null;
             _tabIdToNodeId.Remove(tabId);
             ClearRemoteFileCacheIfNoTabsForNode(nodeId);
