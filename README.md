@@ -8,7 +8,7 @@
 - **连接管理**：双击或右键「连接」打开标签页，支持多标签
 - **本地终端**：内置 PowerShell 或 CMD
 - **SSH**：认证下拉（密码/私钥/同父节点/SSH Agent/登录凭证）、跳板机多选、节点/凭证/隧道内「测试连接」
-- **RDP**：内嵌 RDP 标签页使用系统 **MSTSCAX**（mstscax.dll），参考 mRemoteNG，不依赖 MsRdpEx；或通过 mstsc 启动；支持域、控制台会话、剪贴板重定向、智能缩放、RD Gateway；临时 .rdp 与可选 cmdkey 凭据；默认端口 3389、用户名 administrator
+- **RDP**：内嵌 RDP 标签页使用系统 **MSTSCAX**（mstscax.dll），参考 mRemoteNG，不依赖 MsRdpEx；或通过 mstsc 启动；支持域、控制台会话、剪贴板重定向、智能缩放；临时 .rdp 与可选 cmdkey 凭据；默认端口 3389、用户名 administrator
 - **顶栏菜单**：设置 → 登录凭证、隧道管理、恢复配置；帮助 → 关于、检查更新
 - **配置备份与恢复**：配置文件修改时自动备份到 `%LocalAppData%\xOpenTerm\backup\YYMMDD-HHMMSS\`（60 秒防抖）；设置 → 恢复配置可打开备份列表，按时间与大小显示，支持打开备份目录或恢复（恢复前会先备份当前配置）
 - **登录凭证**：独立管理窗口，可被多个节点引用
@@ -87,7 +87,7 @@
 
 ## 其他特性
 
-- RDP 支持内嵌标签页与 mstsc 两种方式；内嵌 RDP 在独立线程的 WinForms 消息循环中承载（通过 SetParent 嵌入），避免在 WPF 消息循环中触发 SEHException（参考 mRemoteNG）；节点可配置域、控制台会话、剪贴板重定向、智能缩放、RD Gateway
+- RDP 支持内嵌标签页与 mstsc 两种方式；内嵌 RDP 在独立线程的 WinForms 消息循环中承载（通过 SetParent 嵌入），避免在 WPF 消息循环中触发 SEHException（参考 mRemoteNG）；节点可配置域、控制台会话、剪贴板重定向、智能缩放
 - 无「远程文件」面板与 `list_remote_dir`
 - 终端为自定义绘制 VT100 终端（ANSI 颜色/SGR、仅绘制可见行，无 xterm.js）
 - 隧道链配置与选择已支持，SSH 支持直连与多跳（经跳板机链本地端口转发连接目标）

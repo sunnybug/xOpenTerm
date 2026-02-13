@@ -51,36 +51,6 @@
                     <CheckBox x:Name="UseConsoleCheck" Content="使用控制台会话 (/admin)" Foreground="{StaticResource TextPrimary}" Margin="0,0,16,0"/>
                     <CheckBox x:Name="RedirectClipboardCheck" Content="剪贴板重定向" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
-                <Expander x:Name="GatewayExpander" Header="RD Gateway" Foreground="{StaticResource TextPrimary}" Margin="0,4,0,0" IsExpanded="False">
-                    <StackPanel Margin="8,4,0,4">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <TextBlock Text="网关主机" Width="72" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                            <TextBox x:Name="GatewayHostBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <TextBlock Text="使用方式" Width="72" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                            <ComboBox x:Name="GatewayUsageCombo" Width="120" Style="{StaticResource SimpleComboBoxStyle}" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionChanged="GatewayUsageCombo_SelectionChanged"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <TextBlock Text="网关凭据" Width="72" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                            <ComboBox x:Name="GatewayCredCombo" Width="140" Style="{StaticResource SimpleComboBoxStyle}" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionChanged="GatewayCredCombo_SelectionChanged"/>
-                        </StackPanel>
-                        <StackPanel x:Name="GatewayCredPanel" Orientation="Vertical" Visibility="Collapsed">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                <TextBlock Text="网关用户" Width="72" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                                <TextBox x:Name="GatewayUserBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                <TextBlock Text="网关域" Width="72" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                                <TextBox x:Name="GatewayDomainBox" Width="160" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                <TextBlock Text="网关密码" Width="72" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                                <PasswordBox x:Name="GatewayPasswordBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </StackPanel>
-                </Expander>
             </StackPanel>
         </ScrollViewer>
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">

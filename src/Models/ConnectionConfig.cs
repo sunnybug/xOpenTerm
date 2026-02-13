@@ -74,28 +74,6 @@ public class ConnectionConfig
     [YamlMember(Alias = "rdpSmartSizing")]
     public bool? RdpSmartSizing { get; set; }
 
-    /// <summary>RD Gateway 主机名。</summary>
-    [YamlMember(Alias = "rdpGatewayHostname")]
-    public string? RdpGatewayHostname { get; set; }
-
-    /// <summary>RD Gateway 使用方式：0=从不，1=始终，2=自动检测。</summary>
-    [YamlMember(Alias = "rdpGatewayUsageMethod")]
-    public int? RdpGatewayUsageMethod { get; set; }
-
-    /// <summary>RD Gateway 是否使用连接凭据：0=否（单独填网关账号），1=是。</summary>
-    [YamlMember(Alias = "rdpGatewayUseConnectionCredentials")]
-    public int? RdpGatewayUseConnectionCredentials { get; set; }
-
-    [YamlMember(Alias = "rdpGatewayUsername")]
-    public string? RdpGatewayUsername { get; set; }
-
-    /// <summary>RD Gateway 密码（加密存储）。</summary>
-    [YamlMember(Alias = "rdpGatewayPassword")]
-    public string? RdpGatewayPassword { get; set; }
-
-    [YamlMember(Alias = "rdpGatewayDomain")]
-    public string? RdpGatewayDomain { get; set; }
-
     #endregion
 
     /// <summary>腾讯云等云厂商的实例资源 ID，用于唯一标记服务器、做同步时比对。</summary>

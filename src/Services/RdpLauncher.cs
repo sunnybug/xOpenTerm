@@ -5,7 +5,7 @@ using xOpenTerm.Models;
 
 namespace xOpenTerm.Services;
 
-/// <summary>启动 Windows 远程桌面（mstsc）：临时 .rdp 文件 + 可选 cmdkey 写入凭据。参考 mRemoteNG 支持域、控制台会话、剪贴板、SmartSizing、RD Gateway。</summary>
+/// <summary>启动 Windows 远程桌面（mstsc）：临时 .rdp 文件 + 可选 cmdkey 写入凭据。参考 mRemoteNG 支持域、控制台会话、剪贴板、SmartSizing。</summary>
 public static class RdpLauncher
 {
     public static void Launch(Node node)
@@ -57,25 +57,6 @@ public static class RdpLauncher
         sb.Append("smart sizing:i:1\n");
         if (config.RdpUseConsoleSession == true)
             sb.Append("administrativesession:i:1\n");
-
-        // RD Gateway（参考 mRemoteNG RDGatewayUsageMethod）
-        var gwMethod = config.RdpGatewayUsageMethod ?? 0;
-        if (!string.IsNullOrWhiteSpace(config.RdpGatewayHostname) && gwMethod != 0)
-        {
-            sb.Append($"gatewayhostname:s:{config.RdpGatewayHostname!.Trim()}\n");
-            sb.Append($"gatewayusagemethod:i:{gwMethod}\n");
-            // gatewaycredentialssource: 0=用连接凭据 1=询问 2=智能卡 4=单独凭据
-            var useConnCreds = config.RdpGatewayUseConnectionCredentials ?? 1;
-            sb.Append($"gatewaycredentialssource:i:{(useConnCreds == 1 ? 0 : 4)}\n");
-            if (useConnCreds != 1 && !string.IsNullOrEmpty(config.RdpGatewayUsername))
-            {
-                sb.Append($"gatewayusername:s:{config.RdpGatewayUsername}\n");
-                if (!string.IsNullOrEmpty(config.RdpGatewayDomain))
-                    sb.Append($"gatewaydomain:s:{config.RdpGatewayDomain}\n");
-                if (!string.IsNullOrEmpty(config.RdpGatewayPassword))
-                    sb.Append($"gatewaypassword:b:{Convert.ToBase64String(Encoding.Unicode.GetBytes(config.RdpGatewayPassword))}\n");
-            }
-        }
 
         var tempDir = Path.GetTempPath();
         var rdpPath = Path.Combine(tempDir, $"xOpenTerm_{node.Id.Replace("-", "_")}.rdp");

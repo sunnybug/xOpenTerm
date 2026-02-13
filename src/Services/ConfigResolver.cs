@@ -81,13 +81,7 @@ public static class ConfigResolver
             Domain = parent.Config.Domain ?? config.Domain,
             RdpUseConsoleSession = config.RdpUseConsoleSession ?? parent.Config.RdpUseConsoleSession,
             RdpRedirectClipboard = config.RdpRedirectClipboard ?? parent.Config.RdpRedirectClipboard,
-            RdpSmartSizing = config.RdpSmartSizing ?? parent.Config.RdpSmartSizing,
-            RdpGatewayHostname = config.RdpGatewayHostname ?? parent.Config.RdpGatewayHostname,
-            RdpGatewayUsageMethod = config.RdpGatewayUsageMethod ?? parent.Config.RdpGatewayUsageMethod,
-            RdpGatewayUseConnectionCredentials = config.RdpGatewayUseConnectionCredentials ?? parent.Config.RdpGatewayUseConnectionCredentials,
-            RdpGatewayUsername = config.RdpGatewayUsername ?? parent.Config.RdpGatewayUsername,
-            RdpGatewayPassword = config.RdpGatewayPassword ?? parent.Config.RdpGatewayPassword,
-            RdpGatewayDomain = config.RdpGatewayDomain ?? parent.Config.RdpGatewayDomain
+            RdpSmartSizing = config.RdpSmartSizing ?? parent.Config.RdpSmartSizing
         };
     }
 
