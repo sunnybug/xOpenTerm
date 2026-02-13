@@ -511,7 +511,7 @@ public partial class MainWindow
     {
         try
         {
-            var (host, port, username, domain, password) = ConfigResolver.ResolveRdp(node, _nodes, _credentials);
+            var (host, port, username, domain, password, rdpOptions) = ConfigResolver.ResolveRdp(node, _nodes, _credentials);
             if (string.IsNullOrWhiteSpace(host))
             {
                 MessageBox.Show("请填写 RDP 主机地址。", "xOpenTerm");
@@ -523,7 +523,7 @@ public partial class MainWindow
             var tabTitle = sameCount == 0 ? displayName : $"{displayName} ({sameCount + 1})";
             var tabId = "rdp-" + DateTime.UtcNow.Ticks;
 
-            var rdpControl = new RdpHostControl(host, port, username, domain, password);
+            var rdpControl = new RdpHostControl(host, port, username, domain, password, rdpOptions);
             rdpControl.ErrorOccurred += (_, msg) =>
             {
                 Dispatcher.Invoke(() => MessageBox.Show(msg, "xOpenTerm"));

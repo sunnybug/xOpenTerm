@@ -3,9 +3,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Forms.Integration;
 using xOpenTerm.Controls;
 using xOpenTerm.Models;
 using xOpenTerm.Services;
@@ -62,6 +64,18 @@ public partial class MainWindow : Window
         var settings = _storage.LoadAppSettings();
         ApplyAppSettings(settings);
         ApplyWindowAndLayout(settings);
+
+        if (Program.IsTestRdpMode)
+        {
+            Loaded += (_, _) =>
+            {
+                LoadData();
+                BuildTree(expandNodes: true, initialExpandedIds: null);
+                RunTestRdp();
+            };
+            return;
+        }
+
         // 启动时检查是否已询问过主密码：未询问则弹窗设置，已设置则弹窗输入；取消输入则退出
         if (!EnsureMasterPasswordThenContinue(settings))
         {
@@ -88,6 +102,123 @@ public partial class MainWindow : Window
         RemotePathBox.Text = ".";
         Closing += MainWindow_Closing;
         Activated += MainWindow_Activated;
+
+        if (Program.IsTestRdpMode)
+        {
+            RunTestRdp();
+        }
+    }
+
+    private async void RunTestRdp()
+    {
+        var rdpNode = _nodes.FirstOrDefault(n => n.Type == NodeType.rdp);
+        if (rdpNode == null)
+        {
+            ExceptionLog.WriteInfo("TestRDP: No RDP node found");
+            Application.Current.Shutdown(1);
+            return;
+        }
+
+        ExceptionLog.WriteInfo($"TestRDP: Found RDP node: {rdpNode.Name} ({rdpNode.Config?.Host})");
+
+        var connected = false;
+        var failed = false;
+        var taskCompletionSource = new TaskCompletionSource<bool>();
+
+        void OnConnected(object? sender, EventArgs e)
+        {
+            connected = true;
+            ExceptionLog.WriteInfo("TestRDP: Connected successfully");
+            if (_tabIdToRdpControl.TryGetValue("test-rdp", out var ctrl))
+            {
+                ctrl.Connected -= OnConnected;
+                ctrl.Disconnected -= OnDisconnected;
+                ctrl.ErrorOccurred -= OnError;
+            }
+            taskCompletionSource.TrySetResult(true);
+        }
+
+        void OnDisconnected(object? sender, EventArgs e)
+        {
+            ExceptionLog.WriteInfo("TestRDP: Disconnected");
+            if (!connected)
+            {
+                failed = true;
+                taskCompletionSource.TrySetResult(false);
+            }
+        }
+
+        void OnError(object? sender, string msg)
+        {
+            ExceptionLog.WriteInfo($"TestRDP: Error - {msg}");
+            failed = true;
+            taskCompletionSource.TrySetResult(false);
+        }
+
+        var tabId = "test-rdp";
+        var sameCount = _tabIdToNodeId.Values.Count(id => id == rdpNode.Id);
+        var tabTitle = sameCount == 0 ? rdpNode.Name : $"{rdpNode.Name} ({sameCount + 1})";
+
+        try
+        {
+            var (host, port, username, domain, password, rdpOptions) = ConfigResolver.ResolveRdp(rdpNode, _nodes, _credentials);
+            var rdpControl = new RdpHostControl(host, port, username, domain, password, rdpOptions);
+            rdpControl.Connected += OnConnected;
+            rdpControl.Disconnected += OnDisconnected;
+            rdpControl.ErrorOccurred += OnError;
+
+            _tabIdToRdpControl[tabId] = rdpControl;
+
+            var hostWpf = new WindowsFormsHost { Child = rdpControl };
+            var statusBar = new SshStatusBarControl();
+            statusBar.UpdateStats(false, null, null, null, null, null, null);
+            var dock = new DockPanel();
+            DockPanel.SetDock(statusBar, Dock.Bottom);
+            dock.Children.Add(statusBar);
+            dock.Children.Add(hostWpf);
+            var tabItem = new TabItem
+            {
+                Header = tabTitle,
+                Content = dock,
+                Tag = tabId,
+                Style = (Style)FindResource("AppTabItemStyle")
+            };
+            TabsControl.Items.Add(tabItem);
+            TabsControl.SelectedItem = tabItem;
+            _tabIdToNodeId[tabId] = rdpNode.Id;
+
+            rdpControl.Connect();
+
+            var timeout = TimeSpan.FromSeconds(30);
+            var delayTask = Task.Delay(timeout);
+            var connectTask = taskCompletionSource.Task;
+
+            var completedTask = await Task.WhenAny(connectTask, delayTask);
+
+            if (completedTask == delayTask && !connected && !failed)
+            {
+                ExceptionLog.WriteInfo("TestRDP: Timeout after 30 seconds");
+                Application.Current.Shutdown(1);
+                return;
+            }
+
+            if (connected)
+            {
+                ExceptionLog.WriteInfo("TestRDP: Connection test passed");
+                await Task.Delay(1000);
+                Application.Current.Shutdown(0);
+            }
+            else if (failed)
+            {
+                ExceptionLog.WriteInfo("TestRDP: Connection test failed");
+                Application.Current.Shutdown(1);
+            }
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "TestRDP: Exception");
+            Application.Current.Shutdown(1);
+        }
     }
 
     /// <summary>确保主密码已设置或已输入：未询问则弹窗设置，已设置则弹窗输入。返回 true 表示可继续加载数据，false 表示用户取消输入主密码应退出。</summary>

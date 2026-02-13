@@ -8,15 +8,15 @@ public record JumpHop(string Host, ushort Port, string Username, string? Passwor
 /// <summary>解析节点配置：认证来源、凭证、隧道（直连 + 多跳跳板机）</summary>
 public static class ConfigResolver
 {
-    /// <summary>解析 RDP 连接参数（主机、端口、用户名、域、密码）。</summary>
-    public static (string host, int port, string username, string domain, string? password) ResolveRdp(
+    /// <summary>解析 RDP 连接参数（主机、端口、用户名、域、密码、显示选项）。</summary>
+    public static (string host, int port, string username, string domain, string? password, RdpConnectionOptions? options) ResolveRdp(
         Node node, List<Node> allNodes, List<Credential> credentials)
     {
         var effective = ResolveEffectiveRdpConfig(node, allNodes);
         var host = effective.Host?.Trim() ?? "";
         var port = effective.Port ?? 3389;
         string username;
-        string domain = ""; // RDP 不用域
+        var domain = effective.Domain?.Trim() ?? "";
         string? password = null;
 
         if (effective.AuthSource == AuthSource.credential && !string.IsNullOrEmpty(effective.CredentialId))
@@ -33,7 +33,13 @@ public static class ConfigResolver
         }
         if (string.IsNullOrEmpty(username)) username = "administrator";
 
-        return (host, port, username, domain, password);
+        var options = new RdpConnectionOptions
+        {
+            UseConsoleSession = effective.RdpUseConsoleSession == true,
+            RedirectClipboard = effective.RdpRedirectClipboard == true,
+            SmartSizing = effective.RdpSmartSizing == true
+        };
+        return (host, port, username, domain, password, options);
     }
 
     /// <summary>从节点向上查找第一个带 Config 的分组或云组节点。</summary>
@@ -72,7 +78,16 @@ public static class ConfigResolver
             KeyPassphrase = parent.Config.KeyPassphrase ?? config.KeyPassphrase,
             AuthSource = parent.Config.AuthSource,
             CredentialId = rdpCredId,
-            Domain = parent.Config.Domain ?? config.Domain
+            Domain = parent.Config.Domain ?? config.Domain,
+            RdpUseConsoleSession = config.RdpUseConsoleSession ?? parent.Config.RdpUseConsoleSession,
+            RdpRedirectClipboard = config.RdpRedirectClipboard ?? parent.Config.RdpRedirectClipboard,
+            RdpSmartSizing = config.RdpSmartSizing ?? parent.Config.RdpSmartSizing,
+            RdpGatewayHostname = config.RdpGatewayHostname ?? parent.Config.RdpGatewayHostname,
+            RdpGatewayUsageMethod = config.RdpGatewayUsageMethod ?? parent.Config.RdpGatewayUsageMethod,
+            RdpGatewayUseConnectionCredentials = config.RdpGatewayUseConnectionCredentials ?? parent.Config.RdpGatewayUseConnectionCredentials,
+            RdpGatewayUsername = config.RdpGatewayUsername ?? parent.Config.RdpGatewayUsername,
+            RdpGatewayPassword = config.RdpGatewayPassword ?? parent.Config.RdpGatewayPassword,
+            RdpGatewayDomain = config.RdpGatewayDomain ?? parent.Config.RdpGatewayDomain
         };
     }
 

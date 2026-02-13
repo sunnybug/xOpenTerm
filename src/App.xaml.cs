@@ -40,16 +40,18 @@ public partial class App : Application
         ExceptionLog.Write(e.Exception, "DispatcherUnhandledException");
         e.Handled = true;
 
-        try
+        if (!Program.IsTestRdpMode)
         {
-            MessageBox.Show(
-                "程序发生未处理的错误，详情已写入日志。\n\n" + e.Exception.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
-                "xOpenTerm",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            try
+            {
+                MessageBox.Show(
+                    "程序发生未处理的错误，详情已写入日志。\n\n" + e.Exception.Message + "\n\n日志目录：\n" + ExceptionLog.LogDirectory,
+                    "xOpenTerm",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            catch { }
         }
-        catch { }
-        Environment.Exit(1);
     }
 
     private void OnUnhandledException(object? sender, UnhandledExceptionEventArgs e)

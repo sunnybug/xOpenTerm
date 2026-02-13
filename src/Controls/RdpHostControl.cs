@@ -1,12 +1,14 @@
+using System.Reflection;
 using System.Runtime.Versioning;
 using System.Windows.Forms;
 using RoyalApps.Community.Rdp.WinForms.Configuration;
 using RoyalApps.Community.Rdp.WinForms.Controls;
 using SensitiveString = RoyalApps.Community.Rdp.WinForms.Configuration.SensitiveString;
+using xOpenTerm.Models;
 
 namespace xOpenTerm.Controls;
 
-/// <summary>在 WinForms 中承载 RDP 控件并连接，供 WPF 通过 WindowsFormsHost 嵌入标签页。基于 RoyalApps.Community.Rdp.WinForms（MsRdpEx）。</summary>
+/// <summary>在 WinForms 中承载 RDP 控件并连接，供 WPF 通过 WindowsFormsHost 嵌入标签页。基于 RoyalApps.Community.Rdp.WinForms（MsRdpEx），参考 mRemoteNG 支持 SmartSizing、剪贴板重定向等。</summary>
 [SupportedOSPlatform("windows")]
 public class RdpHostControl : System.Windows.Forms.UserControl
 {
@@ -22,6 +24,9 @@ public class RdpHostControl : System.Windows.Forms.UserControl
     public event EventHandler<string>? ErrorOccurred;
 
     public RdpHostControl(string host, int port, string username, string domain, string? password)
+        : this(host, port, username, domain, password, null) { }
+
+    public RdpHostControl(string host, int port, string username, string domain, string? password, RdpConnectionOptions? options)
     {
         _host = host ?? "";
         _port = port;
@@ -43,6 +48,47 @@ public class RdpHostControl : System.Windows.Forms.UserControl
         config.Credentials.Domain = _domain;
         if (!string.IsNullOrEmpty(_password))
             config.Credentials.Password = new SensitiveString(_password);
+
+        ApplyOptions(config, options);
+    }
+
+    private static void ApplyOptions(dynamic config, RdpConnectionOptions? options)
+    {
+        if (options == null) return;
+        try
+        {
+            // SmartSizing：RoyalApps 为 Display.ResizeBehavior = SmartSizing
+            if (options.SmartSizing)
+            {
+                object? display = null;
+                try { display = config.Display; } catch { }
+                if (display != null)
+                {
+                    var displayType = display.GetType();
+                    var resizeProp = displayType.GetProperty("ResizeBehavior");
+                    if (resizeProp != null)
+                    {
+                        var enumType = resizeProp.PropertyType;
+                        var smartSizing = Enum.Parse(enumType, "SmartSizing", ignoreCase: true);
+                        resizeProp.SetValue(display, smartSizing);
+                    }
+                }
+            }
+            // RedirectClipboard：部分 RDP 配置暴露 RedirectClipboard
+            if (options.RedirectClipboard)
+            {
+                try
+                {
+                    var prop = config.GetType().GetProperty("RedirectClipboard");
+                    prop?.SetValue(config, true);
+                }
+                catch { /* 库可能无此属性 */ }
+            }
+        }
+        catch
+        {
+            // 忽略选项应用失败，连接仍可继续
+        }
     }
 
     /// <summary>发起连接。若控件尚未创建/加载，会延迟到 Load 后再连接，避免 InvalidActiveXStateException。</summary>

@@ -419,6 +419,7 @@ public class StorageService
         c.AliAccessKeySecret = SecretService.Decrypt(c.AliAccessKeySecret);
         c.KsyunAccessKeyId = SecretService.Decrypt(c.KsyunAccessKeyId);
         c.KsyunAccessKeySecret = SecretService.Decrypt(c.KsyunAccessKeySecret);
+        c.RdpGatewayPassword = SecretService.Decrypt(c.RdpGatewayPassword);
         if (c.Tunnel != null)
         {
             foreach (var hop in c.Tunnel)
@@ -436,6 +437,7 @@ public class StorageService
         c.AliAccessKeySecret = SecretService.Encrypt(c.AliAccessKeySecret, configVersion);
         c.KsyunAccessKeyId = SecretService.Encrypt(c.KsyunAccessKeyId, configVersion);
         c.KsyunAccessKeySecret = SecretService.Encrypt(c.KsyunAccessKeySecret, configVersion);
+        c.RdpGatewayPassword = SecretService.Encrypt(c.RdpGatewayPassword, configVersion);
         if (c.Tunnel != null)
         {
             foreach (var hop in c.Tunnel)

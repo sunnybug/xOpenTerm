@@ -2,10 +2,12 @@
 # Runtime working directory is .run
 
 param(
-    [switch]$Release
+    [switch]$Release,
+    [switch]$TestRdp
 )
 
 if ($args -contains "--release") { $Release = $true }
+if ($args -contains "--test-rdp") { $TestRdp = $true }
 
 $ErrorActionPreference = "Stop"
 trap {
@@ -54,25 +56,28 @@ try {
     Write-Host "Error killing process: $_" -ForegroundColor Yellow
 }
 
-# Clear runtime logs
-Write-Host "Clearing runtime logs..." -ForegroundColor Yellow
-try {
-    $logDir = Join-Path $RunDir "log"
-    if (Test-Path -Path $logDir -PathType Container) {
-        Get-ChildItem -Path $logDir -File | Remove-Item -Force
-        Write-Host "Logs cleared successfully" -ForegroundColor Green
+# Clear runtime logs (skip when in test mode)
+if (-not $TestRdp) {
+    Write-Host "Clearing runtime logs..." -ForegroundColor Yellow
+    try {
+        $logDir = Join-Path $RunDir "log"
+        if (Test-Path -Path $logDir -PathType Container) {
+            Get-ChildItem -Path $logDir -File | Remove-Item -Force
+            Write-Host "Logs cleared successfully" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "Error clearing logs: $_" -ForegroundColor Yellow
     }
-} catch {
-    Write-Host "Error clearing logs: $_" -ForegroundColor Yellow
 }
 
 # Run application and capture error output
 # 工作路径为 .run，配置文件从 工作路径\config（即 .run\config）读取，日志在 .run\log
 $errorLogPath = Join-Path $RunDir "log\error.log"
+$appArgs = if ($TestRdp) { "--test-rdp" } else { "" }
 try {
     $projectPath = Join-Path $Root "src\xOpenTerm.csproj"
     $config = if ($Release) { "Release" } else { "Debug" }
-    $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config" -WorkingDirectory $RunDir -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
+    $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config", "--", $appArgs.Trim() -WorkingDirectory $RunDir -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
 
     # Wait for application to exit
     $process.WaitForExit()
@@ -96,5 +101,22 @@ try {
         Write-Host "Application exited normally" -ForegroundColor Green
     }
 } finally {
-    # nothing to pop
+    # Check for crash/error logs
+    $logDir = Join-Path $RunDir "log"
+    if (Test-Path -Path $logDir -PathType Container) {
+        # Check for crash/error log files
+        $crashErrorFiles = Get-ChildItem -Path $logDir -File | Where-Object { $_.Name -match "error|crash|exception" }
+        foreach ($file in $crashErrorFiles) {
+            Write-Host "Crash/error log file: $($file.Name)" -ForegroundColor Red
+        }
+
+        # Check for error keyword in all log files
+        $allLogFiles = Get-ChildItem -Path $logDir -File
+        foreach ($file in $allLogFiles) {
+            $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+            if ($content -and $content -match "error|exception|failed|fatal") {
+                Write-Host "Log file with error keyword: $($file.Name)" -ForegroundColor Red
+            }
+        }
+    }
 }
