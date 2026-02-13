@@ -186,7 +186,7 @@ public partial class MainWindow
         return null;
     }
 
-    private bool TryGetCloudConsoleDetailUrl(Node node, out string? url)
+    private bool TryGetCloudDetailUrl(Node node, out string? url)
     {
         url = null;
         if (node.Config?.ResourceId == null || node.Config.CloudRegionId == null) return false;
@@ -205,7 +205,7 @@ public partial class MainWindow
             case NodeType.aliCloudGroup:
                 url = isLightweight
                     ? $"https://swas.console.aliyun.com/#/server/detail?regionId={Uri.EscapeDataString(region)}&instanceId={Uri.EscapeDataString(instanceId)}"
-                    : $"https://ecs.console.aliyun.com/#/server/ecs/detail?regionId={Uri.EscapeDataString(region)}&instanceId={Uri.EscapeDataString(instanceId)}";
+                    : $"https://ecs.console.aliyun.com/server/{Uri.EscapeDataString(instanceId)}/detail?regionId={Uri.EscapeDataString(region)}#/";
                 break;
             case NodeType.kingsoftCloudGroup:
                 url = $"https://kec.console.ksyun.com/v2/#/kec/detail?Region={Uri.EscapeDataString(region)}&kec={Uri.EscapeDataString(instanceId)}";
@@ -334,8 +334,8 @@ public partial class MainWindow
         else
         {
             menu.Items.Add(CreateMenuItem("连接(_L)", () => OpenTab(node)));
-            if (TryGetCloudConsoleDetailUrl(node, out var detailUrl))
-                menu.Items.Add(CreateMenuItem("详情(_V)", () => OpenCloudConsoleDetail(detailUrl!)));
+            if (TryGetCloudDetailUrl(node, out var cloudDetailUrl))
+                menu.Items.Add(CreateMenuItem("云详情(_V)", () => OpenCloudDetail(cloudDetailUrl!)));
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => EditNode(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteNode(node)));
@@ -344,7 +344,7 @@ public partial class MainWindow
         return menu;
     }
 
-    private static void OpenCloudConsoleDetail(string url)
+    private static void OpenCloudDetail(string url)
     {
         try
         {
@@ -352,7 +352,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            ExceptionLog.Write(ex, "打开云控制台详情链接失败");
+            ExceptionLog.Write(ex, "打开云详情链接失败");
             MessageBox.Show($"无法打开链接：{ex.Message}", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
