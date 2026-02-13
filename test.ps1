@@ -1,5 +1,5 @@
 # Function: Build and run xOpenTerm project, default Debug, use --release for Release
-# Runtime working directory is .run
+# Runtime working directory is .run（config 与 log 在 .run 下）
 
 param(
     [switch]$Release,
@@ -21,12 +21,11 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $BuildScript = Join-Path $Root "script\build.ps1"
 $RunDir = Join-Path $Root ".run"
 
-# Ensure runtime directory exists
-if (! (Test-Path -Path $RunDir -PathType Container)) {
-    New-Item -ItemType Directory -Path $RunDir -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $RunDir "log") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $RunDir "config") -Force | Out-Null
-}
+# 工作目录为 .run，确保 .run/log 与 .run/config 存在
+$LogDir = Join-Path $RunDir "log"
+if (! (Test-Path -Path $RunDir -PathType Container)) { New-Item -ItemType Directory -Path $RunDir -Force | Out-Null }
+if (! (Test-Path -Path $LogDir -PathType Container)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+if (! (Test-Path -Path (Join-Path $RunDir "config") -PathType Container)) { New-Item -ItemType Directory -Path (Join-Path $RunDir "config") -Force | Out-Null }
 
 # Build project
 Write-Host "Starting build..." -ForegroundColor Cyan
@@ -60,9 +59,8 @@ try {
 if (-not $TestRdp) {
     Write-Host "Clearing runtime logs..." -ForegroundColor Yellow
     try {
-        $logDir = Join-Path $RunDir "log"
-        if (Test-Path -Path $logDir -PathType Container) {
-            Get-ChildItem -Path $logDir -File | Remove-Item -Force
+        if (Test-Path -Path $LogDir -PathType Container) {
+            Get-ChildItem -Path $LogDir -File | Remove-Item -Force
             Write-Host "Logs cleared successfully" -ForegroundColor Green
         }
     } catch {
@@ -70,9 +68,8 @@ if (-not $TestRdp) {
     }
 }
 
-# Run application and capture error output
-# 工作路径为 .run，配置文件从 工作路径\config（即 .run\config）读取，日志在 .run\log
-$errorLogPath = Join-Path $RunDir "log\error.log"
+# Run application and capture error output（工作路径为 .run，config 与 log 在 .run 下）
+$errorLogPath = Join-Path $LogDir "error.log"
 $appArgs = if ($TestRdp) { "--test-rdp" } else { "" }
 try {
     $projectPath = Join-Path $Root "src\xOpenTerm.csproj"
@@ -89,9 +86,8 @@ try {
         Write-Host "Application exited abnormally, exit code: $($process.ExitCode)" -ForegroundColor Red
 
         # Read error log
-        $logDir = Join-Path $RunDir "log"
-        if (!(Test-Path $logDir -PathType Container)) {
-            New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+        if (!(Test-Path -Path $LogDir -PathType Container)) {
+            New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
         }
         if (Test-Path -Path $errorLogPath -PathType Leaf) {
             Write-Host "Error log content:" -ForegroundColor Yellow
@@ -101,22 +97,30 @@ try {
         Write-Host "Application exited normally" -ForegroundColor Green
     }
 } finally {
-    # Check for crash/error logs
-    $logDir = Join-Path $RunDir "log"
-    if (Test-Path -Path $logDir -PathType Container) {
-        # Check for crash/error log files
-        $crashErrorFiles = Get-ChildItem -Path $logDir -File | Where-Object { $_.Name -match "error|crash|exception" }
+    # 若有内容的 crash/error 日志，或任意日志含 error 关键字，则输出该日志的完整路径
+    if (Test-Path -Path $LogDir -PathType Container) {
+        $pathsToShow = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
+        # crash/error 命名的文件且非空时，输出完整路径
+        $crashErrorFiles = Get-ChildItem -Path $LogDir -File | Where-Object { $_.Name -match "error|crash|exception" }
         foreach ($file in $crashErrorFiles) {
-            Write-Host "Crash/error log file: $($file.Name)" -ForegroundColor Red
+            $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+            if ($content -and $content.Trim().Length -gt 0) {
+                [void]$pathsToShow.Add($file.FullName)
+            }
         }
 
-        # Check for error keyword in all log files
-        $allLogFiles = Get-ChildItem -Path $logDir -File
+        # 任意日志文件中含 error/exception/failed/fatal 整词时，输出完整路径（避免误匹配 ExceptionLog、False 等）
+        $allLogFiles = Get-ChildItem -Path $LogDir -File
         foreach ($file in $allLogFiles) {
             $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
-            if ($content -and $content -match "error|exception|failed|fatal") {
-                Write-Host "Log file with error keyword: $($file.Name)" -ForegroundColor Red
+            if ($content -and $content -match '\b(error|exception|failed|fatal)\b') {
+                [void]$pathsToShow.Add($file.FullName)
             }
+        }
+
+        foreach ($path in $pathsToShow) {
+            Write-Host "Log: $path" -ForegroundColor Red
         }
     }
 }

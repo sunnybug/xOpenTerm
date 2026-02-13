@@ -5,7 +5,7 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm.Tests;
 
-/// <summary>金山云同步单元测试：使用 .run/config 中的金山云密钥调用 ListInstances，用于复现和验证同步问题。</summary>
+/// <summary>金山云同步单元测试：使用工作目录 config 中的金山云密钥调用 ListInstances，用于复现和验证同步问题。</summary>
 public class KingsoftCloudSyncTests
 {
     private static string GetFullExceptionMessage(Exception ex)
@@ -21,8 +21,8 @@ public class KingsoftCloudSyncTests
         var dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         while (!string.IsNullOrEmpty(dir))
         {
-            var runConfig = Path.Combine(dir, ".run", "config");
-            if (Directory.Exists(runConfig))
+            var configDir = Path.Combine(dir, "config");
+            if (Directory.Exists(configDir))
                 return dir;
             dir = Path.GetDirectoryName(dir);
         }
@@ -35,7 +35,7 @@ public class KingsoftCloudSyncTests
         var repoRoot = FindRepoRoot();
         if (string.IsNullOrEmpty(repoRoot))
         {
-            Assert.Ignore("未找到包含 .run/config 的仓库根目录，跳过金山云同步测试。请在仓库根目录执行 dotnet test。");
+            Assert.Ignore("未找到包含 config 的仓库根目录，跳过金山云同步测试。请在仓库根目录执行 dotnet test。");
             return;
         }
 
@@ -52,7 +52,7 @@ public class KingsoftCloudSyncTests
 
             if (kingsoftGroup == null)
             {
-                Assert.Ignore(".run/config 中未找到已配置密钥的金山云组节点，跳过测试。");
+                Assert.Ignore("config 中未找到已配置密钥的金山云组节点，跳过测试。");
                 return;
             }
 

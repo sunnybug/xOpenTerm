@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **注意**：
 - 构建输出目录为 `.temp/bin/`，中间文件为 `.temp/obj/`
-- test.ps1 启动时**工作路径为 .run**，配置文件从 工作路径\config（即 `.run/config/`）读取，日志在 `.run/log/`
+- test.ps1 启动时**工作路径为 .run**，配置文件从 工作路径\config（即 .run\config）读取，日志在 .run\log
 - test.ps1 会自动强杀现有 xOpenTerm 进程、清除日志后再启动
 - crash log ：log/YYYY-MM-DD_crash.log
 ## 项目架构
@@ -33,7 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `src/` — 源码（WPF XAML + C#）
 - `script/` — 构建脚本（build.ps1, publish.ps1, init_dev.ps1）
 - `bin/` — 工作目录（配置、日志、临时覆盖配置）
-- `.run/` — 运行时工作目录（与 bin 类似，作为运行时配置路径）
+- `.run/` — test.ps1 运行时工作目录（.run\config、.run\log）
 - `.temp/` — 编译输出目录
 - `dist/` — 发布目录
 - `doc/`、`aidoc/` — 文档目录
@@ -83,9 +83,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 配置系统
 
 **配置目录解析顺序**（StorageService.GetConfigDir）：
-1. `.run/config/`（运行时配置）
-2. `config/`（工作目录配置）
-3. `<exe所在目录>/config/`（默认配置）
+1. `<当前工作目录>/config/`
+2. `<exe所在目录>/config/`（工作目录下无 config 时）
 
 **加密机制**（SecretService）：
 - `xot1:` — 旧版 DPAPI 加密（仅限本机当前用户）
@@ -128,7 +127,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 错误处理：使用 `$ErrorActionPreference = "Stop"` 和 `trap` 捕获异常
 
 ### 日志系统
-- 日志位置：`.run/log/`
+- 日志位置：`<当前工作目录>/log/`（test.ps1 下即 .run/log/）
 - 文件格式：`YYYY-MM-DD.log`（常规）、`YYYY-MM-DD_crash.log`（崩溃）
 - 日志级别：DEBUG/INFO/WARN/ERR/FATAL
 - 使用 `ExceptionLog.Write(ex, "上下文")` 记录异常

@@ -10,29 +10,20 @@ namespace xOpenTerm.Services;
 /// <summary>节点、凭证、隧道的 YAML 持久化</summary>
 public class StorageService
 {
-    /// <summary>解析配置目录：先尝试 .run/config，不存在则使用工作目录下的 config，最后使用 exe 所在目录下的 config。</summary>
+    /// <summary>解析配置目录：优先使用工作目录下的 config，不存在则使用 exe 所在目录下的 config。</summary>
     public static string GetConfigDir()
     {
         var workConfig = Path.Combine(Environment.CurrentDirectory, "config");
         var exeConfig = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
             "config");
-        var runConfig = Path.Combine(Environment.CurrentDirectory, ".run", "config");
 
-        // 写入调试信息到日志文件
         ExceptionLog.Debug("解析配置目录开始");
         ExceptionLog.Debug($"当前工作目录: {Environment.CurrentDirectory}");
         ExceptionLog.Debug($"可执行文件目录: {AppDomain.CurrentDomain.BaseDirectory}");
-        ExceptionLog.Debug($"检查配置目录 - Run目录: {runConfig} (存在: {Directory.Exists(runConfig)})");
         ExceptionLog.Debug($"检查配置目录 - 工作目录: {workConfig} (存在: {Directory.Exists(workConfig)})");
         ExceptionLog.Debug($"检查配置目录 - 可执行文件目录: {exeConfig} (存在: {Directory.Exists(exeConfig)})");
 
-        // 优先检查 .run/config 目录
-        if (Directory.Exists(runConfig))
-        {
-            ExceptionLog.Debug($"使用配置目录: {runConfig}");
-            return runConfig;
-        }
         if (Directory.Exists(workConfig))
         {
             ExceptionLog.Debug($"使用配置目录: {workConfig}");
@@ -43,7 +34,7 @@ public class StorageService
             ExceptionLog.Debug($"使用配置目录: {exeConfig}");
             return exeConfig;
         }
-        ExceptionLog.Debug($"未找到配置目录，使用工作目录下的config: {workConfig}");
+        ExceptionLog.Debug($"未找到配置目录，使用工作目录下的 config: {workConfig}");
         return workConfig;
     }
 
@@ -145,7 +136,7 @@ public class StorageService
 
     private List<Node> TryLoadNodesFile(string yaml)
         {
-            var logPath = Path.Combine(Environment.CurrentDirectory, ".run", "log", "xOpenTerm_debug.log");
+            var logPath = Path.Combine(ExceptionLog.LogDirectory, "xOpenTerm_debug.log");
             var logDir = Path.GetDirectoryName(logPath);
             if (!string.IsNullOrEmpty(logDir))
             {
