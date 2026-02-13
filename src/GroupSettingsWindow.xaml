@@ -12,7 +12,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Grid.Row="0" Text="子节点选择「同父节点」时将使用以下默认值，仅保存于本分组，不会写入子节点。" 
+        <TextBlock Grid.Row="0" Text="子节点选择「同父节点」时将使用以下默认值，仅保存于本分组，不会写入子节点。"
                    Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,0,16"/>
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
             <TextBlock Text="默认 SSH 凭证" Width="100" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>

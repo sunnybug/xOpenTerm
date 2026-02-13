@@ -72,7 +72,8 @@ public partial class MainWindow
             if (e.Handled)
             {
                 item.Focus();
-                if (node.Type == NodeType.group && IsClickOnItemHeader(item, e))
+                // 多选（Ctrl/Shift）时不切换展开状态，仅单选时点击分组可展开/折叠
+                if (!ctrl && !shift && node.Type == NodeType.group && IsClickOnItemHeader(item, e))
                     item.IsExpanded = !item.IsExpanded;
             }
             else

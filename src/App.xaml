@@ -58,6 +58,7 @@
             </Style>
             <Style TargetType="PasswordBox">
                 <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}"/>
+                <Setter Property="MinHeight" Value="20"/>
             </Style>
             <!-- 默认窗口字体 (现代化可读性) -->
             <Style TargetType="Window">
@@ -144,10 +145,11 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="24"/>
                                     </Grid.ColumnDefinitions>
-                                    <ToggleButton x:Name="ToggleButton" Grid.Column="0" Grid.ColumnSpan="2" Focusable="False" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press" Background="Transparent" BorderThickness="0" Padding="0">
+                                    <!-- 整个编辑区可点击展开：ToggleButton 铺满整区，内层用近乎透明画笔保证整区参与命中测试 -->
+                                    <ToggleButton x:Name="ToggleButton" Grid.Column="0" Grid.ColumnSpan="2" Focusable="False" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press" Background="Transparent" BorderThickness="0" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                         <ToggleButton.Template>
                                             <ControlTemplate TargetType="ToggleButton">
-                                                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"/>
+                                                <Border Background="#01000000" Padding="{TemplateBinding Padding}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                                             </ControlTemplate>
                                         </ToggleButton.Template>
                                     </ToggleButton>
@@ -218,14 +220,15 @@
                     </Setter.Value>
                 </Setter>
             </Style>
-            <!-- 对话框输入框：与 ComboBox 一致的边框与圆角，增强层次感 -->
+            <!-- 对话框输入框：与 ComboBox 一致的边框与圆角，增强层次感；MinHeight 保证文字不挤 -->
             <Style x:Key="DialogTextBoxStyle" TargetType="TextBox">
                 <Setter Property="Background" Value="{StaticResource BgInput}"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
                 <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}"/>
                 <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
                 <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="Padding" Value="6,6"/>
+                <Setter Property="Padding" Value="8,8"/>
+                <Setter Property="MinHeight" Value="20"/>
             </Style>
             <!-- 对话框列表框：边框+圆角，与输入区统一；选中项使用 SelectionBg -->
             <Style x:Key="DialogListBoxStyle" TargetType="ListBox">
