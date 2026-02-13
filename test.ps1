@@ -110,11 +110,11 @@ try {
             }
         }
 
-        # 任意日志文件中含 error/exception/failed/fatal 整词时，输出完整路径（避免误匹配 ExceptionLog、False 等）
+        # 任意日志文件中含 err/crash/fatal 整词时，输出完整路径（匹配 [ERR]、error、crash、fatal，避免误匹配 failed/exception 等）
         $allLogFiles = Get-ChildItem -Path $LogDir -File
         foreach ($file in $allLogFiles) {
             $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
-            if ($content -and $content -match '\b(error|exception|failed|fatal)\b') {
+            if ($content -and $content -match '\b(err|crash|fatal)\b') {
                 [void]$pathsToShow.Add($file.FullName)
             }
         }
