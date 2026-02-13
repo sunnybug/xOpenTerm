@@ -80,6 +80,14 @@ public class ConnectionConfig
     [YamlMember(Alias = "resourceId")]
     public string? ResourceId { get; set; }
 
+    /// <summary>云服务器节点：控制台地域 ID（如 ap-guangzhou、cn-hangzhou），用于打开控制台详情链接。</summary>
+    [YamlMember(Alias = "cloudRegionId")]
+    public string? CloudRegionId { get; set; }
+
+    /// <summary>云服务器节点：是否为轻量应用服务器（腾讯云轻量/阿里云轻量等），用于生成正确的控制台详情 URL。</summary>
+    [YamlMember(Alias = "cloudIsLightweight")]
+    public bool? CloudIsLightweight { get; set; }
+
     /// <summary>腾讯云组节点：API 密钥 SecretId（加密存储）。</summary>
     [YamlMember(Alias = "tencentSecretId")]
     public string? TencentSecretId { get; set; }

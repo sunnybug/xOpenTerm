@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -340,6 +341,53 @@ public partial class MainWindow
         return false;
     }
 
+    /// <summary>沿父链向上查找，返回第一个云组类型（tencentCloudGroup/aliCloudGroup/kingsoftCloudGroup），若无则返回 null。</summary>
+    private NodeType? GetAncestorCloudGroupType(Node? node)
+    {
+        if (node == null) return null;
+        var byId = _nodes.ToDictionary(n => n.Id);
+        var id = node.Id;
+        while (!string.IsNullOrEmpty(id) && byId.TryGetValue(id, out var n))
+        {
+            if (n.Type == NodeType.tencentCloudGroup || n.Type == NodeType.aliCloudGroup || n.Type == NodeType.kingsoftCloudGroup)
+                return n.Type;
+            id = n.ParentId;
+        }
+        return null;
+    }
+
+    /// <summary>若节点为云同步下的服务器且具备 ResourceId、CloudRegionId，则生成控制台详情页 URL（腾讯 CVM/轻量、阿里 ECS/轻量、金山云 KEC）。</summary>
+    private bool TryGetCloudConsoleDetailUrl(Node node, out string? url)
+    {
+        url = null;
+        if (node.Config?.ResourceId == null || node.Config.CloudRegionId == null) return false;
+        var cloudType = GetAncestorCloudGroupType(node);
+        var region = node.Config.CloudRegionId;
+        var instanceId = node.Config.ResourceId;
+        var isLightweight = node.Config.CloudIsLightweight == true;
+
+        switch (cloudType)
+        {
+            case NodeType.tencentCloudGroup:
+                url = isLightweight
+                    ? $"https://console.cloud.tencent.com/lighthouse/instance/detail?region={Uri.EscapeDataString(region)}&instanceId={Uri.EscapeDataString(instanceId)}"
+                    : $"https://console.cloud.tencent.com/cvm/instance/detail?region={Uri.EscapeDataString(region)}&id={Uri.EscapeDataString(instanceId)}";
+                break;
+            case NodeType.aliCloudGroup:
+                url = isLightweight
+                    ? $"https://swas.console.aliyun.com/#/server/detail?regionId={Uri.EscapeDataString(region)}&instanceId={Uri.EscapeDataString(instanceId)}"
+                    : $"https://ecs.console.aliyun.com/#/server/ecs/detail?regionId={Uri.EscapeDataString(region)}&instanceId={Uri.EscapeDataString(instanceId)}";
+                break;
+            case NodeType.kingsoftCloudGroup:
+                // 金山云 KEC：仅一种实例类型，无轻量区分；URL 格式 Region=...&kec=实例ID
+                url = $"https://kec.console.ksyun.com/v2/#/kec/detail?Region={Uri.EscapeDataString(region)}&kec={Uri.EscapeDataString(instanceId)}";
+                break;
+            default:
+                return false;
+        }
+        return true;
+    }
+
     private ContextMenu BuildContextMenu(Node? node)
     {
         var menu = new ContextMenu();
@@ -467,12 +515,27 @@ public partial class MainWindow
         else
         {
             menu.Items.Add(CreateMenuItem("连接(_L)", () => OpenTab(node)));
+            if (TryGetCloudConsoleDetailUrl(node, out var detailUrl))
+                menu.Items.Add(CreateMenuItem("详情(_D)", () => OpenCloudConsoleDetail(detailUrl!)));
             menu.Items.Add(CreateMenuItem("克隆(_C)", () => DuplicateNode(node)));
             menu.Items.Add(CreateMenuItem("设置(_S)", () => EditNode(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteNode(node)));
         }
         return menu;
+    }
+
+    private static void OpenCloudConsoleDetail(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "打开云控制台详情链接失败");
+            MessageBox.Show($"无法打开链接：{ex.Message}", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private static MenuItem CreateMenuItem(string header, Action action)
@@ -1187,8 +1250,10 @@ public partial class MainWindow
             if (string.IsNullOrEmpty(rid)) continue;
             if (instanceMap.TryGetValue(rid, out var aliIns))
             {
+                n.Config!.CloudRegionId = aliIns.RegionId;
+                n.Config.CloudIsLightweight = aliIns.IsLightweight;
                 var newHost = aliIns.PublicIp ?? aliIns.PrivateIp ?? "";
-                if (!string.IsNullOrEmpty(newHost) && n.Config!.Host != newHost)
+                if (!string.IsNullOrEmpty(newHost) && n.Config.Host != newHost)
                 {
                     var oldHost = n.Config.Host ?? "";
                     n.Config.Host = newHost;
@@ -1239,7 +1304,9 @@ public partial class MainWindow
                     Host = host,
                     Port = (ushort)(ins.IsWindows ? 3389 : 22),
                     ResourceId = ins.InstanceId,
-                    AuthSource = AuthSource.parent
+                    AuthSource = AuthSource.parent,
+                    CloudRegionId = ins.RegionId,
+                    CloudIsLightweight = ins.IsLightweight
                 }
             };
             _nodes.Add(serverNode);
@@ -1354,8 +1421,10 @@ public partial class MainWindow
             if (string.IsNullOrEmpty(rid)) continue;
             if (instanceMap.TryGetValue(rid, out var ksIns))
             {
+                n.Config!.CloudRegionId = ksIns.RegionId;
+                n.Config.CloudIsLightweight = false;
                 var newHost = ksIns.PublicIp ?? ksIns.PrivateIp ?? "";
-                if (!string.IsNullOrEmpty(newHost) && n.Config!.Host != newHost)
+                if (!string.IsNullOrEmpty(newHost) && n.Config.Host != newHost)
                 {
                     var oldHost = n.Config.Host ?? "";
                     n.Config.Host = newHost;
@@ -1406,7 +1475,9 @@ public partial class MainWindow
                     Host = host,
                     Port = (ushort)(ins.IsWindows ? 3389 : 22),
                     ResourceId = ins.InstanceId,
-                    AuthSource = AuthSource.parent
+                    AuthSource = AuthSource.parent,
+                    CloudRegionId = ins.RegionId,
+                    CloudIsLightweight = false
                 }
             };
             _nodes.Add(serverNode);
@@ -1626,8 +1697,10 @@ public partial class MainWindow
             // 先尝试从 CVM 实例中查找，再尝试从轻量服务器实例中查找
             if (cvmInstanceMap.TryGetValue(rid, out var cvmIns))
             {
+                n.Config!.CloudRegionId = cvmIns.Region;
+                n.Config.CloudIsLightweight = false;
                 var newHost = cvmIns.PublicIp ?? cvmIns.PrivateIp ?? "";
-                if (!string.IsNullOrEmpty(newHost) && n.Config!.Host != newHost)
+                if (!string.IsNullOrEmpty(newHost) && n.Config.Host != newHost)
                 {
                     var oldHost = n.Config.Host ?? "";
                     n.Config.Host = newHost;
@@ -1636,8 +1709,10 @@ public partial class MainWindow
             }
             else if (lighthouseInstanceMap.TryGetValue(rid, out var lighthouseIns))
             {
+                n.Config!.CloudRegionId = lighthouseIns.Region;
+                n.Config.CloudIsLightweight = true;
                 var newHost = lighthouseIns.PublicIp ?? lighthouseIns.PrivateIp ?? "";
-                if (!string.IsNullOrEmpty(newHost) && n.Config!.Host != newHost)
+                if (!string.IsNullOrEmpty(newHost) && n.Config.Host != newHost)
                 {
                     var oldHost = n.Config.Host ?? "";
                     n.Config.Host = newHost;
@@ -1720,7 +1795,9 @@ public partial class MainWindow
                     Host = host,
                     Port = (ushort)(ins.IsWindows ? 3389 : 22),
                     ResourceId = ins.InstanceId,
-                    AuthSource = AuthSource.parent
+                    AuthSource = AuthSource.parent,
+                    CloudRegionId = ins.Region,
+                    CloudIsLightweight = false
                 }
             };
             _nodes.Add(serverNode);
@@ -1766,7 +1843,9 @@ public partial class MainWindow
                     Host = host,
                     Port = (ushort)(ins.IsWindows ? 3389 : 22),
                     ResourceId = ins.InstanceId,
-                    AuthSource = AuthSource.parent
+                    AuthSource = AuthSource.parent,
+                    CloudRegionId = ins.Region,
+                    CloudIsLightweight = true
                 }
             };
             _nodes.Add(serverNode);

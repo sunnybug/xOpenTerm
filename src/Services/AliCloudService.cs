@@ -20,7 +20,8 @@ public record AliEcsInstance(
     string? PublicIp,
     string? PrivateIp,
     string? OsName,
-    bool IsWindows);
+    bool IsWindows,
+    bool IsLightweight = false);
 
 /// <summary>拉取阿里云 ECS 实例列表：先 DescribeRegions 获取地域，再按地域 DescribeInstances，支持进度与取消。</summary>
 public static class AliCloudService
@@ -120,7 +121,8 @@ public static class AliCloudService
                         publicIp,
                         privateIp,
                         osName,
-                        isWin));
+                        isWin,
+                        IsLightweight: false));
                 }
 
                 nextToken = listResp?.Body?.NextToken;
@@ -219,7 +221,8 @@ public static class AliCloudService
                             publicIp,
                             privateIp,
                             osType,
-                            isWin));
+                            isWin,
+                            IsLightweight: true));
                     }
                     if (list.Count < pageSize || (resp?.Body?.TotalCount ?? 0) <= pageNumber * pageSize)
                         break;
