@@ -85,7 +85,16 @@ public partial class MainWindow
     private void ServerSearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
         _searchTerm = ServerSearchBox?.Text ?? "";
+        UpdateServerSearchPlaceholder();
         BuildTree();
+    }
+
+    private void UpdateServerSearchPlaceholder()
+    {
+        if (ServerSearchBoxPlaceholder == null) return;
+        ServerSearchBoxPlaceholder.Visibility = string.IsNullOrEmpty(ServerSearchBox?.Text)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private TreeViewItem CreateTreeItem(Node node, HashSet<string>? expandedIds, bool defaultExpand)

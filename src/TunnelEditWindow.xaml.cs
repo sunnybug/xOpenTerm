@@ -209,6 +209,7 @@ public partial class TunnelEditWindow : Window
         if (idx >= 0) _all[idx] = _tunnel;
         else _all.Add(_tunnel);
         _context.SaveTunnels();
+        InputHistoryService.RecordFromWindow(this);
         _closingConfirmed = true;
         DialogResult = true;
         Close();

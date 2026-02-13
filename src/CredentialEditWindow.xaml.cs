@@ -84,6 +84,7 @@ public partial class CredentialEditWindow : Window
         if (idx >= 0) _all[idx] = _cred;
         else _all.Add(_cred);
         _context.SaveCredentials();
+        InputHistoryService.RecordFromWindow(this);
         _closingConfirmed = true;
         DialogResult = true;
         Close();

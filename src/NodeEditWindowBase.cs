@@ -65,6 +65,12 @@ public abstract class NodeEditWindowBase : Window
     /// <summary>子类实现：将表单数据写入 _node（可在此做校验，失败时抛或 MessageBox 后 return，由子类不调用 ConfirmCloseAndSave）。</summary>
     protected abstract bool SaveToNode();
 
+    /// <summary>将当前窗口中带 InputHistory.Key 的 TextBox 的当前值写入输入历史，保存成功后调用。</summary>
+    protected void RecordInputHistory()
+    {
+        InputHistoryService.RecordFromWindow(this);
+    }
+
     protected void ConfirmCloseAndSave()
     {
         _closingConfirmed = true;

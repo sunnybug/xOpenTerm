@@ -57,6 +57,7 @@ public partial class AliCloudNodeEditWindow : NodeEditWindowBase
     private void SaveBtn_Click(object sender, RoutedEventArgs e)
     {
         if (!SaveToNode()) return;
+        RecordInputHistory();
         ConfirmCloseAndSave();
     }
 

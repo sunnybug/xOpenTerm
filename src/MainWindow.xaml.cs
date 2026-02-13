@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Forms.Integration;
 using xOpenTerm.Controls;
@@ -74,6 +75,7 @@ public partial class MainWindow : Window
             {
                 LoadData();
                 BuildTree(expandNodes: true, initialExpandedIds: null);
+                UpdateServerSearchPlaceholder();
                 RunTestRdp();
             };
             return;
@@ -99,6 +101,7 @@ public partial class MainWindow : Window
             ? new HashSet<string>(settings.ServerTreeExpandedIds)
             : null;
         BuildTree(expandNodes: true, initialExpandedIds: initialExpanded);
+        UpdateServerSearchPlaceholder();
         _sessionManager.DataReceived += OnSessionDataReceived;
         _sessionManager.SessionClosed += OnSessionClosed;
         _sessionManager.SessionConnected += OnSessionConnected;
@@ -110,6 +113,16 @@ public partial class MainWindow : Window
         {
             RunTestRdp();
         }
+    }
+
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Q || (Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
+        LeftTabControl.SelectedIndex = 0;
+        ServerSearchBox.Focus();
+        ServerSearchBox.SelectionStart = ServerSearchBox.Text.Length;
+        ServerSearchBox.SelectionLength = 0;
+        e.Handled = true;
     }
 
     private async void RunTestRdp()

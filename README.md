@@ -20,6 +20,8 @@
 - **导入 MobaXterm**：从 MobaXterm.ini 按目录多选导入 SSH/RDP 会话；可选提供 MobaXterm 导出的密码文件，格式为 `配置名(用户名) = 密码`，若会话用户名为 `[配置名]` 则自动填充真实用户名与密码；若 SSH 节点用户名为非 `[xxx]` 且无密码、无密钥，则导入后自动设为 SSH Agent 认证
 - **关于 / 更新**：版本号、作者、GitHub 链接；从 GitHub Releases 检查更新
 - **持久化**：节点、凭证、隧道保存为 YAML（`config/nodes.yaml`、`credentials.yaml`、`tunnels.yaml`，位于 exe 同目录下的 `config/`）；节点树的展开状态与选中项在关闭时写入 `config/settings.yaml`，下次启动时恢复
+- **编辑框输入历史**：除密码与节点名外，各编辑窗口（SSH/RDP/隧道/凭证/分组/本地/云同步等）的文本框（如主机、端口、用户名、私钥路径、SecretId、AccessKeyId 等）会记住输入历史；输入时按文字过滤并以下拉列表展示，可点击历史项快速填入；保存时写入历史，持久化到 `config/input_history.yaml`，程序重启后有效
+- **快捷键**：Ctrl+Q 聚焦节点树快速过滤框（无内容时显示提示「CTRL+Q」），光标置于末尾
 
 ## 技术栈
 
@@ -75,6 +77,7 @@
 - `nodes.yaml`：服务器/分组树（与 xOpenTerm 数据结构兼容）
 - `credentials.yaml`：登录凭证
 - `tunnels.yaml`：SSH 隧道（跳板机）
+- `input_history.yaml`：编辑框输入历史（主机、端口、用户名等非敏感字段，供下拉联想）
 
 可从 xOpenTerm 复制上述 YAML 到本项目的 `config/` 使用。
 
