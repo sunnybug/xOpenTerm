@@ -105,6 +105,10 @@ public sealed class RdpEmbeddedSession
 
             if (_closed) { form.Close(); return; }
 
+            // 先按 panel 客户区尺寸调整 Form，再 Connect，使 DesktopWidth/DesktopHeight 与显示区域一致，SmartSizing 才能正确缩放（参考 mRemoteNG）
+            if (NativeMethods.GetClientRect(parentHandle, out var initialRect) && initialRect.Width > 0 && initialRect.Height > 0)
+                form.ResizeToClientArea(initialRect.Width, initialRect.Height);
+
             // 必须在 SetParent 之前完成配置与 Connect，否则嵌入到 WPF 窗口后 RDP COM 会与 RCW 分离
             form.DoConnect();
 

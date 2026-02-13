@@ -19,7 +19,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
     private readonly string? _initialCredentialId;
     private readonly bool _initialUseConsole;
     private readonly bool _initialRedirectClipboard;
-    private readonly bool _initialSmartSizing;
     private readonly string _initialGatewayHost;
     private readonly int _initialGatewayUsage;
     private readonly int _initialGatewayCred;
@@ -65,7 +64,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
 
             UseConsoleCheck.IsChecked = cfg.RdpUseConsoleSession == true;
             RedirectClipboardCheck.IsChecked = cfg.RdpRedirectClipboard == true;
-            SmartSizingCheck.IsChecked = cfg.RdpSmartSizing == true;
 
             GatewayHostBox.Text = cfg.RdpGatewayHostname ?? "";
             GatewayUsageCombo.SelectedIndex = Math.Clamp(cfg.RdpGatewayUsageMethod ?? 0, 0, 2);
@@ -90,7 +88,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
         _initialCredentialId = CredentialCombo.SelectedValue as string;
         _initialUseConsole = UseConsoleCheck.IsChecked == true;
         _initialRedirectClipboard = RedirectClipboardCheck.IsChecked == true;
-        _initialSmartSizing = SmartSizingCheck.IsChecked == true;
         _initialGatewayHost = GatewayHostBox.Text ?? "";
         _initialGatewayUsage = GatewayUsageCombo.SelectedIndex;
         _initialGatewayCred = GatewayCredCombo.SelectedIndex;
@@ -113,7 +110,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
         if (!string.Equals(credNow, _initialCredentialId, StringComparison.Ordinal)) return true;
         if (UseConsoleCheck.IsChecked == true != _initialUseConsole) return true;
         if (RedirectClipboardCheck.IsChecked == true != _initialRedirectClipboard) return true;
-        if (SmartSizingCheck.IsChecked == true != _initialSmartSizing) return true;
         if ((GatewayHostBox.Text ?? "") != _initialGatewayHost) return true;
         if (GatewayUsageCombo.SelectedIndex != _initialGatewayUsage) return true;
         if (GatewayCredCombo.SelectedIndex != _initialGatewayCred) return true;
@@ -146,7 +142,6 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
 
         _node.Config.RdpUseConsoleSession = UseConsoleCheck.IsChecked == true;
         _node.Config.RdpRedirectClipboard = RedirectClipboardCheck.IsChecked == true;
-        _node.Config.RdpSmartSizing = SmartSizingCheck.IsChecked == true;
 
         _node.Config.RdpGatewayHostname = string.IsNullOrWhiteSpace(GatewayHostBox.Text) ? null : GatewayHostBox.Text?.Trim();
         _node.Config.RdpGatewayUsageMethod = GatewayUsageCombo.SelectedIndex;

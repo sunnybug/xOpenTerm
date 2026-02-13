@@ -49,8 +49,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
                     <CheckBox x:Name="UseConsoleCheck" Content="使用控制台会话 (/admin)" Foreground="{StaticResource TextPrimary}" Margin="0,0,16,0"/>
-                    <CheckBox x:Name="RedirectClipboardCheck" Content="剪贴板重定向" Foreground="{StaticResource TextPrimary}" Margin="0,0,16,0"/>
-                    <CheckBox x:Name="SmartSizingCheck" Content="智能缩放" Foreground="{StaticResource TextPrimary}"/>
+                    <CheckBox x:Name="RedirectClipboardCheck" Content="剪贴板重定向" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <Expander x:Name="GatewayExpander" Header="RD Gateway" Foreground="{StaticResource TextPrimary}" Margin="0,4,0,0" IsExpanded="False">
                     <StackPanel Margin="8,4,0,4">

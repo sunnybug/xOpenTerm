@@ -37,7 +37,7 @@ public static class ConfigResolver
         {
             UseConsoleSession = effective.RdpUseConsoleSession == true,
             RedirectClipboard = effective.RdpRedirectClipboard == true,
-            SmartSizing = effective.RdpSmartSizing == true
+            SmartSizing = true
         };
         return (host, port, username, domain, password, options);
     }

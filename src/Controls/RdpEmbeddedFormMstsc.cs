@@ -56,6 +56,11 @@ internal sealed class RdpEmbeddedFormMstsc : Form
             }
 
             var rdp = (MsRdpClient8NotSafeForScripting)_rdpControl.GetOcx();
+            // 与 mRemoteNG 一致：先设 Desktop 尺寸为当前控件/窗体尺寸，再开 SmartSizing，Connect 后随窗口缩放
+            rdp.DesktopWidth = Math.Max(400, Width);
+            rdp.DesktopHeight = Math.Max(300, Height);
+            rdp.AdvancedSettings2.SmartSizing = true;
+
             rdp.Server = _host;
             rdp.UserName = _username;
             rdp.Domain = _domain;
@@ -69,12 +74,8 @@ internal sealed class RdpEmbeddedFormMstsc : Form
             if (_options?.UseConsoleSession == true)
                 rdp.AdvancedSettings7.ConnectToAdministerServer = true;
 
-            rdp.AdvancedSettings2.SmartSizing = _options?.SmartSizing ?? false;
             if (_options?.RedirectClipboard == true)
                 rdp.AdvancedSettings6.RedirectClipboard = true;
-
-            rdp.DesktopWidth = Math.Max(400, Width);
-            rdp.DesktopHeight = Math.Max(300, Height);
 
             rdp.Connect();
         }

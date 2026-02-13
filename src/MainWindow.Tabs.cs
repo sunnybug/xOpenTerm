@@ -569,6 +569,8 @@ public partial class MainWindow
             };
 
             var hostWpf = new WindowsFormsHost { Child = panel };
+            hostWpf.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            hostWpf.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
             var statusBar = new SshStatusBarControl();
             statusBar.UpdateStats(false, null, null, null, null, null, null);
             var dock = new DockPanel();

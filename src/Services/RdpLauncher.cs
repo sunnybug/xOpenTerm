@@ -54,8 +54,7 @@ public static class RdpLauncher
         // 参考 mRemoteNG：扩展选项
         if (config.RdpRedirectClipboard == true)
             sb.Append("redirectclipboard:i:1\n");
-        if (config.RdpSmartSizing == true)
-            sb.Append("smart sizing:i:1\n");
+        sb.Append("smart sizing:i:1\n");
         if (config.RdpUseConsoleSession == true)
             sb.Append("administrativesession:i:1\n");
 
