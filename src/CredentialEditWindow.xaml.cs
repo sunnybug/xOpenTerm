@@ -8,8 +8,8 @@ namespace xOpenTerm;
 public partial class CredentialEditWindow : Window
 {
     private readonly Credential _cred;
-    private readonly List<Credential> _all;
-    private readonly StorageService _storage;
+    private readonly IList<Credential> _all;
+    private readonly INodeEditContext _context;
     private readonly string _initialName;
     private readonly string _initialUsername;
     private readonly int _initialAuthIndex;
@@ -17,12 +17,12 @@ public partial class CredentialEditWindow : Window
     private readonly string _initialKeyPath;
     private bool _closingConfirmed;
 
-    public CredentialEditWindow(Credential cred, List<Credential> all, StorageService storage, bool isNew)
+    public CredentialEditWindow(Credential cred, IList<Credential> all, INodeEditContext context, bool isNew)
     {
         InitializeComponent();
         _cred = cred;
         _all = all;
-        _storage = storage;
+        _context = context;
         Title = isNew ? "新增凭证" : "编辑凭证";
         AuthCombo.Items.Add("密码");
         AuthCombo.Items.Add("私钥");
@@ -76,11 +76,14 @@ public partial class CredentialEditWindow : Window
         _cred.AuthType = authIdx switch { 1 => AuthType.key, 2 => AuthType.agent, _ => AuthType.password };
         _cred.Password = authIdx == 0 ? PasswordBox.Password : null;
         _cred.KeyPath = authIdx == 1 ? KeyPathBox.Text?.Trim() : null;
-        var list = new List<Credential>(_all);
-        var idx = list.FindIndex(c => c.Id == _cred.Id);
-        if (idx >= 0) list[idx] = _cred;
-        else list.Add(_cred);
-        _storage.SaveCredentials(list);
+        var idx = -1;
+        for (var i = 0; i < _all.Count; i++)
+        {
+            if (_all[i].Id == _cred.Id) { idx = i; break; }
+        }
+        if (idx >= 0) _all[idx] = _cred;
+        else _all.Add(_cred);
+        _context.SaveCredentials();
         _closingConfirmed = true;
         DialogResult = true;
         Close();

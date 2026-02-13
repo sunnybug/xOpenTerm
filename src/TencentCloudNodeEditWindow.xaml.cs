@@ -11,8 +11,8 @@ public partial class TencentCloudNodeEditWindow : NodeEditWindowBase
     private readonly string _initialSecretId;
     private readonly string _initialSecretKey;
 
-    public TencentCloudNodeEditWindow(Node node, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage, bool isExistingNode = true)
-        : base(node, nodes, credentials, tunnels, storage, isExistingNode)
+    public TencentCloudNodeEditWindow(Node node, INodeEditContext context, bool isExistingNode = true)
+        : base(node, context, isExistingNode)
     {
         InitializeComponent();
         NameBox.Text = node.Name ?? "腾讯云";

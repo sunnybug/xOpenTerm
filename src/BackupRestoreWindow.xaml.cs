@@ -48,7 +48,7 @@ public partial class BackupRestoreWindow : Window
     {
         try
         {
-            var configDir = Services.StorageService.GetConfigDir();
+            var configDir = App.GetStorageService()?.GetConfigDir() ?? StorageService.GetConfigDir();
             Process.Start(new ProcessStartInfo
             {
                 FileName = configDir,

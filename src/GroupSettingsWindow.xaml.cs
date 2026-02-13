@@ -10,10 +10,10 @@ namespace xOpenTerm;
 public partial class GroupSettingsWindow : Window
 {
     private readonly Node _groupNode;
-    private readonly List<Node> _nodes;
-    private readonly List<Credential> _credentials;
-    private readonly List<Tunnel> _tunnels;
-    private readonly StorageService _storage;
+    private readonly IList<Node> _nodes;
+    private readonly IList<Credential> _credentials;
+    private readonly IList<Tunnel> _tunnels;
+    private readonly INodeEditContext _context;
     private readonly string? _initialSshCredId;
     private readonly string? _initialRdpCredId;
     private readonly List<string> _initialTunnelIds;
@@ -25,14 +25,14 @@ public partial class GroupSettingsWindow : Window
     private readonly string _initialKsyunAccessKeySecret;
     private bool _closingConfirmed;
 
-    public GroupSettingsWindow(Node groupNode, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage)
+    public GroupSettingsWindow(Node groupNode, INodeEditContext context)
     {
         InitializeComponent();
         _groupNode = groupNode;
-        _nodes = nodes;
-        _credentials = credentials;
-        _tunnels = tunnels;
-        _storage = storage;
+        _context = context;
+        _nodes = context.Nodes;
+        _credentials = context.Credentials;
+        _tunnels = context.Tunnels;
 
         Title = $"分组默认设置 - {groupNode.Name}";
         var credList = _credentials.OrderBy(c => c.AuthType).ThenBy(c => c.Name).ToList();
@@ -139,8 +139,7 @@ public partial class GroupSettingsWindow : Window
         var currentSel = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
         var win = new TunnelManagerWindow(this);
         win.ShowDialog();
-        _tunnels.Clear();
-        _tunnels.AddRange(_storage.LoadTunnels());
+        _context.ReloadTunnels();
         RefreshTunnelList(currentSel);
     }
 

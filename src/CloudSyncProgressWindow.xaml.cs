@@ -7,19 +7,18 @@ using System.Windows.Threading;
 
 namespace xOpenTerm;
 
-/// <summary>阿里云同步进度窗口：显示进度并支持取消。所有 UI 更新均通过 Dispatcher 切回 UI 线程。</summary>
-public partial class AliCloudSyncWindow : Window
+/// <summary>云同步进度窗口（腾讯云/阿里云/金山云通用）：显示进度并支持取消。所有 UI 更新均通过 Dispatcher 切回 UI 线程。</summary>
+public partial class CloudSyncProgressWindow : Window
 {
     private readonly Action? _onCancel;
     private bool _completed;
 
-    public AliCloudSyncWindow(Action? onCancel)
+    public CloudSyncProgressWindow(Action? onCancel)
     {
         InitializeComponent();
         _onCancel = onCancel;
     }
 
-    /// <summary>在拥有此窗口的 UI 线程上执行 action；若当前非 UI 线程则同步 Invoke，确保不跨线程访问 UI。</summary>
     private void UpdateUi(Action action)
     {
         var dispatcher = Dispatcher ?? Application.Current?.Dispatcher;
@@ -44,13 +43,11 @@ public partial class AliCloudSyncWindow : Window
         });
     }
 
-    /// <summary>报告同步结果（仅摘要，用于错误或简单提示）。</summary>
     public void ReportResult(string detailMessage, bool success)
     {
         ReportResult(detailMessage, success, null);
     }
 
-    /// <summary>报告同步结果，并显示详细变动列表（删除/更新 IP/新增）。</summary>
     public void ReportResult(string summaryMessage, bool success, IReadOnlyList<string>? detailLines)
     {
         _completed = true;

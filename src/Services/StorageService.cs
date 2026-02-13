@@ -8,10 +8,14 @@ using xOpenTerm.Services;
 namespace xOpenTerm.Services;
 
 /// <summary>节点、凭证、隧道的 YAML 持久化</summary>
-public class StorageService
+public class StorageService : IStorageService
 {
     /// <summary>解析配置目录：优先使用工作目录下的 config，不存在则使用 exe 所在目录下的 config。</summary>
-    public static string GetConfigDir()
+    public static string GetConfigDir() => GetConfigDirCore();
+
+    string IStorageService.GetConfigDir() => GetConfigDirCore();
+
+    private static string GetConfigDirCore()
     {
         var workConfig = Path.Combine(Environment.CurrentDirectory, "config");
         var exeConfig = Path.Combine(
@@ -52,7 +56,7 @@ public class StorageService
 
     public StorageService()
     {
-        var configDir = GetConfigDir();
+        var configDir = GetConfigDirCore();
         Directory.CreateDirectory(configDir);
         _nodesPath = Path.Combine(configDir, NodesFile);
         _credentialsPath = Path.Combine(configDir, CredentialsFile);

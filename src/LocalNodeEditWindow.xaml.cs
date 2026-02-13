@@ -10,8 +10,8 @@ public partial class LocalNodeEditWindow : NodeEditWindowBase
     private readonly string _initialName;
     private readonly int _initialProtocolIndex;
 
-    public LocalNodeEditWindow(Node node, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage, bool isExistingNode = true)
-        : base(node, nodes, credentials, tunnels, storage, isExistingNode)
+    public LocalNodeEditWindow(Node node, INodeEditContext context, bool isExistingNode = true)
+        : base(node, context, isExistingNode)
     {
         InitializeComponent();
         NameBox.Text = node.Name ?? "";

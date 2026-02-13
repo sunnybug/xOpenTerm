@@ -20,8 +20,8 @@ public partial class SshNodeEditWindow : NodeEditWindowBase
     private readonly bool _initialTunnelUseParent;
     private readonly HashSet<string> _initialTunnelIds;
 
-    public SshNodeEditWindow(Node node, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage, bool isExistingNode = true)
-        : base(node, nodes, credentials, tunnels, storage, isExistingNode)
+    public SshNodeEditWindow(Node node, INodeEditContext context, bool isExistingNode = true)
+        : base(node, context, isExistingNode)
     {
         InitializeComponent();
         NameBox.Text = node.Name ?? "";
@@ -154,8 +154,7 @@ public partial class SshNodeEditWindow : NodeEditWindowBase
     {
         var win = new TunnelManagerWindow(this);
         win.ShowDialog();
-        _tunnels.Clear();
-        _tunnels.AddRange(_storage.LoadTunnels());
+        ReloadTunnels();
         RefreshTunnelList(TunnelListBox);
     }
 

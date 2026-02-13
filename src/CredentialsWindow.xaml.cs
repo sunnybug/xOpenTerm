@@ -9,7 +9,7 @@ namespace xOpenTerm;
 /// <summary>登录凭证管理窗口：列表、新增、编辑、删除</summary>
 public partial class CredentialsWindow : Window
 {
-    private readonly StorageService _storage = new();
+    private readonly IStorageService _storage = App.GetStorageService() ?? new StorageService();
     private List<Credential> _credentials = new();
 
     public CredentialsWindow(Window? owner)
@@ -29,8 +29,9 @@ public partial class CredentialsWindow : Window
 
     private void AddBtn_Click(object sender, RoutedEventArgs e)
     {
+        var context = new NodeEditContext(new List<Node>(), _credentials, new List<Tunnel>(), _storage);
         var cred = new Credential { Id = Guid.NewGuid().ToString(), Name = "新凭证", AuthType = AuthType.password };
-        var win = new CredentialEditWindow(cred, _credentials, _storage, isNew: true);
+        var win = new CredentialEditWindow(cred, _credentials, context, isNew: true);
         if (win.ShowDialog() == true)
         {
             _credentials = _storage.LoadCredentials();
@@ -59,7 +60,8 @@ public partial class CredentialsWindow : Window
 
     private void OpenEdit(Credential cred)
     {
-        var win = new CredentialEditWindow(cred, _credentials, _storage, isNew: false);
+        var context = new NodeEditContext(new List<Node>(), _credentials, new List<Tunnel>(), _storage);
+        var win = new CredentialEditWindow(cred, _credentials, context, isNew: false);
         if (win.ShowDialog() == true)
             LoadCredentials();
     }

@@ -9,7 +9,7 @@ namespace xOpenTerm;
 /// <summary>隧道（跳板机）管理窗口</summary>
 public partial class TunnelManagerWindow : Window
 {
-    private readonly StorageService _storage = new();
+    private readonly IStorageService _storage = App.GetStorageService() ?? new StorageService();
     private List<Tunnel> _tunnels = new();
     private List<Credential> _credentials = new();
 
@@ -38,8 +38,9 @@ public partial class TunnelManagerWindow : Window
 
     private void AddBtn_Click(object sender, RoutedEventArgs e)
     {
+        var context = new NodeEditContext(new List<Node>(), _credentials, _tunnels, _storage);
         var t = new Tunnel { Id = Guid.NewGuid().ToString(), Name = "新跳板机", Port = 22, AuthType = AuthType.password };
-        var win = new TunnelEditWindow(t, _tunnels, _credentials, _storage, isNew: true) { Owner = this };
+        var win = new TunnelEditWindow(t, _tunnels, _credentials, context, isNew: true) { Owner = this };
         if (win.ShowDialog() == true)
             LoadTunnels();
     }
@@ -59,7 +60,8 @@ public partial class TunnelManagerWindow : Window
     private void OpenEdit(Tunnel t)
     {
         _credentials = _storage.LoadCredentials();
-        var win = new TunnelEditWindow(t, _tunnels, _credentials, _storage, isNew: false) { Owner = this };
+        var context = new NodeEditContext(new List<Node>(), _credentials, _tunnels, _storage);
+        var win = new TunnelEditWindow(t, _tunnels, _credentials, context, isNew: false) { Owner = this };
         if (win.ShowDialog() == true)
             LoadTunnels();
     }

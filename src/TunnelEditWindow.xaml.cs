@@ -8,9 +8,9 @@ namespace xOpenTerm;
 public partial class TunnelEditWindow : Window
 {
     private readonly Tunnel _tunnel;
-    private readonly List<Tunnel> _all;
-    private readonly List<Credential> _credentials;
-    private readonly StorageService _storage;
+    private readonly IList<Tunnel> _all;
+    private readonly IList<Credential> _credentials;
+    private readonly INodeEditContext _context;
     private readonly string _initialName;
     private readonly string _initialHost;
     private readonly string _initialPort;
@@ -21,13 +21,13 @@ public partial class TunnelEditWindow : Window
     private readonly string? _initialCredentialId;
     private bool _closingConfirmed;
 
-    public TunnelEditWindow(Tunnel tunnel, List<Tunnel> all, List<Credential> credentials, StorageService storage, bool isNew)
+    public TunnelEditWindow(Tunnel tunnel, IList<Tunnel> all, IList<Credential> credentials, INodeEditContext context, bool isNew)
     {
         InitializeComponent();
         _tunnel = tunnel;
         _all = all;
         _credentials = credentials;
-        _storage = storage;
+        _context = context;
         Title = isNew ? "新增跳板机" : "编辑跳板机";
         AuthCombo.Items.Add("同父节点");
         AuthCombo.Items.Add("登录凭证");
@@ -201,11 +201,14 @@ public partial class TunnelEditWindow : Window
             _tunnel.KeyPassphrase = null;
         }
         _tunnel.TunnelSource = TunnelUseParentCheckBox.IsChecked == true ? AuthSource.parent : null;
-        var list = new List<Tunnel>(_all);
-        var idx = list.FindIndex(t => t.Id == _tunnel.Id);
-        if (idx >= 0) list[idx] = _tunnel;
-        else list.Add(_tunnel);
-        _storage.SaveTunnels(list);
+        var idx = -1;
+        for (var i = 0; i < _all.Count; i++)
+        {
+            if (_all[i].Id == _tunnel.Id) { idx = i; break; }
+        }
+        if (idx >= 0) _all[idx] = _tunnel;
+        else _all.Add(_tunnel);
+        _context.SaveTunnels();
         _closingConfirmed = true;
         DialogResult = true;
         Close();

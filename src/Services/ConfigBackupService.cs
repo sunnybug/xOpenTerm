@@ -3,6 +3,8 @@ using System.IO;
 
 namespace xOpenTerm.Services;
 
+// 使用 App.GetStorageService() 获取 IStorageService；在非 WPF 环境（如单测）中回退到 new StorageService()
+
 /// <summary>配置自动备份与恢复：备份目录 %LocalAppData%\xOpenTerm\backup\YYMMDD-HHMMSS\。</summary>
 public static class ConfigBackupService
 {
@@ -36,14 +38,14 @@ public static class ConfigBackupService
 
         try
         {
-            var configDir = StorageService.GetConfigDir();
+            var storage = xOpenTerm.App.GetStorageService() ?? new StorageService();
+            var configDir = storage.GetConfigDir();
             var backupRoot = GetBackupRoot();
             Directory.CreateDirectory(backupRoot);
             var folderName = DateTime.Now.ToString("yyMMdd-HHmmss");
             var backupDir = Path.Combine(backupRoot, folderName);
             Directory.CreateDirectory(backupDir);
 
-            var storage = new StorageService();
             foreach (var file in ConfigFiles)
             {
                 var dst = Path.Combine(backupDir, file);
@@ -72,14 +74,14 @@ public static class ConfigBackupService
     {
         try
         {
-            var configDir = StorageService.GetConfigDir();
+            var storage = xOpenTerm.App.GetStorageService() ?? new StorageService();
+            var configDir = storage.GetConfigDir();
             var backupRoot = GetBackupRoot();
             Directory.CreateDirectory(backupRoot);
             var folderName = DateTime.Now.ToString("yyMMdd-HHmmss");
             var backupDir = Path.Combine(backupRoot, folderName);
             Directory.CreateDirectory(backupDir);
 
-            var storage = new StorageService();
             foreach (var file in ConfigFiles)
             {
                 var dst = Path.Combine(backupDir, file);
@@ -162,7 +164,8 @@ public static class ConfigBackupService
         if (!Directory.Exists(backupDir))
             return (false, "备份目录不存在。");
 
-        var configDir = StorageService.GetConfigDir();
+        var storage = xOpenTerm.App.GetStorageService() ?? new StorageService();
+        var configDir = storage.GetConfigDir();
         Directory.CreateDirectory(configDir);
 
         try

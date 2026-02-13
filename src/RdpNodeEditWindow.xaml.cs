@@ -20,8 +20,8 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
     private readonly bool _initialUseConsole;
     private readonly bool _initialRedirectClipboard;
 
-    public RdpNodeEditWindow(Node node, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage, bool isExistingNode = true)
-        : base(node, nodes, credentials, tunnels, storage, isExistingNode)
+    public RdpNodeEditWindow(Node node, INodeEditContext context, bool isExistingNode = true)
+        : base(node, context, isExistingNode)
     {
         InitializeComponent();
         NameBox.Text = node.Name ?? "";

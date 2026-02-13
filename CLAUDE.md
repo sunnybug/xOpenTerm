@@ -48,7 +48,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `AppSettings.cs` — 应用设置（窗口状态、树展开状态等）
 
 **Services/** — 核心服务层
-- `StorageService.cs` — YAML 持久化（节点/凭证/隧道/设置），自动加密/解密敏感字段
+- `IStorageService.cs` — 存储抽象接口；`StorageService.cs` 实现 YAML 持久化（节点/凭证/隧道/设置），自动加密/解密敏感字段
+- `INodeEditContext.cs`、`NodeEditContext.cs` — 编辑上下文接口与实现，供节点/凭证/隧道编辑窗口统一入参并委托保存
 - `SecretService.cs` — 密码加密服务，支持主密码（xot4）和固定密钥（xot2/xot3）
 - `MasterPasswordService.cs` — 主密码管理（DPAPI 存储派生密钥）
 - `ConfigBackupService.cs` — 配置自动备份（60 秒防抖，备份到 `%LocalAppData%\xOpenTerm\backup\`）
@@ -66,8 +67,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `RdpHostControl.cs` — RDP 连接托管控件
 - `SshStatusBarControl.xaml.cs` — SSH 状态栏（CPU/内存/网络）
 
-**MainWindow.cs** — 主窗口（分文件 partial class）
-- `MainWindow.ServerTree.cs` — 服务器树操作（拖拽、右键菜单、多选）
+**MainWindow** — 主窗口（分文件 partial class）
+- `MainWindow.xaml.cs` — 入口与字段
+- `MainWindow.ServerTree.cs` — 服务器树 CRUD 与云同步
+- `MainWindow.ServerTree.Build.cs` — 树构建、筛选、展开/多选附加属性
+- `MainWindow.ServerTree.ContextMenu.cs` — 右键菜单与命令（连接/删除/同步等）
+- `MainWindow.ServerTree.Selection.cs` — 多选与键盘/鼠标交互
 - `MainWindow.Tabs.cs` — 标签页管理（SSH/RDP/本地终端）
 - `MainWindow.RemoteFile.cs` — 远程文件面板（已废弃但代码仍存在）
 
@@ -99,6 +104,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **导出功能**：导出 YAML 时所有敏感字段为**解密后的明文**，便于迁移。
 
+### 服务接口与 DI
+
+- **IStorageService**：存储抽象，便于单测 Mock；实现类为 `StorageService`。
+- **App 启动时**（`App.xaml.cs`）使用 `Microsoft.Extensions.DependencyInjection` 注册单例 `IStorageService` → `StorageService`。
+- **获取存储**：窗口通过 `App.GetStorageService()` 获取（设计器或非 WPF 环境下可回退 `new StorageService()`）。
+- **INodeEditContext**：编辑窗口统一入参，提供 `Nodes`/`Credentials`/`Tunnels` 列表与 `SaveNodes()`/`SaveCredentials()`/`SaveTunnels()`、`ReloadTunnels()`/`ReloadCredentials()`；实现类为 `NodeEditContext`。主窗口打开节点/分组设置时 `new NodeEditContext(_nodes, _credentials, _tunnels, _storage)` 传入。
+
 ### 全局类型别名（GlobalUsings.cs）
 
 消除 WPF 与 WinForms 同名类型歧义，全局优先使用 WPF 类型：
@@ -114,7 +126,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. 多地域并行拉取（使用 Task.WhenAll）
 3. 按地域→服务器的层级构建节点树
 4. 支持增量更新（不删除已存在的手动配置节点）
-5. 同步窗口：`*CloudSyncWindow.xaml.cs`
+5. 同步进度窗口：`CloudSyncProgressWindow.xaml.cs`（腾讯/阿里/金山通用）
 6. 分组添加窗口：`*CloudGroupAddWindow.xaml.cs`
 7. 节点编辑窗口：`*CloudNodeEditWindow.xaml.cs`
 

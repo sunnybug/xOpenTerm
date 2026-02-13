@@ -20,7 +20,7 @@ public partial class MainWindow : Window
     private const double MinWindowHeight = 300;
     private const double MinLeftPanelWidth = 180;
     private const double MaxLeftPanelWidth = 800;
-    private readonly StorageService _storage = new();
+    private readonly IStorageService _storage;
     private AppSettings _appSettings = new();
     private readonly SessionManager _sessionManager = new();
     private List<Node> _nodes = new();
@@ -62,6 +62,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _storage = App.GetStorageService() ?? new StorageService();
         InitializeComponent();
         var settings = _storage.LoadAppSettings();
         ApplyAppSettings(settings);

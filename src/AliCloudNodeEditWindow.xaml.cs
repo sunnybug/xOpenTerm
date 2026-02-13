@@ -11,8 +11,8 @@ public partial class AliCloudNodeEditWindow : NodeEditWindowBase
     private readonly string _initialAccessKeyId;
     private readonly string _initialAccessKeySecret;
 
-    public AliCloudNodeEditWindow(Node node, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage, bool isExistingNode = true)
-        : base(node, nodes, credentials, tunnels, storage, isExistingNode)
+    public AliCloudNodeEditWindow(Node node, INodeEditContext context, bool isExistingNode = true)
+        : base(node, context, isExistingNode)
     {
         InitializeComponent();
         NameBox.Text = node.Name ?? "阿里云";

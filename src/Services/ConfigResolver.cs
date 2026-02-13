@@ -10,7 +10,7 @@ public static class ConfigResolver
 {
     /// <summary>解析 RDP 连接参数（主机、端口、用户名、域、密码、显示选项）。</summary>
     public static (string host, int port, string username, string domain, string? password, RdpConnectionOptions? options) ResolveRdp(
-        Node node, List<Node> allNodes, List<Credential> credentials)
+        Node node, IList<Node> allNodes, IList<Credential> credentials)
     {
         var effective = ResolveEffectiveRdpConfig(node, allNodes);
         var host = effective.Host?.Trim() ?? "";
@@ -43,7 +43,7 @@ public static class ConfigResolver
     }
 
     /// <summary>从节点向上查找第一个带 Config 的分组或云组节点。</summary>
-    private static Node? FindAncestorGroupWithConfig(string? parentId, List<Node> allNodes)
+    private static Node? FindAncestorGroupWithConfig(string? parentId, IList<Node> allNodes)
     {
         var id = parentId;
         while (!string.IsNullOrEmpty(id))
@@ -57,7 +57,7 @@ public static class ConfigResolver
         return null;
     }
 
-    private static ConnectionConfig ResolveEffectiveRdpConfig(Node rdpNode, List<Node> allNodes)
+    private static ConnectionConfig ResolveEffectiveRdpConfig(Node rdpNode, IList<Node> allNodes)
     {
         var config = rdpNode.Config;
         if (config == null) return new ConnectionConfig();
@@ -87,7 +87,7 @@ public static class ConfigResolver
 
     /// <summary>解析 SSH 连接参数（支持直连或经 TunnelIds 多跳），并解析隧道链。</summary>
     public static (string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, List<JumpHop>? jumpChain, bool useAgent) ResolveSsh(
-        Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels)
+        Node node, IList<Node> allNodes, IList<Credential> credentials, IList<Tunnel> tunnels)
     {
         var effective = ResolveEffectiveSshConfig(node, allNodes);
         var host = effective.Host ?? "";
@@ -129,7 +129,7 @@ public static class ConfigResolver
     }
 
     /// <summary>根据 TunnelIds 解析出有序的跳板机连接参数列表（多跳链）。</summary>
-    public static List<JumpHop>? ResolveTunnelChain(List<string>? tunnelIds, List<Tunnel> tunnels, List<Credential> credentials)
+    public static List<JumpHop>? ResolveTunnelChain(List<string>? tunnelIds, IList<Tunnel> tunnels, IList<Credential> credentials)
     {
         if (tunnelIds == null || tunnelIds.Count == 0) return null;
         var chain = new List<JumpHop>();
@@ -144,7 +144,7 @@ public static class ConfigResolver
     }
 
     /// <summary>解析单个隧道（跳板机）的认证参数。</summary>
-    public static JumpHop ResolveTunnelAuth(Tunnel t, List<Credential> credentials)
+    public static JumpHop ResolveTunnelAuth(Tunnel t, IList<Credential> credentials)
     {
         var port = (ushort)(t.Port ?? 22);
         string username = t.Username ?? "";
@@ -180,7 +180,7 @@ public static class ConfigResolver
 
     /// <summary>解析隧道的认证参数（支持同父节点）。</summary>
     public static (string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent) ResolveTunnel(
-        Tunnel tunnel, List<Tunnel> allTunnels, List<Credential> credentials)
+        Tunnel tunnel, IList<Tunnel> allTunnels, IList<Credential> credentials)
     {
         var effective = ResolveEffectiveTunnelConfig(tunnel, allTunnels);
         string username;
@@ -217,7 +217,7 @@ public static class ConfigResolver
     }
 
     /// <summary>解析隧道的有效配置（支持同父节点）。</summary>
-    private static Tunnel ResolveEffectiveTunnelConfig(Tunnel tunnel, List<Tunnel> allTunnels)
+    private static Tunnel ResolveEffectiveTunnelConfig(Tunnel tunnel, IList<Tunnel> allTunnels)
     {
         if (tunnel.AuthSource != AuthSource.parent && tunnel.TunnelSource != AuthSource.parent)
         {
@@ -260,7 +260,7 @@ public static class ConfigResolver
         return tunnel;
     }
 
-    private static ConnectionConfig ResolveEffectiveSshConfig(Node sshNode, List<Node> allNodes)
+    private static ConnectionConfig ResolveEffectiveSshConfig(Node sshNode, IList<Node> allNodes)
     {
         var config = sshNode.Config;
         if (config == null) return new ConnectionConfig();

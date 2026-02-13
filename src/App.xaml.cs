@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
+using Microsoft.Extensions.DependencyInjection;
 using xOpenTerm.Services;
 
 namespace xOpenTerm;
@@ -9,6 +10,13 @@ namespace xOpenTerm;
 public partial class App : Application
 {
     private static bool _isHandlingDispatcherException = false;
+
+    /// <summary>应用级 DI 容器，用于获取 IStorageService 等。主窗口与子窗口在构造或加载时从此获取依赖。</summary>
+    private IServiceProvider? _services;
+
+    /// <summary>获取已注册的 IStorageService（单例）。在 App 完成启动后可用。</summary>
+    public static IStorageService? GetStorageService() => (Current as App)?._services?.GetService<IStorageService>();
+
     public App()
     {
         Startup += OnStartup;
@@ -23,6 +31,10 @@ public partial class App : Application
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        var services = new ServiceCollection();
+        services.AddSingleton<IStorageService, StorageService>();
+        _services = services.BuildServiceProvider();
+
         // 确保 HTTPS 请求使用 TLS 1.2+，避免金山云等 API 出现 SSL 连接失败
         System.Net.ServicePointManager.SecurityProtocol =
             System.Net.SecurityProtocolType.Tls12 | System.Net.SecurityProtocolType.Tls13;

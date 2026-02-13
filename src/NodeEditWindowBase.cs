@@ -10,24 +10,30 @@ namespace xOpenTerm;
 public abstract class NodeEditWindowBase : Window
 {
     protected readonly Node _node;
-    protected readonly List<Node> _nodes;
-    protected readonly List<Credential> _credentials;
-    protected readonly List<Tunnel> _tunnels;
-    protected readonly StorageService _storage;
+    protected readonly IList<Node> _nodes;
+    protected readonly IList<Credential> _credentials;
+    protected readonly IList<Tunnel> _tunnels;
+    protected readonly INodeEditContext _context;
     protected readonly bool _isExistingNode;
     protected bool _closingConfirmed;
 
     public Node? SavedNode { get; protected set; }
 
-    protected NodeEditWindowBase(Node node, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage, bool isExistingNode)
+    protected NodeEditWindowBase(Node node, INodeEditContext context, bool isExistingNode)
     {
         _node = node;
-        _nodes = nodes;
-        _credentials = credentials;
-        _tunnels = tunnels;
-        _storage = storage;
+        _context = context;
+        _nodes = context.Nodes;
+        _credentials = context.Credentials;
+        _tunnels = context.Tunnels;
         _isExistingNode = isExistingNode;
     }
+
+    protected void SaveNodes() => _context.SaveNodes();
+    protected void SaveCredentials() => _context.SaveCredentials();
+    protected void SaveTunnels() => _context.SaveTunnels();
+    protected void ReloadTunnels() => _context.ReloadTunnels();
+    protected void ReloadCredentials() => _context.ReloadCredentials();
 
     /// <summary>子类在 InitializeComponent 及控件绑定完成后调用，注册关闭前未保存提示及 ESC 键行为（无修改直接关，有修改则提示是否放弃）。</summary>
     protected void RegisterClosing()

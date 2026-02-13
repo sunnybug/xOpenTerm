@@ -10,7 +10,7 @@ namespace xOpenTerm;
 
 public partial class SettingsWindow : Window
 {
-    private readonly StorageService _storage = new();
+    private readonly IStorageService _storage = App.GetStorageService() ?? new StorageService();
     private readonly AppSettings _settings;
     private readonly string _initialFont;
     private readonly string _initialSize;
