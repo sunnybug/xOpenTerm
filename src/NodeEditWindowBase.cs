@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 using xOpenTerm.Models;
 using xOpenTerm.Services;
 
@@ -28,7 +29,7 @@ public abstract class NodeEditWindowBase : Window
         _isExistingNode = isExistingNode;
     }
 
-    /// <summary>子类在 InitializeComponent 及控件绑定完成后调用，注册关闭前未保存提示。</summary>
+    /// <summary>子类在 InitializeComponent 及控件绑定完成后调用，注册关闭前未保存提示及 ESC 键行为（无修改直接关，有修改则提示是否放弃）。</summary>
     protected void RegisterClosing()
     {
         Closing += (_, e) =>
@@ -36,6 +37,19 @@ public abstract class NodeEditWindowBase : Window
             if (_closingConfirmed) return;
             if (IsDirty() && MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 e.Cancel = true;
+        };
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape) return;
+            e.Handled = true;
+            if (!IsDirty())
+            {
+                ConfirmCloseAndCancel();
+                return;
+            }
+            if (MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+            ConfirmCloseAndCancel();
         };
     }
 

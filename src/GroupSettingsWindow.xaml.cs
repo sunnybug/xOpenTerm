@@ -14,6 +14,16 @@ public partial class GroupSettingsWindow : Window
     private readonly List<Credential> _credentials;
     private readonly List<Tunnel> _tunnels;
     private readonly StorageService _storage;
+    private readonly string? _initialSshCredId;
+    private readonly string? _initialRdpCredId;
+    private readonly List<string> _initialTunnelIds;
+    private readonly string _initialTencentSecretId;
+    private readonly string _initialTencentSecretKey;
+    private readonly string _initialAliAccessKeyId;
+    private readonly string _initialAliAccessKeySecret;
+    private readonly string _initialKsyunAccessKeyId;
+    private readonly string _initialKsyunAccessKeySecret;
+    private bool _closingConfirmed;
 
     public GroupSettingsWindow(Node groupNode, List<Node> nodes, List<Credential> credentials, List<Tunnel> tunnels, StorageService storage)
     {
@@ -75,6 +85,42 @@ public partial class GroupSettingsWindow : Window
             KsyunAccessKeySecretBox.Password = _groupNode.Config?.KsyunAccessKeySecret ?? "";
             Height = 440;
         }
+
+        _initialSshCredId = SshCredentialCombo.SelectedValue as string;
+        _initialRdpCredId = RdpCredentialCombo.SelectedValue as string;
+        _initialTunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
+        _initialTencentSecretId = TencentSecretIdBox.Text ?? "";
+        _initialTencentSecretKey = TencentSecretKeyBox.Password ?? "";
+        _initialAliAccessKeyId = AliAccessKeyIdBox.Text ?? "";
+        _initialAliAccessKeySecret = AliAccessKeySecretBox.Password ?? "";
+        _initialKsyunAccessKeyId = KsyunAccessKeyIdBox.Text ?? "";
+        _initialKsyunAccessKeySecret = KsyunAccessKeySecretBox.Password ?? "";
+        Closing += GroupSettingsWindow_Closing;
+    }
+
+    private bool IsDirty()
+    {
+        var sshNow = SshCredentialCombo.SelectedValue as string;
+        var rdpNow = RdpCredentialCombo.SelectedValue as string;
+        if (!string.Equals(sshNow, _initialSshCredId, StringComparison.Ordinal) || !string.Equals(rdpNow, _initialRdpCredId, StringComparison.Ordinal))
+            return true;
+        var tunnelIdsNow = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
+        if (tunnelIdsNow.Count != _initialTunnelIds.Count || tunnelIdsNow.Except(_initialTunnelIds).Any())
+            return true;
+        if (_groupNode.Type == NodeType.tencentCloudGroup)
+            return TencentSecretIdBox.Text != _initialTencentSecretId || TencentSecretKeyBox.Password != _initialTencentSecretKey;
+        if (_groupNode.Type == NodeType.aliCloudGroup)
+            return AliAccessKeyIdBox.Text != _initialAliAccessKeyId || AliAccessKeySecretBox.Password != _initialAliAccessKeySecret;
+        if (_groupNode.Type == NodeType.kingsoftCloudGroup)
+            return KsyunAccessKeyIdBox.Text != _initialKsyunAccessKeyId || KsyunAccessKeySecretBox.Password != _initialKsyunAccessKeySecret;
+        return false;
+    }
+
+    private void GroupSettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closingConfirmed) return;
+        if (IsDirty() && MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            e.Cancel = true;
     }
 
     private void RefreshTunnelList(List<string>? initialSelectedIds = null)
@@ -137,12 +183,16 @@ public partial class GroupSettingsWindow : Window
             }
         }
 
+        _closingConfirmed = true;
         DialogResult = true;
         Close();
     }
 
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
+        if (IsDirty() && MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        _closingConfirmed = true;
         DialogResult = false;
         Close();
     }
