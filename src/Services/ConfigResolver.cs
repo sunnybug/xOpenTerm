@@ -36,7 +36,7 @@ public static class ConfigResolver
         var options = new RdpConnectionOptions
         {
             UseConsoleSession = effective.RdpUseConsoleSession == true,
-            RedirectClipboard = effective.RdpRedirectClipboard == true,
+            RedirectClipboard = effective.RdpRedirectClipboard != false,
             SmartSizing = true
         };
         return (host, port, username, domain, password, options);

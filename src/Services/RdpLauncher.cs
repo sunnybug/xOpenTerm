@@ -52,7 +52,7 @@ public static class RdpLauncher
             sb.Append($"domain:s:{domain}\n");
 
         // 参考 mRemoteNG：扩展选项
-        if (config.RdpRedirectClipboard == true)
+        if (config.RdpRedirectClipboard != false)
             sb.Append("redirectclipboard:i:1\n");
         sb.Append("smart sizing:i:1\n");
         if (config.RdpUseConsoleSession == true)

@@ -51,7 +51,7 @@ public partial class RdpNodeEditWindow : NodeEditWindowBase
             CredentialCombo.SelectedValue = cfg.CredentialId;
 
             UseConsoleCheck.IsChecked = cfg.RdpUseConsoleSession == true;
-            RedirectClipboardCheck.IsChecked = cfg.RdpRedirectClipboard == true;
+            RedirectClipboardCheck.IsChecked = cfg.RdpRedirectClipboard != false;
         }
         AuthCombo_SelectionChanged(null!, null!);
 
