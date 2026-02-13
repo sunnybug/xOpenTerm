@@ -109,7 +109,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **IStorageService**：存储抽象，便于单测 Mock；实现类为 `StorageService`。
 - **App 启动时**（`App.xaml.cs`）使用 `Microsoft.Extensions.DependencyInjection` 注册单例 `IStorageService` → `StorageService`。
 - **获取存储**：窗口通过 `App.GetStorageService()` 获取（设计器或非 WPF 环境下可回退 `new StorageService()`）。
-- **INodeEditContext**：编辑窗口统一入参，提供 `Nodes`/`Credentials`/`Tunnels` 列表与 `SaveNodes()`/`SaveCredentials()`/`SaveTunnels()`、`ReloadTunnels()`/`ReloadCredentials()`；实现类为 `NodeEditContext`。主窗口打开节点/分组设置时 `new NodeEditContext(_nodes, _credentials, _tunnels, _storage)` 传入。
+- **INodeEditContext**：编辑窗口统一入参，提供 `Nodes`/`Credentials`/`Tunnels` 列表与 `SaveNodes()`/`SaveCredentials()`/`SaveTunnels()`、`ReloadTunnels()`/`ReloadCredentials()`；实现类为 `NodeEditContext`。主窗口打开节点/分组编辑时 `new NodeEditContext(_nodes, _credentials, _tunnels, _storage)` 传入。
 
 ### 全局类型别名（GlobalUsings.cs）
 

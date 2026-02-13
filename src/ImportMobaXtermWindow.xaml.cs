@@ -18,7 +18,13 @@ public partial class ImportMobaXtermWindow : Window
     /// <summary>若用户选择了密码文件，则为 配置名 → (Username, Password)；否则为 null。</summary>
     public IReadOnlyDictionary<string, (string Username, string Password)>? PasswordLookup { get; private set; }
 
-    public ImportMobaXtermWindow(Window owner, string? initialIniPath = null)
+    /// <summary>用户点击确定时使用的 MobaXterm.ini 路径，供主窗口保存为“上次使用”路径。</summary>
+    public string? LastUsedIniPath { get; private set; }
+
+    /// <summary>用户点击确定时使用的密码文件路径，供主窗口保存为“上次使用”路径。</summary>
+    public string? LastUsedPasswordPath { get; private set; }
+
+    public ImportMobaXtermWindow(Window owner, string? initialIniPath = null, string? initialPasswordPath = null)
     {
         InitializeComponent();
         Owner = owner;
@@ -26,6 +32,8 @@ public partial class ImportMobaXtermWindow : Window
             IniPathBox.Text = initialIniPath;
         else
             SuggestInitialPath();
+        if (!string.IsNullOrWhiteSpace(initialPasswordPath))
+            PasswordPathBox.Text = initialPasswordPath;
         Loaded += (_, _) => LoadIfPathSet();
     }
 
@@ -97,6 +105,8 @@ public partial class ImportMobaXtermWindow : Window
             PasswordLookup = MobaXtermIniParser.ParsePasswordFile(pwdPath);
         else
             PasswordLookup = null;
+        LastUsedIniPath = IniPathBox.Text?.Trim();
+        LastUsedPasswordPath = PasswordPathBox.Text?.Trim();
         DialogResult = true;
         Close();
     }

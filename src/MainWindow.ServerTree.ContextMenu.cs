@@ -233,7 +233,7 @@ public partial class MainWindow
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(null)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(null)));
             menu.Items.Add(importSub);
-            var exportSub = new MenuItem { Header = "导出(_E)" };
+            var exportSub = new MenuItem { Header = "导出(_O)" };
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             return menu;
@@ -255,11 +255,11 @@ public partial class MainWindow
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
             menu.Items.Add(importSub);
-            var exportSub = new MenuItem { Header = "导出(_E)" };
+            var exportSub = new MenuItem { Header = "导出(_O)" };
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
@@ -276,12 +276,12 @@ public partial class MainWindow
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
             menu.Items.Add(importSub);
-            var exportSub = new MenuItem { Header = "导出(_E)" };
+            var exportSub = new MenuItem { Header = "导出(_O)" };
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncTencentCloudGroup(node)));
-            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
@@ -298,12 +298,12 @@ public partial class MainWindow
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
             menu.Items.Add(importSub);
-            var exportSub = new MenuItem { Header = "导出(_E)" };
+            var exportSub = new MenuItem { Header = "导出(_O)" };
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncAliCloudGroup(node)));
-            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
@@ -320,12 +320,12 @@ public partial class MainWindow
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
             menu.Items.Add(importSub);
-            var exportSub = new MenuItem { Header = "导出(_E)" };
+            var exportSub = new MenuItem { Header = "导出(_O)" };
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncKingsoftCloudGroup(node)));
-            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditGroupSettings(node)));
+            menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             menu.Items.Add(new Separator());
@@ -335,8 +335,8 @@ public partial class MainWindow
         {
             menu.Items.Add(CreateMenuItem("连接(_L)", () => OpenTab(node)));
             if (TryGetCloudConsoleDetailUrl(node, out var detailUrl))
-                menu.Items.Add(CreateMenuItem("详情(_D)", () => OpenCloudConsoleDetail(detailUrl!)));
-            menu.Items.Add(CreateMenuItem("设置(_S)", () => EditNode(node)));
+                menu.Items.Add(CreateMenuItem("详情(_V)", () => OpenCloudConsoleDetail(detailUrl!)));
+            menu.Items.Add(CreateMenuItem("编辑(_E)", () => EditNode(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteNode(node)));
             menu.Items.Add(CreateMenuItem("克隆(_C)", () => DuplicateNode(node)));

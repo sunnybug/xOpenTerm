@@ -491,9 +491,12 @@ ssh连接后在连接tab最底下加状态栏，显示cpu/内存占用率/网络
 导入mobaxterm时，若导入的ssh节点的用户名非[xxx]，又没有密码和密钥，则导入后转为ssh agent
 鼠标移入下拉框后，有的区域不会立即转为可点击状态，应该要下拉框整个区域都是可点击展开下拉框
 对于各个云服务下的服务器子节点，右键菜单新增：详情，用默认浏览器打开云服务器的详情链接，注意有的是轻量云服务器。要支持已有的所有云服务类型
-
-
 ctrl+q跳转到节点树的快速输入框，光标移到输入框最后面。快速输入框没有内容时，显示提示词：CTRL+Q
+
+记住MobaXterm导入界面的两个文件路径。
+菜单中有些快捷键重复
+腾讯云的详情示例：https://console.cloud.tencent.com/cvm/instance/detail?searchParams=rid%3D5&rid=5&id=ins-3bh8efoi
+阿里云的详情示例：https://ecs.console.aliyun.com/server/i-j6c5o9wwk3voi6a4lsxn/detail?regionId=cn-hongkong#/
 
 bug:
 进程打开某个对话框后，转到其他进程，再转回来，有概率会看不到这个打开的对话框，这样会导致无法操作该进程的界面

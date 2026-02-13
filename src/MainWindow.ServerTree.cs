@@ -205,10 +205,10 @@ public partial class MainWindow
         }
     }
 
-    private void EditGroupSettings(Node groupNode)
+    private void OpenGroupEdit(Node groupNode)
     {
         var context = new NodeEditContext(_nodes, _credentials, _tunnels, _storage);
-        var dlg = new GroupSettingsWindow(groupNode, context) { Owner = this };
+        var dlg = new GroupEditWindow(groupNode, context) { Owner = this };
         if (dlg.ShowDialog() == true)
         {
             var idx = _nodes.FindIndex(n => n.Id == groupNode.Id);
@@ -221,8 +221,12 @@ public partial class MainWindow
 
     private void ImportMobaXterm(Node? parentNode)
     {
-        var dlg = new ImportMobaXtermWindow(this);
+        var settings = _storage.LoadAppSettings();
+        var dlg = new ImportMobaXtermWindow(this, settings.LastMobaXtermIniPath, settings.LastMobaXtermPasswordPath);
         if (dlg.ShowDialog() != true || dlg.SelectedSessions.Count == 0) return;
+        settings.LastMobaXtermIniPath = string.IsNullOrWhiteSpace(dlg.LastUsedIniPath) ? null : dlg.LastUsedIniPath;
+        settings.LastMobaXtermPasswordPath = string.IsNullOrWhiteSpace(dlg.LastUsedPasswordPath) ? null : dlg.LastUsedPasswordPath;
+        _storage.SaveAppSettings(settings);
         var passwordLookup = dlg.PasswordLookup;
         // 按目录结构创建父节点：path -> 已创建的分组 Node；根级别时 parentNode 为 null
         var rootParentId = parentNode?.Id;

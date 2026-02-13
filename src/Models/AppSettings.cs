@@ -52,4 +52,12 @@ public class AppSettings
     /// <summary>用户是否选择「不再提醒」主密码：为 true 时启动不再弹出主密码设置/输入框，使用原有固定密钥加解密。</summary>
     [YamlMember(Alias = "masterPasswordSkipped")]
     public bool MasterPasswordSkipped { get; set; }
+
+    /// <summary>MobaXterm 导入界面上次使用的 MobaXterm.ini 路径</summary>
+    [YamlMember(Alias = "lastMobaXtermIniPath")]
+    public string? LastMobaXtermIniPath { get; set; }
+
+    /// <summary>MobaXterm 导入界面上次使用的密码文件路径</summary>
+    [YamlMember(Alias = "lastMobaXtermPasswordPath")]
+    public string? LastMobaXtermPasswordPath { get; set; }
 }

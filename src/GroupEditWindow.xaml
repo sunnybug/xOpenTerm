@@ -1,4 +1,4 @@
-<Window x:Class="xOpenTerm.GroupSettingsWindow"
+<Window x:Class="xOpenTerm.GroupEditWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="分组默认设置" Height="360" Width="440" WindowStartupLocation="CenterOwner"

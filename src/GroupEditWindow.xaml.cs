@@ -6,8 +6,8 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm;
 
-/// <summary>分组（父节点）默认设置：默认认证凭证与默认跳板，仅保存于本节点；子节点在自身设置中选「同父节点」时生效。</summary>
-public partial class GroupSettingsWindow : Window
+/// <summary>分组（父节点）编辑：默认认证凭证与默认跳板，仅保存于本节点；子节点在自身设置中选「同父节点」时生效。</summary>
+public partial class GroupEditWindow : Window
 {
     private readonly Node _groupNode;
     private readonly IList<Node> _nodes;
@@ -25,7 +25,7 @@ public partial class GroupSettingsWindow : Window
     private readonly string _initialKsyunAccessKeySecret;
     private bool _closingConfirmed;
 
-    public GroupSettingsWindow(Node groupNode, INodeEditContext context)
+    public GroupEditWindow(Node groupNode, INodeEditContext context)
     {
         InitializeComponent();
         _groupNode = groupNode;
@@ -95,7 +95,7 @@ public partial class GroupSettingsWindow : Window
         _initialAliAccessKeySecret = AliAccessKeySecretBox.Password ?? "";
         _initialKsyunAccessKeyId = KsyunAccessKeyIdBox.Text ?? "";
         _initialKsyunAccessKeySecret = KsyunAccessKeySecretBox.Password ?? "";
-        Closing += GroupSettingsWindow_Closing;
+        Closing += GroupEditWindow_Closing;
     }
 
     private bool IsDirty()
@@ -116,7 +116,7 @@ public partial class GroupSettingsWindow : Window
         return false;
     }
 
-    private void GroupSettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void GroupEditWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_closingConfirmed) return;
         if (IsDirty() && MessageBox.Show(this, "是否放弃修改？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
