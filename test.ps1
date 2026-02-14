@@ -52,11 +52,36 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-# --test-ssh-status：仅运行 SSH 状态获取单元测试，无交互，测试结束自动退出
+# --test-ssh-status：仅运行 SSH 状态获取单元测试，无交互，测试结束自动退出。日志在 .run\log
 if ($TestSshStatus) {
+    # 与主流程一致：运行前先清理 .run/log，便于从干净状态检查结果
+    if (Test-Path -Path $LogDir -PathType Container) {
+        Get-ChildItem -Path $LogDir -File | Remove-Item -Force
+    }
     Write-Host "Running SSH status fetch unit tests..." -ForegroundColor Cyan
     $testsPath = Join-Path $Root "tests\xOpenTerm.Tests.csproj"
     & dotnet test $testsPath --filter "FullyQualifiedName~SshStatusFetch"
+    # 检查结果：若有内容的 crash/error 日志或 log 中含 error 等，则输出 log 完整路径
+    if (Test-Path -Path $LogDir -PathType Container) {
+        $pathsToShow = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        $crashErrorFiles = Get-ChildItem -Path $LogDir -File | Where-Object { $_.Name -match "error|crash|exception" }
+        foreach ($file in $crashErrorFiles) {
+            $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+            if ($content -and $content.Trim().Length -gt 0) {
+                [void]$pathsToShow.Add($file.FullName)
+            }
+        }
+        $allLogFiles = Get-ChildItem -Path $LogDir -File
+        foreach ($file in $allLogFiles) {
+            $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+            if ($content -and $content -match '\b(error|err|crash|fatal)\b') {
+                [void]$pathsToShow.Add($file.FullName)
+            }
+        }
+        foreach ($path in $pathsToShow) {
+            Write-Host "Log: $path" -ForegroundColor Red
+        }
+    }
     exit $LASTEXITCODE
 }
 
@@ -130,11 +155,11 @@ try {
             }
         }
 
-        # 任意日志文件中含 err/crash/fatal 整词时，输出完整路径（匹配 [ERR]、error、crash、fatal，避免误匹配 failed/exception 等）
+        # 任意日志文件中含 error/err/crash/fatal 整词时，输出完整路径（匹配 [ERR]、error、crash、fatal，避免误匹配 failed/exception 等）
         $allLogFiles = Get-ChildItem -Path $LogDir -File
         foreach ($file in $allLogFiles) {
             $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
-            if ($content -and $content -match '\b(err|crash|fatal)\b') {
+            if ($content -and $content -match '\b(error|err|crash|fatal)\b') {
                 [void]$pathsToShow.Add($file.FullName)
             }
         }

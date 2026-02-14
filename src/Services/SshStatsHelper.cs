@@ -6,11 +6,11 @@ namespace xOpenTerm.Services;
 /// <summary>SSH 状态栏：远程执行统计命令与解析输出（Linux /proc、ss）。</summary>
 public static class SshStatsHelper
 {
-    /// <summary>在 Linux 上采集 CPU/内存/网络/TCP/UDP 的单条命令（约 1 秒，含 sleep 1）。</summary>
-    public const string StatsCommand = "grep '^cpu ' /proc/stat; echo '---'; grep 'MemTotal' /proc/meminfo; echo '---'; grep 'MemFree' /proc/meminfo; echo '---'; awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev; echo '---'; sleep 1; grep '^cpu ' /proc/stat; echo '---'; awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev; echo '---'; netstat -t -a 2>/dev/null | wc -l; echo '---'; netstat -u -a 2>/dev/null | wc -l;";
-    
-    /// <summary>用于调试的简化命令，不包含 sleep，用于快速测试。</summary>
-    public const string DebugCommand = "echo \"CPU:$(grep '^cpu ' /proc/stat)\"; echo \"MEM:$(grep -E 'MemTotal|MemFree' /proc/meminfo)\"; echo \"NET:$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev)\"; echo \"TCP:$(netstat -t -a 2>/dev/null | wc -l)\"; echo \"UDP:$(netstat -u -a 2>/dev/null | wc -l)\"; echo \"VERSION:$(cat /etc/centos-release 2>/dev/null || cat /etc/redhat-release 2>/dev/null || echo 'Unknown')\"";
+    /// <summary>在 Linux 上采集 CPU/内存/网络/TCP/UDP 的单条命令（约 1 秒，含 sleep 1）。TCP/UDP 用 ss 统计，避免 netstat 在 CentOS 上卡住。</summary>
+    public const string StatsCommand = "grep '^cpu ' /proc/stat; echo '---'; grep 'MemTotal' /proc/meminfo; echo '---'; grep 'MemFree' /proc/meminfo; echo '---'; awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev; echo '---'; sleep 1; grep '^cpu ' /proc/stat; echo '---'; awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev; echo '---'; ss -t -a 2>/dev/null | wc -l; echo '---'; ss -u -a 2>/dev/null | wc -l;";
+
+    /// <summary>用于调试的简化命令，不包含 sleep，用于快速测试。TCP/UDP 用 ss，避免 netstat 在 CentOS 上卡住。</summary>
+    public const string DebugCommand = "echo \"CPU:$(grep '^cpu ' /proc/stat)\"; echo \"MEM:$(grep -E 'MemTotal|MemFree' /proc/meminfo)\"; echo \"NET:$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev)\"; echo \"TCP:$(ss -t -a 2>/dev/null | wc -l)\"; echo \"UDP:$(ss -u -a 2>/dev/null | wc -l)\"; echo \"VERSION:$(cat /etc/centos-release 2>/dev/null || cat /etc/redhat-release 2>/dev/null || echo 'Unknown')\"";
 
     /// <summary>解析远程命令输出，返回 CPU%、内存%、下行/上行字节每秒、TCP 数、UDP 数。解析失败则对应项为 null。</summary>
     public static (double? CpuPercent, double? MemPercent, double? RxBps, double? TxBps, int? TcpCount, int? UdpCount) ParseStatsOutput(string? output)

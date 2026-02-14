@@ -71,18 +71,53 @@ public class SessionManager
         string? password, string? keyPath, string? keyPassphrase, bool useAgent, string command,
         TimeSpan? connectionTimeout = null)
     {
+        var timeoutSec = connectionTimeout?.TotalSeconds.ToString("0") ?? "null";
+        var commandOneLine = string.IsNullOrEmpty(command) ? "" : command.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+        ExceptionLog.WriteInfo($"[RunSshCommandDirect] 开始 host={host} port={port} connectionTimeout={timeoutSec}s command=[{commandOneLine}]");
+        var totalSw = Stopwatch.StartNew();
+
         var conn = CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent, connectionTimeout);
-        if (conn == null) return null;
+        if (conn == null)
+        {
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] CreateConnectionInfo 返回 null host={host}");
+            return null;
+        }
         using var client = new SshClient(conn);
-        client.Connect();
+        var connectSw = Stopwatch.StartNew();
         try
         {
+            client.Connect();
+            connectSw.Stop();
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] Connect 完成 host={host} 耗时={connectSw.ElapsedMilliseconds}ms");
+        }
+        catch (Exception ex)
+        {
+            connectSw.Stop();
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] Connect 异常 host={host} 耗时={connectSw.ElapsedMilliseconds}ms");
+            ExceptionLog.Write(ex, $"[RunSshCommandDirect] host={host}", toCrashLog: false);
+            return null;
+        }
+        try
+        {
+            var cmdSw = Stopwatch.StartNew();
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] RunCommand 开始 host={host} command=[{commandOneLine}]");
             using var cmd = client.RunCommand(command);
-            return cmd.Result;
+            var result = cmd.Result;
+            cmdSw.Stop();
+            totalSw.Stop();
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] RunCommand 完成 host={host} 命令耗时={cmdSw.ElapsedMilliseconds}ms 总耗时={totalSw.ElapsedMilliseconds}ms 输出长度={result?.Length ?? 0}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            totalSw.Stop();
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] RunCommand 异常 host={host} 总耗时={totalSw.ElapsedMilliseconds}ms");
+            ExceptionLog.Write(ex, $"[RunSshCommandDirect] RunCommand host={host}", toCrashLog: false);
+            return null;
         }
         finally
         {
-            client.Disconnect();
+            try { client.Disconnect(); } catch { }
         }
     }
     private readonly ConcurrentDictionary<string, ISessionHandle> _sessions = new();
