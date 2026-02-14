@@ -40,21 +40,29 @@
                 <Canvas x:Name="MemChart" ClipToBounds="True"/>
             </Border>
         </StackPanel>
-        <!-- 下载 -->
-        <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="下载:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
-            <TextBlock x:Name="RxText" Text="—" Foreground="{StaticResource TextPrimary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
-            <Border Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinWidth="80" MinHeight="20">
-                <Canvas x:Name="RxChart" ClipToBounds="True"/>
-            </Border>
-        </StackPanel>
-        <!-- 上传 -->
-        <StackPanel Grid.Column="8" Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="上传:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
-            <TextBlock x:Name="TxText" Text="—" Foreground="{StaticResource TextPrimary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
-            <Border Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinWidth="80" MinHeight="20">
-                <Canvas x:Name="TxChart" ClipToBounds="True"/>
-            </Border>
+        <!-- 流量区域（下载+上传）：单独右键菜单，与 Tab 右键菜单分离 -->
+        <StackPanel x:Name="TrafficArea" Grid.Column="6" Grid.ColumnSpan="3" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="查看进程流量(_P)" Click="TrafficContextMenu_ViewProcessTraffic_Click"/>
+                </ContextMenu>
+            </StackPanel.ContextMenu>
+            <!-- 下载 -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="下载:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="RxText" Text="—" Foreground="{StaticResource TextPrimary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <Border Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinWidth="80" MinHeight="20">
+                    <Canvas x:Name="RxChart" ClipToBounds="True"/>
+                </Border>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                <!-- 上传 -->
+                <TextBlock Text="上传:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxText" Text="—" Foreground="{StaticResource TextPrimary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <Border Background="{StaticResource BgInput}" CornerRadius="4" Padding="4,2" MinWidth="80" MinHeight="20">
+                    <Canvas x:Name="TxChart" ClipToBounds="True"/>
+                </Border>
+            </StackPanel>
         </StackPanel>
         <!-- TCP -->
         <StackPanel Grid.Column="10" Orientation="Horizontal" VerticalAlignment="Center">

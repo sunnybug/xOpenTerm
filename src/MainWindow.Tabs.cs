@@ -101,6 +101,7 @@ public partial class MainWindow
         _tabIdToNodeId[tabId] = node.Id;
         _tabIdToSshStatusBar[tabId] = statusBar;
         _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent);
+        statusBar.RequestSendCommand += (_, cmd) => SendCommandToSshTab(tabId, cmd);
         puttyControl.Connected += (_, _) =>
         {
             Dispatcher.BeginInvoke(() =>
@@ -199,12 +200,21 @@ public partial class MainWindow
         reconnectItem.Click += (_, _) => ReconnectTab(tabId);
         var disconnectItem = new MenuItem { Header = "断开(_D)" };
         disconnectItem.Click += (_, _) => DisconnectTab(tabId);
-        var closeItem = new MenuItem { Header = "关闭(_W)" };
-        closeItem.Click += (_, _) => CloseTabWithConfirm(tabId);
+        var closeAllItem = new MenuItem { Header = "关闭所有连接(_A)" };
+        closeAllItem.Click += (_, _) => CloseAllTabs();
         menu.Items.Add(reconnectItem);
         menu.Items.Add(disconnectItem);
-        menu.Items.Add(closeItem);
+        menu.Items.Add(closeAllItem);
         return menu;
+    }
+
+    /// <summary>在指定 SSH 标签页的终端中执行命令（由状态栏「查看进程流量」等触发）。</summary>
+    private void SendCommandToSshTab(string tabId, string command)
+    {
+        if (string.IsNullOrWhiteSpace(command)) return;
+        if (!_tabIdToPuttyControl.TryGetValue(tabId, out var putty)) return;
+        var line = command.TrimEnd() + "\n";
+        putty.SendTextToTerminal(line);
     }
 
     private void DisconnectTab(string tabId)
@@ -251,7 +261,7 @@ public partial class MainWindow
             Background = new SolidColorBrush(Color.FromRgb(0x1e, 0x29, 0x3b)),
             Child = new TextBlock
             {
-                Text = "连接已断开。右键选择「重连」或「关闭」。",
+                Text = "连接已断开。右键选择「重连」。",
                 Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8)),
                 FontSize = 14,
                 HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
@@ -301,6 +311,7 @@ public partial class MainWindow
             _tabIdToPuttyControl[tabId] = puttyControl;
             _tabIdToSshStatusBar[tabId] = statusBarReconnect;
             _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent);
+            statusBarReconnect.RequestSendCommand += (_, cmd) => SendCommandToSshTab(tabId, cmd);
             puttyControl.Connected += (_, _) =>
             {
                 Dispatcher.BeginInvoke(() =>
@@ -476,6 +487,22 @@ public partial class MainWindow
         if (MessageBox.Show("确定要关闭此连接吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         CloseTab(tabId);
+    }
+
+    /// <summary>关闭所有连接 tab，确认后依次关闭。</summary>
+    private void CloseAllTabs()
+    {
+        if (TabsControl.Items.Count == 0) return;
+        if (MessageBox.Show("确定要关闭所有连接吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        var tabIds = new List<string>();
+        foreach (var item in TabsControl.Items)
+        {
+            if (item is TabItem ti && ti.Tag is string id)
+                tabIds.Add(id);
+        }
+        foreach (var tabId in tabIds)
+            CloseTab(tabId);
     }
 
     private void CloseTab(string tabId)

@@ -20,11 +20,20 @@ public partial class SshStatusBarControl : UserControl
     private static readonly SolidColorBrush RxBrush = new(Color.FromRgb(0x22, 0xC5, 0x5E));     // 绿
     private static readonly SolidColorBrush TxBrush = new(Color.FromRgb(0x3B, 0x82, 0xF6));     // 蓝
 
+    /// <summary>在流量区右键选择「查看进程流量」时触发，参数为要在 SSH 终端中执行的命令（含换行）。</summary>
+    public event EventHandler<string>? RequestSendCommand;
+
     public SshStatusBarControl()
     {
         InitializeComponent();
         Loaded += (_, _) => RedrawCharts();
         SizeChanged += (_, _) => RedrawCharts();
+    }
+
+    private void TrafficContextMenu_ViewProcessTraffic_Click(object sender, RoutedEventArgs e)
+    {
+        // 在终端中执行 nethogs -t：按流量排序显示进程网络占用（一次输出）；若无 nethogs 可改用手动安装
+        RequestSendCommand?.Invoke(this, "nethogs -t");
     }
 
     /// <summary>更新状态栏显示。null 表示暂无数据或未连接。</summary>
