@@ -11,6 +11,7 @@ public class SshStatusFetchTests
 {
     private const string TestHost = "192.168.1.192";
     private const string TestHostCentos65 = "120.92.35.205";
+    private const string TestHostCentos7 = "120.92.82.22";
     private const ushort TestPort = 22;
     private const string TestUser = "root";
     private static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(3);
@@ -29,6 +30,14 @@ public class SshStatusFetchTests
     public async Task FetchSshStatusViaAgent_Centos65_ConnectsAndParses()
     {
         await RunSshStatusTestAsync(TestHostCentos65, "120.92.35.205 (CentOS 6.5)").ConfigureAwait(false);
+    }
+
+    /// <summary>通过 SSH Agent 连接 CentOS 7 root@120.92.82.22，执行统计命令并解析输出。需本机可达该主机且 Agent 已添加对应私钥。</summary>
+    [Test]
+    [Ignore("需本机可达 120.92.82.22 且 SSH Agent 已添加对应私钥；满足条件时移除本 Ignore 再跑")]
+    public async Task FetchSshStatusViaAgent_Centos7_ConnectsAndParses()
+    {
+        await RunSshStatusTestAsync(TestHostCentos7, "120.92.82.22 (CentOS 7)").ConfigureAwait(false);
     }
 
     /// <summary>执行单次 SSH 状态测试：写日志、整体超时 10s 内未返回则直接失败（避免两用例合计卡 40s）。</summary>

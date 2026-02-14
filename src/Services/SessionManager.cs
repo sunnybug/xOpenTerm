@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using Renci.SshNet;
+using Renci.SshNet.Common;
 using SshNet.Agent;
 using xOpenTerm.Models;
 
@@ -60,8 +61,10 @@ public class SessionManager
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                if (ex is SshConnectionException && ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
+                    throw;
                 return null;
             }
         }, cancellationToken).ConfigureAwait(false);
@@ -94,6 +97,9 @@ public class SessionManager
         {
             connectSw.Stop();
             ExceptionLog.WriteInfo($"[RunSshCommandDirect] Connect 异常 host={host} 耗时={connectSw.ElapsedMilliseconds}ms");
+            // 认证失败次数过多时不再重试，让调用方弹窗并停止轮询
+            if (ex is SshConnectionException && ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
+                throw;
             ExceptionLog.Write(ex, $"[RunSshCommandDirect] host={host}", toCrashLog: false);
             return null;
         }

@@ -872,6 +872,11 @@ public partial class MainWindow
                     });
                 }
                 catch (OperationCanceledException) { break; }
+                catch (Exception ex) when (ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
+                {
+                    Dispatcher.Invoke(() => MessageBox.Show("SSH 状态栏采集失败：认证尝试次数过多，服务器已断开。已停止重试。\n\n" + ex.Message, "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning));
+                    break;
+                }
                 catch
                 {
                     if (!_tabIdToSshStatusBar.TryGetValue(tabId, out var bar)) break;
@@ -937,6 +942,11 @@ public partial class MainWindow
                     hasTried = true;
                 }
                 catch (OperationCanceledException) { break; }
+                catch (Exception ex) when (ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
+                {
+                    Dispatcher.Invoke(() => MessageBox.Show("SSH 状态栏采集失败：认证尝试次数过多，服务器已断开。已停止重试。\n\n" + ex.Message, "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning));
+                    break;
+                }
                 catch
                 {
                     if (!_tabIdToRdpStatusBar.TryGetValue(tabId, out var bar)) break;
