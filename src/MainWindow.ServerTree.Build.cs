@@ -97,6 +97,20 @@ public partial class MainWindow
             : Visibility.Collapsed;
     }
 
+    /// <summary>递归统计某分组下可连接节点（ssh/rdp/local）的数量。</summary>
+    private int CountServerNodesUnder(string parentId)
+    {
+        var count = 0;
+        foreach (var n in _nodes.Where(x => x.ParentId == parentId))
+        {
+            if (n.Type == NodeType.ssh || n.Type == NodeType.rdp || n.Type == NodeType.local)
+                count++;
+            else if (n.Type == NodeType.group || n.Type == NodeType.tencentCloudGroup || n.Type == NodeType.aliCloudGroup || n.Type == NodeType.kingsoftCloudGroup)
+                count += CountServerNodesUnder(n.Id);
+        }
+        return count;
+    }
+
     private TreeViewItem CreateTreeItem(Node node, HashSet<string>? expandedIds, bool defaultExpand)
     {
         var expand = ShouldExpand(node, expandedIds, defaultExpand);
@@ -117,6 +131,18 @@ public partial class MainWindow
             Foreground = textPrimary,
             VerticalAlignment = VerticalAlignment.Center
         });
+        var isGroup = node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingsoftCloudGroup;
+        if (isGroup)
+        {
+            var serverCount = CountServerNodesUnder(node.Id);
+            header.Children.Add(new TextBlock
+            {
+                Text = " (" + serverCount + ")",
+                Foreground = textSecondary,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        }
         if (node.Type == NodeType.ssh && !string.IsNullOrEmpty(node.Config?.Host))
         {
             header.Children.Add(new TextBlock
