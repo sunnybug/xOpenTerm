@@ -9,6 +9,12 @@ namespace xOpenTerm;
 /// <summary>分组（父节点）编辑：默认认证凭证与默认跳板，仅保存于本节点；子节点在自身设置中选「同父节点」时生效。</summary>
 public partial class GroupEditWindow : Window
 {
+    /// <summary>默认凭证下拉项：用于「同父节点」与具体凭证。</summary>
+    private sealed class DefaultCredentialItem
+    {
+        public string? Id { get; init; }
+        public string Name { get; init; } = "";
+    }
     private readonly Node _groupNode;
     private readonly IList<Node> _nodes;
     private readonly IList<Credential> _credentials;
@@ -36,11 +42,16 @@ public partial class GroupEditWindow : Window
 
         Title = $"分组默认设置 - {groupNode.Name}";
         var credList = _credentials.OrderBy(c => c.AuthType).ThenBy(c => c.Name).ToList();
+        var defaultCredItems = new List<DefaultCredentialItem>
+        {
+            new() { Id = null, Name = "同父节点" }
+        };
+        defaultCredItems.AddRange(credList.Select(c => new DefaultCredentialItem { Id = c.Id, Name = c.Name ?? c.Id ?? "" }));
         foreach (var combo in new[] { SshCredentialCombo, RdpCredentialCombo })
         {
             combo.DisplayMemberPath = "Name";
             combo.SelectedValuePath = "Id";
-            combo.ItemsSource = credList;
+            combo.ItemsSource = defaultCredItems;
         }
 
         if (_groupNode.Config != null)
@@ -51,6 +62,8 @@ public partial class GroupEditWindow : Window
         }
         else
         {
+            SshCredentialCombo.SelectedValue = null;
+            RdpCredentialCombo.SelectedValue = null;
             RefreshTunnelList(null);
         }
 

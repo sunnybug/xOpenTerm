@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -186,20 +187,29 @@ public partial class MainWindow
         return null;
     }
 
+    /// <summary>腾讯云 CVM 实例 ID 格式：ins- 后跟小写字母/数字。</summary>
+    private static readonly Regex TencentCvmInstanceIdRegex = new(@"^ins-[a-z0-9]+$", RegexOptions.Compiled);
+    /// <summary>腾讯云轻量实例 ID 格式：lhins- 后跟小写字母/数字。</summary>
+    private static readonly Regex TencentLighthouseInstanceIdRegex = new(@"^lhins-[a-z0-9]+$", RegexOptions.Compiled);
+
     private bool TryGetCloudDetailUrl(Node node, out string? url)
     {
         url = null;
         if (node.Config?.ResourceId == null || node.Config.CloudRegionId == null) return false;
+        var instanceId = node.Config.ResourceId.Trim();
+        if (string.IsNullOrEmpty(instanceId)) return false;
+
         var cloudType = GetAncestorCloudGroupType(node);
         var region = node.Config.CloudRegionId;
-        var instanceId = node.Config.ResourceId;
         var isLightweight = node.Config.CloudIsLightweight == true;
 
         switch (cloudType)
         {
             case NodeType.tencentCloudGroup:
+                if (isLightweight ? !TencentLighthouseInstanceIdRegex.IsMatch(instanceId) : !TencentCvmInstanceIdRegex.IsMatch(instanceId))
+                    return false;
                 url = isLightweight
-                    ? $"https://console.cloud.tencent.com/lighthouse/instance/detail?region={Uri.EscapeDataString(region)}&instanceId={Uri.EscapeDataString(instanceId)}"
+                    ? $"https://console.cloud.tencent.com/lighthouse/instance/detail?region={Uri.EscapeDataString(region)}&id={Uri.EscapeDataString(instanceId)}"
                     : $"https://console.cloud.tencent.com/cvm/instance/detail?region={Uri.EscapeDataString(region)}&id={Uri.EscapeDataString(instanceId)}";
                 break;
             case NodeType.aliCloudGroup:
@@ -280,7 +290,10 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncTencentCloudGroup(node)));
+            var syncSubTencent = new MenuItem { Header = "同步(_Y)" };
+            syncSubTencent.Items.Add(CreateMenuItem("同步", () => SyncTencentCloudGroup(node)));
+            syncSubTencent.Items.Add(CreateMenuItem("重建", () => RebuildTencentCloudGroup(node)));
+            menu.Items.Add(syncSubTencent);
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
@@ -302,7 +315,10 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncAliCloudGroup(node)));
+            var syncSubAli = new MenuItem { Header = "同步(_Y)" };
+            syncSubAli.Items.Add(CreateMenuItem("同步", () => SyncAliCloudGroup(node)));
+            syncSubAli.Items.Add(CreateMenuItem("重建", () => RebuildAliCloudGroup(node)));
+            menu.Items.Add(syncSubAli);
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
@@ -324,7 +340,10 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("同步(_Y)", () => SyncKingsoftCloudGroup(node)));
+            var syncSubKingsoft = new MenuItem { Header = "同步(_Y)" };
+            syncSubKingsoft.Items.Add(CreateMenuItem("同步", () => SyncKingsoftCloudGroup(node)));
+            syncSubKingsoft.Items.Add(CreateMenuItem("重建", () => RebuildKingsoftCloudGroup(node)));
+            menu.Items.Add(syncSubKingsoft);
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));

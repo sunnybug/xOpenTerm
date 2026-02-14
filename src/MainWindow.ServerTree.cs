@@ -81,6 +81,15 @@ public partial class MainWindow
         _nodes.RemoveAll(n => n.Id == nodeId);
     }
 
+    /// <summary>删除指定节点下的全部子节点（不删除该节点本身），保存并刷新树。</summary>
+    private void RemoveChildrenOfNode(Node parentNode)
+    {
+        foreach (var child in _nodes.Where(n => n.ParentId == parentNode.Id).ToList())
+            RemoveNodeRecursive(child.Id);
+        _storage.SaveNodes(_nodes);
+        BuildTree();
+    }
+
     private void DeleteNode(Node node)
     {
         var name = string.IsNullOrEmpty(node.Name) && node.Config?.Host != null ? node.Config.Host : (GetNodeDisplayName(node) ?? node.Name ?? "未命名节点");
@@ -1052,6 +1061,30 @@ public partial class MainWindow
             result.Add(serverNode);
         }
         return result;
+    }
+
+    private void RebuildTencentCloudGroup(Node groupNode)
+    {
+        if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        RemoveChildrenOfNode(groupNode);
+        SyncTencentCloudGroup(groupNode);
+    }
+
+    private void RebuildAliCloudGroup(Node groupNode)
+    {
+        if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        RemoveChildrenOfNode(groupNode);
+        SyncAliCloudGroup(groupNode);
+    }
+
+    private void RebuildKingsoftCloudGroup(Node groupNode)
+    {
+        if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        RemoveChildrenOfNode(groupNode);
+        SyncKingsoftCloudGroup(groupNode);
     }
 
     private void SyncTencentCloudGroup(Node groupNode)
