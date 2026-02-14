@@ -14,42 +14,42 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="名称" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+            <TextBlock Text="名称" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
             <TextBox x:Name="NameBox" Width="280" Style="{StaticResource DialogTextBoxStyle}"/>
         </StackPanel>
         <TextBlock Grid.Row="1" Text="连接配置" Foreground="{StaticResource TextPrimary}" FontSize="15" FontWeight="SemiBold" Margin="0,8,0,6"/>
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="ConfigPanel">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="主机" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock Text="主机" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <TextBox x:Name="HostBox" Width="260" Style="{StaticResource DialogTextBoxStyle}" hist:InputHistoryBehavior.Key="SshNodeEditWindow.HostBox"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="端口" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock Text="端口" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <TextBox x:Name="PortBox" Width="80" MaxLength="5" Style="{StaticResource DialogTextBoxStyle}" hist:InputHistoryBehavior.Key="SshNodeEditWindow.PortBox"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="UsernameRow">
-                    <TextBlock Text="用户名" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock Text="用户名" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <TextBox x:Name="UsernameBox" Width="260" Style="{StaticResource DialogTextBoxStyle}" hist:InputHistoryBehavior.Key="SshNodeEditWindow.UsernameBox"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="认证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock Text="认证" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <ComboBox x:Name="AuthCombo" Width="120" Style="{StaticResource SimpleComboBoxStyle}" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionChanged="AuthCombo_SelectionChanged"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="PasswordRow">
-                    <TextBlock Text="密码" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock Text="密码" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <PasswordBox x:Name="PasswordBox" Width="260" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="KeyRow" Visibility="Collapsed">
-                    <TextBlock Text="私钥路径" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock Text="私钥路径" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <TextBox x:Name="KeyPathBox" Width="220" Style="{StaticResource DialogTextBoxStyle}" hist:InputHistoryBehavior.Key="SshNodeEditWindow.KeyPathBox"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="CredentialRow" Visibility="Collapsed">
-                    <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock Text="登录凭证" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                     <ComboBox x:Name="CredentialCombo" Width="260" Style="{StaticResource SimpleComboBoxStyle}" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8" x:Name="TunnelRow">
-                    <TextBlock Text="跳板机" Width="80" VerticalAlignment="Top" Foreground="{StaticResource TextPrimary}" Margin="0,6,0,0"/>
+                    <TextBlock Text="跳板机" Width="80" VerticalAlignment="Top" TextAlignment="Center" Foreground="{StaticResource TextPrimary}" Margin="0,6,0,0"/>
                     <StackPanel>
                         <CheckBox x:Name="TunnelUseParentCheckBox" Content="同父节点" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6" Checked="TunnelUseParentCheckBox_Changed" Unchecked="TunnelUseParentCheckBox_Changed"/>
                         <ListBox x:Name="TunnelListBox" Height="72" Style="{StaticResource DialogListBoxStyle}" SelectionMode="Multiple"/>
