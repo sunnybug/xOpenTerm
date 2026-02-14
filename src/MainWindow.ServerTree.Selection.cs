@@ -117,14 +117,16 @@ public partial class MainWindow
     private void UpdateTreeSelectionVisuals()
     {
         var selBg = (Brush)FindResource("SelectionBg");
-        foreach (var tvi in EnumerateTreeViewItems(ServerTree))
+        IEnumerable<string> idsToUpdate = _prevSelectedNodeIds != null
+            ? _prevSelectedNodeIds.Union(_selectedNodeIds)
+            : _nodeIdToTvi.Keys;
+        foreach (var id in idsToUpdate)
         {
-            if (tvi.Tag is Node n)
-            {
-                var selected = _selectedNodeIds.Contains(n.Id);
-                SetIsMultiSelected(tvi, selected);
-                tvi.Background = selected ? selBg : Brushes.Transparent;
-            }
+            if (!_nodeIdToTvi.TryGetValue(id, out var tvi)) continue;
+            var selected = _selectedNodeIds.Contains(id);
+            SetIsMultiSelected(tvi, selected);
+            tvi.Background = selected ? selBg : Brushes.Transparent;
         }
+        _prevSelectedNodeIds = new HashSet<string>(_selectedNodeIds);
     }
 }

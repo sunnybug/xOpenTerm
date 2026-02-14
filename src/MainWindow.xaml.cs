@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using System.Windows.Forms.Integration;
 using xOpenTerm.Controls;
 using xOpenTerm.Models;
@@ -60,6 +61,14 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, bool> _tabIdToDisconnected = new();
     /// <summary>上次关闭 RDP 会话的时间（UTC），关闭后短时内再打开则延迟执行以减轻 COM/RCW 已分离问题。</summary>
     private DateTime _lastRdpCloseUtc = DateTime.MinValue;
+    /// <summary>搜索框防抖定时器，输入停止后 250ms 再执行 BuildTree。</summary>
+    private DispatcherTimer? _searchDebounceTimer;
+    /// <summary>BuildTree 期间使用的“匹配搜索”节点 ID 集合，用于 MatchesSearch 查表。</summary>
+    private HashSet<string>? _buildVisibleNodeIds;
+    /// <summary>节点 ID → TreeViewItem 映射，Build 时填充、Clear 时清空，用于 RestoreSelection 与多选样式更新。</summary>
+    private readonly Dictionary<string, TreeViewItem> _nodeIdToTvi = new();
+    /// <summary>上次多选样式更新时的选中节点 ID 集合，用于只更新变化的项。</summary>
+    private HashSet<string>? _prevSelectedNodeIds;
 
     public MainWindow()
     {
@@ -363,6 +372,7 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        _searchDebounceTimer?.Stop();
         if (TabsControl.Items.Count > 0 &&
             MessageBox.Show("当前有连接未关闭，确定要退出吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
         {

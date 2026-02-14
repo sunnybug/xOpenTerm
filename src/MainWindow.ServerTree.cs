@@ -161,7 +161,8 @@ public partial class MainWindow
     /// <summary>局部更新树中指定节点的显示，避免重刷整个树。</summary>
     private void UpdateTreeItem(Node node)
     {
-        var tvi = FindTreeViewItemByNodeId(ServerTree, node.Id);
+        if (!_nodeIdToTvi.TryGetValue(node.Id, out var tvi))
+            tvi = FindTreeViewItemByNodeId(ServerTree, node.Id);
         if (tvi == null) return;
 
         // 更新 Tag 为最新的节点引用

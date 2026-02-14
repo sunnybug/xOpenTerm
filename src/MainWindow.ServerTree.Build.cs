@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using xOpenTerm.Controls;
 using xOpenTerm.Models;
 
@@ -15,11 +17,88 @@ public partial class MainWindow
     {
         var expandedIds = initialExpandedIds ?? CollectExpandedGroupNodeIds(ServerTree);
         ServerTree.Items.Clear();
-        var roots = _nodes.Where(n => string.IsNullOrEmpty(n.ParentId)).ToList();
-        foreach (var node in roots)
-            if (MatchesSearch(node))
-                ServerTree.Items.Add(CreateTreeItem(node, expandedIds, expandNodes));
+        _nodeIdToTvi.Clear();
+        var childrenByParentId = BuildChildrenByParentId();
+        var serverCountUnder = BuildServerCountUnder(childrenByParentId);
+        _buildVisibleNodeIds = BuildVisibleNodeIds(childrenByParentId);
+        try
+        {
+            var roots = childrenByParentId.GetValueOrDefault("", Array.Empty<Node>().ToList());
+            foreach (var node in roots)
+                if (MatchesSearch(node))
+                    ServerTree.Items.Add(CreateTreeItem(node, expandedIds, expandNodes, childrenByParentId, serverCountUnder));
+        }
+        finally
+        {
+            _buildVisibleNodeIds = null;
+        }
         RestoreSelectionFromSelectedNodeIds();
+        _prevSelectedNodeIds = new HashSet<string>(_selectedNodeIds);
+    }
+
+    private Dictionary<string, List<Node>> BuildChildrenByParentId()
+    {
+        var d = new Dictionary<string, List<Node>>();
+        foreach (var n in _nodes)
+        {
+            var key = n.ParentId ?? "";
+            if (!d.TryGetValue(key, out var list))
+            {
+                list = new List<Node>();
+                d[key] = list;
+            }
+            list.Add(n);
+        }
+        return d;
+    }
+
+    private static Dictionary<string, int> BuildServerCountUnder(Dictionary<string, List<Node>> childrenByParentId)
+    {
+        var count = new Dictionary<string, int>();
+        foreach (var root in childrenByParentId.GetValueOrDefault("", Array.Empty<Node>().ToList()))
+            BuildServerCountUnderDfs(root, childrenByParentId, count);
+        return count;
+    }
+
+    private static int BuildServerCountUnderDfs(Node n, Dictionary<string, List<Node>> childrenByParentId, Dictionary<string, int> count)
+    {
+        var list = childrenByParentId.GetValueOrDefault(n.Id, Array.Empty<Node>().ToList());
+        var c = 0;
+        foreach (var child in list)
+        {
+            if (child.Type == NodeType.ssh || child.Type == NodeType.rdp || child.Type == NodeType.local)
+                c += 1;
+            else
+                c += BuildServerCountUnderDfs(child, childrenByParentId, count);
+        }
+        count[n.Id] = c;
+        return c;
+    }
+
+    private HashSet<string>? BuildVisibleNodeIds(Dictionary<string, List<Node>> childrenByParentId)
+    {
+        if (string.IsNullOrWhiteSpace(_searchTerm)) return null;
+        var term = _searchTerm.Trim().ToLowerInvariant();
+        var selfMatchIds = _nodes.Where(n => NodeSelfMatches(n, term)).Select(n => n.Id).ToHashSet();
+        var parentIdByNodeId = _nodes.Where(n => !string.IsNullOrEmpty(n.ParentId)).ToDictionary(n => n.Id, n => n.ParentId!);
+        var visible = new HashSet<string>(selfMatchIds);
+        var queue = new Queue<string>(selfMatchIds);
+        while (queue.Count > 0)
+        {
+            var id = queue.Dequeue();
+            if (!parentIdByNodeId.TryGetValue(id, out var pid)) continue;
+            if (visible.Add(pid))
+                queue.Enqueue(pid);
+        }
+        return visible;
+    }
+
+    private static bool NodeSelfMatches(Node n, string term)
+    {
+        if (n.Name.ToLowerInvariant().Contains(term)) return true;
+        if (n.Config?.Host?.ToLowerInvariant().Contains(term) == true) return true;
+        if (n.Config?.Username?.ToLowerInvariant().Contains(term) == true) return true;
+        return false;
     }
 
     private void RestoreSelectionFromSelectedNodeIds()
@@ -27,8 +106,7 @@ public partial class MainWindow
         if (_selectedNodeIds.Count == 0) return;
         var firstId = _selectedNodeIds.FirstOrDefault(id => _nodes.Any(n => n.Id == id));
         if (string.IsNullOrEmpty(firstId)) return;
-        var tvi = FindTreeViewItemByNodeId(ServerTree, firstId);
-        if (tvi == null) return;
+        if (!_nodeIdToTvi.TryGetValue(firstId, out var tvi)) return;
         ExpandAncestors(tvi);
         tvi.IsSelected = true;
         tvi.BringIntoView();
@@ -75,6 +153,7 @@ public partial class MainWindow
     private bool MatchesSearch(Node node)
     {
         if (string.IsNullOrWhiteSpace(_searchTerm)) return true;
+        if (_buildVisibleNodeIds != null) return _buildVisibleNodeIds.Contains(node.Id);
         var term = _searchTerm.Trim().ToLowerInvariant();
         if (node.Name.ToLowerInvariant().Contains(term)) return true;
         if (node.Config?.Host?.ToLowerInvariant().Contains(term) == true) return true;
@@ -86,7 +165,20 @@ public partial class MainWindow
     {
         _searchTerm = ServerSearchBox?.Text ?? "";
         UpdateServerSearchPlaceholder();
-        BuildTree();
+        if (_searchDebounceTimer == null)
+        {
+            _searchDebounceTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(250)
+            };
+            _searchDebounceTimer.Tick += (_, _) =>
+            {
+                _searchDebounceTimer!.Stop();
+                BuildTree();
+            };
+        }
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
     }
 
     private void UpdateServerSearchPlaceholder()
@@ -97,21 +189,8 @@ public partial class MainWindow
             : Visibility.Collapsed;
     }
 
-    /// <summary>递归统计某分组下可连接节点（ssh/rdp/local）的数量。</summary>
-    private int CountServerNodesUnder(string parentId)
-    {
-        var count = 0;
-        foreach (var n in _nodes.Where(x => x.ParentId == parentId))
-        {
-            if (n.Type == NodeType.ssh || n.Type == NodeType.rdp || n.Type == NodeType.local)
-                count++;
-            else if (n.Type == NodeType.group || n.Type == NodeType.tencentCloudGroup || n.Type == NodeType.aliCloudGroup || n.Type == NodeType.kingsoftCloudGroup)
-                count += CountServerNodesUnder(n.Id);
-        }
-        return count;
-    }
-
-    private TreeViewItem CreateTreeItem(Node node, HashSet<string>? expandedIds, bool defaultExpand)
+    private TreeViewItem CreateTreeItem(Node node, HashSet<string>? expandedIds, bool defaultExpand,
+        Dictionary<string, List<Node>> childrenByParentId, Dictionary<string, int> serverCountUnder)
     {
         var expand = ShouldExpand(node, expandedIds, defaultExpand);
         var textPrimary = (Brush)FindResource("TextPrimary");
@@ -134,7 +213,7 @@ public partial class MainWindow
         var isGroup = node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingsoftCloudGroup;
         if (isGroup)
         {
-            var serverCount = CountServerNodesUnder(node.Id);
+            var serverCount = serverCountUnder.TryGetValue(node.Id, out var c) ? c : 0;
             header.Children.Add(new TextBlock
             {
                 Text = " (" + serverCount + ")",
@@ -160,6 +239,7 @@ public partial class MainWindow
             Tag = node,
             IsExpanded = expand
         };
+        _nodeIdToTvi[node.Id] = item;
         if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingsoftCloudGroup)
         {
             void UpdateGroupIcon()
@@ -169,10 +249,10 @@ public partial class MainWindow
             item.Expanded += (_, _) => UpdateGroupIcon();
             item.Collapsed += (_, _) => UpdateGroupIcon();
         }
-        var children = _nodes.Where(n => n.ParentId == node.Id).ToList();
+        var children = childrenByParentId.GetValueOrDefault(node.Id, Array.Empty<Node>().ToList());
         foreach (var child in children)
             if (MatchesSearch(child))
-                item.Items.Add(CreateTreeItem(child, expandedIds, defaultExpand));
+                item.Items.Add(CreateTreeItem(child, expandedIds, defaultExpand, childrenByParentId, serverCountUnder));
         SetIsMultiSelected(item, _selectedNodeIds.Contains(node.Id));
         return item;
     }
