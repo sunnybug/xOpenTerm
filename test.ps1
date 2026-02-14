@@ -9,6 +9,15 @@ param(
 if ($args -contains "--release") { $Release = $true }
 if ($args -contains "--test-rdp") { $TestRdp = $true }
 
+$AllowedArgs = @("--release", "--test-rdp")
+foreach ($a in $args) {
+    if ($a -notin $AllowedArgs) {
+        Write-Host "不支持的参数: $a" -ForegroundColor Red
+        Write-Host "支持的参数: $($AllowedArgs -join ', ')" -ForegroundColor Yellow
+        exit 1
+    }
+}
+
 $ErrorActionPreference = "Stop"
 trap {
     Write-Host "Command aborted: $_" -ForegroundColor Red

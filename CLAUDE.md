@@ -25,6 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **注意**：
 - 构建输出目录为 `.temp/bin/`，中间文件为 `.temp/obj/`
 - test.ps1 启动时**工作路径为 .run**，配置文件从 工作路径\config（即 .run\config）读取，日志在 .run\log
+- **单元测试**（dotnet test）通过 NUnit SetUpFixture 在运行前将工作目录设为 .run，与 test.ps1 一致
 - test.ps1 会自动强杀现有 xOpenTerm 进程、清除日志后再启动
 - crash log ：log/YYYY-MM-DD_crash.log
 ## 项目架构

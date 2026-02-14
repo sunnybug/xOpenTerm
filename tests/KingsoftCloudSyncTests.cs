@@ -16,14 +16,18 @@ public class KingsoftCloudSyncTests
         return string.Join(" => ", parts);
     }
 
-    private static string? FindRepoRoot()
+    /// <summary>查找配置根目录（即 GetConfigDir 的父目录）：优先 .run/config，否则任意含 config 的上级。</summary>
+    private static string? FindConfigRoot()
     {
         var dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         while (!string.IsNullOrEmpty(dir))
         {
-            var configDir = Path.Combine(dir, "config");
-            if (Directory.Exists(configDir))
+            var configInDir = Path.Combine(dir, "config");
+            if (Directory.Exists(configInDir))
                 return dir;
+            var runConfig = Path.Combine(dir, ".run", "config");
+            if (Directory.Exists(runConfig))
+                return Path.Combine(dir, ".run");
             dir = Path.GetDirectoryName(dir);
         }
         return null;
@@ -32,17 +36,17 @@ public class KingsoftCloudSyncTests
     [Test]
     public void ListInstances_WithConfigKeys_DoesNotThrow()
     {
-        var repoRoot = FindRepoRoot();
-        if (string.IsNullOrEmpty(repoRoot))
+        var configRoot = FindConfigRoot();
+        if (string.IsNullOrEmpty(configRoot))
         {
-            Assert.Ignore("未找到包含 config 的仓库根目录，跳过金山云同步测试。请在仓库根目录执行 dotnet test。");
+            Assert.Ignore("未找到包含 config 的目录（.run/config 或 任意 config），跳过金山云同步测试。");
             return;
         }
 
         var prevDir = Environment.CurrentDirectory;
         try
         {
-            Environment.CurrentDirectory = repoRoot;
+            Environment.CurrentDirectory = configRoot;
             var storage = new StorageService();
             var nodes = storage.LoadNodes();
             var kingsoftGroup = nodes.FirstOrDefault(n =>

@@ -121,7 +121,7 @@ src/ 源码目录，若只有一个工程，则将代码放到该目录而不是
 doc/ 文档目录
 aidoc/ ai生成文档放到该目录
 .temp/ 将编译过程所有中间文件和输出文件存放到该目录，同时修改编译相关脚本和工程
-.run/ 运行时工作路径（test.ps1 使用），其下 log/、config/
+.run/ 运行时工作路径（test.ps1 与 dotnet test 单元测试均使用），其下 log/、config/
 test.ps1
 ```
 
