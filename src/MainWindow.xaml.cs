@@ -29,7 +29,6 @@ public partial class MainWindow : Window
     private List<Credential> _credentials = new();
     private List<Tunnel> _tunnels = new();
     private string _searchTerm = "";
-    private readonly Dictionary<string, TerminalControl> _tabIdToTerminal = new();
     private readonly Dictionary<string, SshPuttyHostControl> _tabIdToPuttyControl = new();
     private readonly Dictionary<string, string> _tabIdToNodeId = new();
     private readonly Dictionary<string, RdpEmbeddedSession> _tabIdToRdpSession = new();
@@ -111,9 +110,6 @@ public partial class MainWindow : Window
             : null;
         BuildTree(expandNodes: true, initialExpandedIds: initialExpanded);
         UpdateServerSearchPlaceholder();
-        _sessionManager.DataReceived += OnSessionDataReceived;
-        _sessionManager.SessionClosed += OnSessionClosed;
-        _sessionManager.SessionConnected += OnSessionConnected;
         RemotePathBox.Text = ".";
         Closing += MainWindow_Closing;
         Activated += MainWindow_Activated;

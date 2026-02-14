@@ -40,10 +40,11 @@ public sealed class SshPuttyHostControl : Panel
 
     /// <param name="keyPassphrase">密钥口令（用于非 .ppk 密钥转 .ppk 时若需解密）。</param>
     /// <param name="useAgent">为 true 时使用 SSH Agent（Pageant），不传 -noagent；为 false 时传 -noagent 避免多密钥导致 "Too many authentication failures"。</param>
+    /// <param name="jumpChain">多级跳板机链；为 null 或空时直连目标。</param>
     /// <param name="fontName">保留参数，Windows 版 PuTTY 不支持命令行指定字体，仅用于兼容调用方。</param>
     /// <param name="fontSize">保留参数，Windows 版 PuTTY 不支持命令行指定字号，仅用于兼容调用方。</param>
     public void Connect(string host, int port, string username, string? password, string? keyPath, string puttyPath,
-        string? keyPassphrase = null, bool useAgent = false, string? fontName = null, double fontSize = 14)
+        string? keyPassphrase = null, bool useAgent = false, List<JumpHop>? jumpChain = null, string? fontName = null, double fontSize = 14)
     {
         if (string.IsNullOrWhiteSpace(puttyPath) || !File.Exists(puttyPath))
         {
@@ -98,6 +99,23 @@ public sealed class SshPuttyHostControl : Panel
         if (!string.IsNullOrEmpty(keyPath) && File.Exists(keyPath))
             arguments.AddRange(["-i", keyPath]);
         arguments.AddRange(["-P", port.ToString()]);
+
+        if (jumpChain != null && jumpChain.Count > 0)
+        {
+            var plinkPath = GetPlinkPath(puttyPath);
+            if (string.IsNullOrEmpty(plinkPath))
+            {
+                ExceptionLog.WriteInfo("多级跳板需要 plink.exe，未在与 PuTTY 同目录下找到 plink.exe");
+                throw new FileNotFoundException("未找到 plink 程序（多级跳板需要与 PuTTY 同目录的 plink.exe）。", Path.Combine(Path.GetDirectoryName(puttyPath) ?? "", "plink.exe"));
+            }
+            var proxyCmd = BuildProxyCommand(plinkPath, puttyPath, jumpChain, host, port);
+            if (!string.IsNullOrEmpty(proxyCmd))
+            {
+                arguments.Add("-proxycmd");
+                arguments.Add(proxyCmd);
+            }
+        }
+
         arguments.Add(host);
 
         if (_isPuttyNg)
@@ -350,6 +368,78 @@ public sealed class SshPuttyHostControl : Panel
         }
         // 2) 未找到则使用环境变量 PATH 中的 PuTTYNG.exe
         return "PuTTYNG.exe";
+    }
+
+    /// <summary>获取与 PuTTY 同目录的 plink 路径，用于构建 -proxycmd 链。</summary>
+    private static string? GetPlinkPath(string puttyPath)
+    {
+        if (string.IsNullOrWhiteSpace(puttyPath)) return null;
+        var dir = Path.GetDirectoryName(puttyPath);
+        if (string.IsNullOrEmpty(dir)) return null;
+        var plink = Path.Combine(dir, "plink.exe");
+        return File.Exists(plink) ? plink : null;
+    }
+
+    /// <summary>构建多级跳板的 -proxycmd 字符串。从内到外：最后一跳为 plink -ssh hopN -nc target:port，外层为 plink -ssh hop -proxycmd "内层"。</summary>
+    /// <remarks>跳板链中的密码通过 -pw 传递（可能出现在进程列表中），建议优先使用密钥认证。</remarks>
+    private static string? BuildProxyCommand(string plinkPath, string puttyPath, List<JumpHop> jumpChain, string targetHost, int targetPort)
+    {
+        if (jumpChain == null || jumpChain.Count == 0) return null;
+        return BuildProxyCommandRec(plinkPath, puttyPath, jumpChain, 0, targetHost, targetPort);
+    }
+
+    private static string BuildProxyCommandRec(string plinkPath, string puttyPath, List<JumpHop> chain, int index, string targetHost, int targetPort)
+    {
+        var hop = chain[index];
+        var hopKey = GetPuttyKeyPath(hop.KeyPath, puttyPath, hop.KeyPassphrase) ?? hop.KeyPath;
+        var sb = new StringBuilder();
+        sb.Append(QuoteArg(plinkPath));
+        sb.Append(" -ssh -2 -batch");
+        if (!hop.UseAgent)
+            sb.Append(" -noagent");
+        if (!string.IsNullOrEmpty(hop.Username))
+        {
+            sb.Append(" -l ");
+            sb.Append(QuoteArg(hop.Username));
+        }
+        if (!string.IsNullOrEmpty(hop.Password))
+        {
+            sb.Append(" -pw ");
+            sb.Append(QuoteArg(hop.Password));
+        }
+        if (!string.IsNullOrEmpty(hopKey) && File.Exists(hopKey))
+        {
+            sb.Append(" -i ");
+            sb.Append(QuoteArg(hopKey));
+        }
+        sb.Append(" -P ");
+        sb.Append(hop.Port);
+
+        if (index == chain.Count - 1)
+        {
+            sb.Append(" -nc ");
+            sb.Append(QuoteArg(targetHost));
+            sb.Append(':');
+            sb.Append(targetPort);
+        }
+        else
+        {
+            var inner = BuildProxyCommandRec(plinkPath, puttyPath, chain, index + 1, targetHost, targetPort);
+            sb.Append(" -proxycmd ");
+            sb.Append(QuoteArg(inner));
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>对 -proxycmd 内的参数做最小转义：若含空格或双引号则整体用双引号包裹并双写内部双引号。</summary>
+    private static string QuoteArg(string value)
+    {
+        if (value == null) return "\"\"";
+        if (value.Length == 0) return "\"\"";
+        if (value.IndexOf('"') >= 0 || value.IndexOf(' ') >= 0)
+            return "\"" + value.Replace("\"", "\"\"") + "\"";
+        return value;
     }
 
     private sealed class DisplayScale

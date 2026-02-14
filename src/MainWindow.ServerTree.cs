@@ -141,7 +141,6 @@ public partial class MainWindow
             NodeType.aliCloudGroup => new AliCloudNodeEditWindow(node, context, isExistingNode),
             NodeType.kingsoftCloudGroup => new KingsoftCloudNodeEditWindow(node, context, isExistingNode),
             NodeType.ssh => new SshNodeEditWindow(node, context, isExistingNode),
-            NodeType.local => new LocalNodeEditWindow(node, context, isExistingNode),
             NodeType.rdp => new RdpNodeEditWindow(node, context, isExistingNode),
             _ => null
         };

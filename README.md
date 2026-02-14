@@ -1,13 +1,12 @@
 # xOpenTerm
 
-参考 [xOpenTerm](https://github.com/your-org/xOpenTerm) 实现的 **C# WPF** 版本：Windows 下 SSH / 本地终端批量管理工具。
+参考 [xOpenTerm](https://github.com/your-org/xOpenTerm) 实现的 **C# WPF** 版本：Windows 下 SSH / RDP 批量管理工具。
 
 ## 功能
 
-- **节点树**：分组、SSH、本地终端（PowerShell/CMD）、RDP；支持拖拽节点到其他分组；分组节点显示其下可连接节点（SSH/RDP/本地终端）数量
+- **节点树**：分组、SSH、RDP；支持拖拽节点到其他分组；分组节点显示其下可连接节点（SSH/RDP）数量
 - **连接管理**：双击或右键「连接」打开标签页，支持多标签
-- **本地终端**：内置 PowerShell 或 CMD
-- **SSH**：认证下拉（密码/私钥/同父节点/SSH Agent/登录凭证）、跳板机多选、节点/凭证/隧道内「测试连接」；使用 PuTTY 标签且私钥为非 .ppk 时，会优先使用同路径的「原路径.ppk」，若无则进程内转换为 .ppk（支持 RSA/DSA/ECDSA/Ed25519，无交互）；不支持的格式再尝试 puttygen
+- **SSH**：全部使用内嵌 PuTTY/PuTTY NG（直连与多级跳板一致）；认证下拉（密码/私钥/同父节点/SSH Agent/登录凭证）、跳板机多选、节点/凭证/隧道内「测试连接」；多级跳板通过 Plink 的 -proxycmd 链实现，需与 PuTTY 同目录的 plink.exe；私钥为非 .ppk 时会优先使用同路径的「原路径.ppk」，若无则进程内转换为 .ppk（支持 RSA/DSA/ECDSA/Ed25519，无交互），不支持的格式再尝试 puttygen
 - **RDP**：内嵌 RDP 标签页使用系统 **MSTSCAX**（mstscax.dll），参考 mRemoteNG，不依赖 MsRdpEx；或通过 mstsc 启动；支持域、控制台会话、剪贴板重定向、智能缩放；临时 .rdp 与可选 cmdkey 凭据；默认端口 3389、用户名 administrator
 - **顶栏菜单**：设置 → 登录凭证、隧道管理、恢复配置；帮助 → 关于、检查更新
 - **配置备份与恢复**：配置文件修改时自动备份到 `%LocalAppData%\xOpenTerm\backup\YYMMDD-HHMMSS\`（60 秒防抖）；设置 → 恢复配置可打开备份列表，按时间与大小显示，支持打开备份目录或恢复（恢复前会先备份当前配置）
@@ -98,7 +97,7 @@
 - RDP 支持内嵌标签页与 mstsc 两种方式；内嵌 RDP 在独立线程的 WinForms 消息循环中承载（通过 SetParent 嵌入），避免在 WPF 消息循环中触发 SEHException（参考 mRemoteNG）；节点可配置域、控制台会话、剪贴板重定向、智能缩放
 - 无「远程文件」面板与 `list_remote_dir`
 - 终端为自定义绘制 VT100 终端（ANSI 颜色/SGR、仅绘制可见行，无 xterm.js）
-- 隧道链配置与选择已支持，SSH 支持直连与多跳（经跳板机链本地端口转发连接目标）
+- 隧道链配置与选择已支持，SSH 直连与多级跳板均走 PuTTY，多跳通过 Plink -proxycmd 链实现
 - 腾讯云、阿里云、金山云同步功能
 
 ## 项目目录架构（my-project 技能）

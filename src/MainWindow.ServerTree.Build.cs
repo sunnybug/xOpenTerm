@@ -81,7 +81,7 @@ public partial class MainWindow
         var c = 0;
         foreach (var child in list)
         {
-            if (child.Type == NodeType.ssh || child.Type == NodeType.rdp || child.Type == NodeType.local)
+            if (child.Type == NodeType.ssh || child.Type == NodeType.rdp)
                 c += 1;
             else
                 c += BuildServerCountUnderDfs(child, childrenByParentId, count);
@@ -90,7 +90,7 @@ public partial class MainWindow
         return c;
     }
 
-    /// <summary>搜索时：每个节点下“匹配的”服务器数量（仅统计可见的 ssh/rdp/local）。</summary>
+    /// <summary>搜索时：每个节点下“匹配的”服务器数量（仅统计可见的 ssh/rdp）。</summary>
     private static Dictionary<string, int> BuildMatchingServerCountUnder(
         Dictionary<string, List<Node>> childrenByParentId,
         HashSet<string> visibleNodeIds)
@@ -116,7 +116,7 @@ public partial class MainWindow
         foreach (var child in list)
         {
             if (!visibleNodeIds.Contains(child.Id)) continue;
-            if (child.Type == NodeType.ssh || child.Type == NodeType.rdp || child.Type == NodeType.local)
+            if (child.Type == NodeType.ssh || child.Type == NodeType.rdp)
                 c += 1;
             else
                 c += BuildMatchingServerCountUnderDfs(child, childrenByParentId, visibleNodeIds, count);

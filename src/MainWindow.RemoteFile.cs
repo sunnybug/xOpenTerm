@@ -28,12 +28,6 @@ public partial class MainWindow
         if (!string.IsNullOrEmpty(error))
         {
             RemoteFileList.ItemsSource = new List<RemoteFileItem>();
-            if (_tabIdToTerminal.Count > 0)
-            {
-                var tabId = _tabIdToNodeId.FirstOrDefault(p => p.Value == _remoteFileNodeId).Key;
-                if (!string.IsNullOrEmpty(tabId) && _tabIdToTerminal.TryGetValue(tabId, out var term))
-                    term.Append("\r\n\x1b[31m[远程文件] " + error + "\x1b[0m\r\n");
-            }
             return;
         }
         if (path != "." && path != "/")

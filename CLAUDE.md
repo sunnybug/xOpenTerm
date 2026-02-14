@@ -42,7 +42,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 核心代码组织
 
 **Models/** — 数据模型
-- `Node.cs` — 节点树模型（分组/SSH/本地终端/RDP/云同步节点）
+- `Node.cs` — 节点树模型（分组/SSH/RDP/云同步节点）
 - `ConnectionConfig.cs` — 连接配置（SSH/RDP/云 API 密钥等）
 - `Credential.cs` — 登录凭证模型
 - `Tunnel.cs`、`TunnelHop.cs` — 隧道/跳板机模型
@@ -60,10 +60,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `RdpLauncher.cs` — RDP 启动服务（生成 .rdp 文件、可选 cmdkey 写入凭据）
 
 **Controls/** — 自定义控件
-- `TerminalControl.xaml.cs` — 终端控件容器
-- `TerminalSurface.cs` — 自绘 VT100 终端表面（ANSI 颜色、仅绘制可见行）
-- `TerminalBuffer.cs` — 终端缓冲区
-- `Vt100Parser.cs` — VT100 转义序列解析器
 - `SshPuttyHostControl.cs` — SSH 连接托管控件（PuTTY 集成）
 - `RdpHostControl.cs` — RDP 连接托管控件
 - `SshStatusBarControl.xaml.cs` — SSH 状态栏（CPU/内存/网络）
@@ -74,13 +70,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `MainWindow.ServerTree.Build.cs` — 树构建、筛选、展开/多选附加属性
 - `MainWindow.ServerTree.ContextMenu.cs` — 右键菜单与命令（连接/删除/同步等）
 - `MainWindow.ServerTree.Selection.cs` — 多选与键盘/鼠标交互
-- `MainWindow.Tabs.cs` — 标签页管理（SSH/RDP/本地终端）
+- `MainWindow.Tabs.cs` — 标签页管理（SSH/RDP）
 - `MainWindow.RemoteFile.cs` — 远程文件面板（已废弃但代码仍存在）
 
 **Window/*EditWindow.xaml.cs** — 各种节点编辑窗口
 - `GroupNodeEditWindow` — 分组节点
 - `SshNodeEditWindow` — SSH 节点
-- `LocalNodeEditWindow` — 本地终端节点
 - `RdpNodeEditWindow` — RDP 节点
 - `TencentCloudNodeEditWindow`、`AliCloudNodeEditWindow`、`KingsoftCloudNodeEditWindow` — 云同步分组节点
 - `TunnelEditWindow` — 隧道编辑
