@@ -282,6 +282,10 @@ public partial class MainWindow
             newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
+            var syncSubTencent = new MenuItem { Header = "同步(_Y)" };
+            syncSubTencent.Items.Add(CreateMenuItem("同步", () => SyncTencentCloudGroup(node)));
+            syncSubTencent.Items.Add(CreateMenuItem("重建", () => RebuildTencentCloudGroup(node)));
+            menu.Items.Add(syncSubTencent);
             var importSub = new MenuItem { Header = "导入(_I)" };
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
@@ -290,10 +294,6 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            var syncSubTencent = new MenuItem { Header = "同步(_Y)" };
-            syncSubTencent.Items.Add(CreateMenuItem("同步", () => SyncTencentCloudGroup(node)));
-            syncSubTencent.Items.Add(CreateMenuItem("重建", () => RebuildTencentCloudGroup(node)));
-            menu.Items.Add(syncSubTencent);
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
@@ -307,6 +307,10 @@ public partial class MainWindow
             newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
+            var syncSubAli = new MenuItem { Header = "同步(_Y)" };
+            syncSubAli.Items.Add(CreateMenuItem("同步", () => SyncAliCloudGroup(node)));
+            syncSubAli.Items.Add(CreateMenuItem("重建", () => RebuildAliCloudGroup(node)));
+            menu.Items.Add(syncSubAli);
             var importSub = new MenuItem { Header = "导入(_I)" };
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
@@ -315,10 +319,6 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            var syncSubAli = new MenuItem { Header = "同步(_Y)" };
-            syncSubAli.Items.Add(CreateMenuItem("同步", () => SyncAliCloudGroup(node)));
-            syncSubAli.Items.Add(CreateMenuItem("重建", () => RebuildAliCloudGroup(node)));
-            menu.Items.Add(syncSubAli);
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
@@ -332,6 +332,10 @@ public partial class MainWindow
             newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
             menu.Items.Add(new Separator());
+            var syncSubKingsoft = new MenuItem { Header = "同步(_Y)" };
+            syncSubKingsoft.Items.Add(CreateMenuItem("同步", () => SyncKingsoftCloudGroup(node)));
+            syncSubKingsoft.Items.Add(CreateMenuItem("重建", () => RebuildKingsoftCloudGroup(node)));
+            menu.Items.Add(syncSubKingsoft);
             var importSub = new MenuItem { Header = "导入(_I)" };
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
@@ -340,10 +344,6 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
-            var syncSubKingsoft = new MenuItem { Header = "同步(_Y)" };
-            syncSubKingsoft.Items.Add(CreateMenuItem("同步", () => SyncKingsoftCloudGroup(node)));
-            syncSubKingsoft.Items.Add(CreateMenuItem("重建", () => RebuildKingsoftCloudGroup(node)));
-            menu.Items.Add(syncSubKingsoft);
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));

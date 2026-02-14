@@ -16,21 +16,36 @@ public partial class MainWindow
     private void BuildTree(bool expandNodes = true, HashSet<string>? initialExpandedIds = null)
     {
         var expandedIds = initialExpandedIds ?? CollectExpandedGroupNodeIds(ServerTree);
-        ServerTree.Items.Clear();
         _nodeIdToTvi.Clear();
         var childrenByParentId = BuildChildrenByParentId();
         var serverCountUnder = BuildServerCountUnder(childrenByParentId);
         _buildVisibleNodeIds = BuildVisibleNodeIds(childrenByParentId);
+        var matchingServerCountUnder = _buildVisibleNodeIds != null
+            ? BuildMatchingServerCountUnder(childrenByParentId, _buildVisibleNodeIds)
+            : null;
+        List<TreeViewItem> newRootItems;
         try
         {
             var roots = childrenByParentId.GetValueOrDefault("", Array.Empty<Node>().ToList());
+            newRootItems = new List<TreeViewItem>(roots.Count);
             foreach (var node in roots)
                 if (MatchesSearch(node))
-                    ServerTree.Items.Add(CreateTreeItem(node, expandedIds, expandNodes, childrenByParentId, serverCountUnder));
+                    newRootItems.Add(CreateTreeItem(node, expandedIds, expandNodes, childrenByParentId, serverCountUnder, matchingServerCountUnder));
         }
         finally
         {
             _buildVisibleNodeIds = null;
+        }
+        ServerTree.BeginInit();
+        try
+        {
+            ServerTree.Items.Clear();
+            foreach (var item in newRootItems)
+                ServerTree.Items.Add(item);
+        }
+        finally
+        {
+            ServerTree.EndInit();
         }
         RestoreSelectionFromSelectedNodeIds();
         _prevSelectedNodeIds = new HashSet<string>(_selectedNodeIds);
@@ -70,6 +85,41 @@ public partial class MainWindow
                 c += 1;
             else
                 c += BuildServerCountUnderDfs(child, childrenByParentId, count);
+        }
+        count[n.Id] = c;
+        return c;
+    }
+
+    /// <summary>搜索时：每个节点下“匹配的”服务器数量（仅统计可见的 ssh/rdp/local）。</summary>
+    private static Dictionary<string, int> BuildMatchingServerCountUnder(
+        Dictionary<string, List<Node>> childrenByParentId,
+        HashSet<string> visibleNodeIds)
+    {
+        var count = new Dictionary<string, int>();
+        var roots = childrenByParentId.GetValueOrDefault("", Array.Empty<Node>().ToList());
+        foreach (var root in roots)
+        {
+            if (!visibleNodeIds.Contains(root.Id)) continue;
+            BuildMatchingServerCountUnderDfs(root, childrenByParentId, visibleNodeIds, count);
+        }
+        return count;
+    }
+
+    private static int BuildMatchingServerCountUnderDfs(
+        Node n,
+        Dictionary<string, List<Node>> childrenByParentId,
+        HashSet<string> visibleNodeIds,
+        Dictionary<string, int> count)
+    {
+        var list = childrenByParentId.GetValueOrDefault(n.Id, Array.Empty<Node>().ToList());
+        var c = 0;
+        foreach (var child in list)
+        {
+            if (!visibleNodeIds.Contains(child.Id)) continue;
+            if (child.Type == NodeType.ssh || child.Type == NodeType.rdp || child.Type == NodeType.local)
+                c += 1;
+            else
+                c += BuildMatchingServerCountUnderDfs(child, childrenByParentId, visibleNodeIds, count);
         }
         count[n.Id] = c;
         return c;
@@ -143,9 +193,11 @@ public partial class MainWindow
         return set;
     }
 
-    private static bool ShouldExpand(Node node, HashSet<string>? expandedIds, bool defaultExpand)
+    private bool ShouldExpand(Node node, HashSet<string>? expandedIds, bool defaultExpand)
     {
         if (node.Type != NodeType.group && node.Type != NodeType.tencentCloudGroup && node.Type != NodeType.aliCloudGroup && node.Type != NodeType.kingsoftCloudGroup) return true;
+        // 搜索时：若该节点在“可见集合”中（自身匹配或为匹配节点的祖先），则展开以便看到匹配的子节点
+        if (_buildVisibleNodeIds != null && _buildVisibleNodeIds.Contains(node.Id)) return true;
         if (expandedIds != null) return expandedIds.Contains(node.Id);
         return defaultExpand;
     }
@@ -169,7 +221,7 @@ public partial class MainWindow
         {
             _searchDebounceTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(250)
+                Interval = TimeSpan.FromMilliseconds(150)
             };
             _searchDebounceTimer.Tick += (_, _) =>
             {
@@ -190,7 +242,8 @@ public partial class MainWindow
     }
 
     private TreeViewItem CreateTreeItem(Node node, HashSet<string>? expandedIds, bool defaultExpand,
-        Dictionary<string, List<Node>> childrenByParentId, Dictionary<string, int> serverCountUnder)
+        Dictionary<string, List<Node>> childrenByParentId, Dictionary<string, int> serverCountUnder,
+        Dictionary<string, int>? matchingServerCountUnder = null)
     {
         var expand = ShouldExpand(node, expandedIds, defaultExpand);
         var textPrimary = (Brush)FindResource("TextPrimary");
@@ -213,7 +266,8 @@ public partial class MainWindow
         var isGroup = node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup || node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingsoftCloudGroup;
         if (isGroup)
         {
-            var serverCount = serverCountUnder.TryGetValue(node.Id, out var c) ? c : 0;
+            var countDict = matchingServerCountUnder ?? serverCountUnder;
+            var serverCount = countDict.TryGetValue(node.Id, out var c) ? c : 0;
             header.Children.Add(new TextBlock
             {
                 Text = " (" + serverCount + ")",
@@ -252,7 +306,7 @@ public partial class MainWindow
         var children = childrenByParentId.GetValueOrDefault(node.Id, Array.Empty<Node>().ToList());
         foreach (var child in children)
             if (MatchesSearch(child))
-                item.Items.Add(CreateTreeItem(child, expandedIds, defaultExpand, childrenByParentId, serverCountUnder));
+                item.Items.Add(CreateTreeItem(child, expandedIds, defaultExpand, childrenByParentId, serverCountUnder, matchingServerCountUnder));
         SetIsMultiSelected(item, _selectedNodeIds.Contains(node.Id));
         return item;
     }

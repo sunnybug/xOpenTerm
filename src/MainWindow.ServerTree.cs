@@ -1064,11 +1064,23 @@ public partial class MainWindow
         return result;
     }
 
+    /// <summary>云组重建时，将父节点（云组）的默认登录凭证设为「同父节点」。</summary>
+    private static void SetGroupCredentialDefaultsToParent(Node groupNode)
+    {
+        if (groupNode.Config == null)
+            groupNode.Config = new ConnectionConfig();
+        groupNode.Config.SshCredentialId = null;
+        groupNode.Config.RdpCredentialId = null;
+        groupNode.Config.CredentialId = null;
+        groupNode.Config.AuthSource = null;
+    }
+
     private void RebuildTencentCloudGroup(Node groupNode)
     {
         if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         RemoveChildrenOfNode(groupNode);
+        SetGroupCredentialDefaultsToParent(groupNode);
         SyncTencentCloudGroup(groupNode);
     }
 
@@ -1077,6 +1089,7 @@ public partial class MainWindow
         if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         RemoveChildrenOfNode(groupNode);
+        SetGroupCredentialDefaultsToParent(groupNode);
         SyncAliCloudGroup(groupNode);
     }
 
@@ -1085,6 +1098,7 @@ public partial class MainWindow
         if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         RemoveChildrenOfNode(groupNode);
+        SetGroupCredentialDefaultsToParent(groupNode);
         SyncKingsoftCloudGroup(groupNode);
     }
 
