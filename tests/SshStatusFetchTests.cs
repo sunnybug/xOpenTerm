@@ -34,7 +34,6 @@ public class SshStatusFetchTests
 
     /// <summary>通过 SSH Agent 连接 CentOS 7 root@120.92.82.22，执行统计命令并解析输出。需本机可达该主机且 Agent 已添加对应私钥。</summary>
     [Test]
-    [Ignore("需本机可达 120.92.82.22 且 SSH Agent 已添加对应私钥；满足条件时移除本 Ignore 再跑")]
     public async Task FetchSshStatusViaAgent_Centos7_ConnectsAndParses()
     {
         await RunSshStatusTestAsync(TestHostCentos7, "120.92.82.22 (CentOS 7)").ConfigureAwait(false);

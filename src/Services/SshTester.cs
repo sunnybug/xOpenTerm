@@ -38,6 +38,7 @@ public static class SshTester
             if (conn == null)
                 return new TestResult(false, "无法创建连接（如使用 Agent 请确认已启动 Pageant 等）。");
             using var client = new SshClient(conn);
+            SessionManager.AcceptAnyHostKey(client);
             client.Connect();
             client.Disconnect();
             return new TestResult(true, null);

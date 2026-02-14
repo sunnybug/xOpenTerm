@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
+using Microsoft.Win32;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using SshNet.Agent;
@@ -37,6 +38,7 @@ public class SessionManager
                     var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent, connectionTimeout);
                     if (conn == null) return null;
                     var client = new SshClient(conn);
+                    AcceptAnyHostKey(client);
                     client.Connect();
                     chainDisposables.Add(client);
                     var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
@@ -86,6 +88,7 @@ public class SessionManager
             return null;
         }
         using var client = new SshClient(conn);
+        AcceptAnyHostKey(client);
         var connectSw = Stopwatch.StartNew();
         try
         {
@@ -207,6 +210,7 @@ public class SessionManager
                 if (conn == null) { onError(hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"); return; }
 
                 var client = new SshClient(conn);
+                AcceptAnyHostKey(client);
                 client.Connect();
                 chainDisposables.Add(client);
 
@@ -226,6 +230,128 @@ public class SessionManager
         catch (Exception ex)
         {
             onError(ex.Message);
+        }
+    }
+
+    /// <summary>仅单元测试时为 true（由测试 SetUpFixture 设置 XOPENTERM_UNIT_TEST=1）。为 true 时自动接受/忽略 host key 检查。</summary>
+    internal static bool IsUnitTestMode => Environment.GetEnvironmentVariable("XOPENTERM_UNIT_TEST") == "1";
+
+    /// <summary>在连接前自动接受服务器 host key，避免首次连接或 known_hosts 未包含时连接失败。仅单元测试环境下生效；正式运行不自动忽略 host key。供 CreateConnectionInfo 的调用方在 new SshClient/SftpClient 后、Connect 前调用。</summary>
+    internal static void AcceptAnyHostKey(BaseClient client)
+    {
+        if (client == null || !IsUnitTestMode) return;
+        client.HostKeyReceived += (_, e) => e.CanTrust = true;
+    }
+
+    /// <summary>在启动 PuTTY 前调用：仅单元测试时用 SSH.NET 预取 host key 并写入 PuTTY 注册表。正式运行不写入。</summary>
+    internal static void TryCacheHostKeyForPutty(string host, int port, string? username, string? password, string? keyPath, string? keyPassphrase, bool useAgent)
+    {
+        if (!IsUnitTestMode) return;
+        try
+        {
+            var conn = CreateConnectionInfo(host, port == 0 ? (ushort)22 : (ushort)port, username ?? "", password, keyPath, keyPassphrase, useAgent);
+            if (conn == null) return;
+            byte[]? keyBlob = null;
+            using var client = new SshClient(conn);
+            client.HostKeyReceived += (_, e) =>
+            {
+                e.CanTrust = true;
+                keyBlob = e.HostKey;
+            };
+            conn.Timeout = TimeSpan.FromSeconds(8);
+            client.Connect();
+            try
+            {
+                if (keyBlob == null) return;
+                if (!TryFormatHostKeyForPuttyRegistry(keyBlob, out var puttyKeyName, out var puttyValue)) return;
+                WritePuttyHostKeyToRegistry(puttyKeyName, puttyValue, host, port);
+            }
+            finally
+            {
+                try { client.Disconnect(); } catch { }
+            }
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.WriteInfo($"[TryCacheHostKeyForPutty] 预取 host key 失败 host={host} port={port}: {ex.Message}");
+        }
+    }
+
+    private static bool TryFormatHostKeyForPuttyRegistry(byte[] blob, out string puttyKeyName, out string puttyValue)
+    {
+        puttyKeyName = "";
+        puttyValue = "";
+        // SSH wire: uint32 len, string type [, for rsa: uint32 len_e, e, uint32 len_n, n ]
+        if (blob.Length < 8) return false;
+        var offset = 0;
+        int ReadUInt32Be()
+        {
+            if (offset + 4 > blob.Length) return 0;
+            var v = (blob[offset] << 24) | (blob[offset + 1] << 16) | (blob[offset + 2] << 8) | blob[offset + 3];
+            offset += 4;
+            return v;
+        }
+        var typeLen = ReadUInt32Be();
+        if (offset + typeLen > blob.Length) return false;
+        var type = Encoding.ASCII.GetString(blob, offset, typeLen);
+        offset += typeLen;
+        if (type == "ssh-rsa" && offset + 8 <= blob.Length)
+        {
+            var eLen = ReadUInt32Be();
+            if (offset + eLen > blob.Length) return false;
+            var eBytes = blob.AsSpan(offset, eLen).ToArray();
+            offset += eLen;
+            var nLen = ReadUInt32Be();
+            if (offset + nLen > blob.Length) return false;
+            var nBytes = blob.AsSpan(offset, nLen).ToArray();
+            puttyKeyName = "rsa2";
+            puttyValue = "0x" + BytesToHex(eBytes) + ",0x" + BytesToHex(nBytes);
+            return true;
+        }
+        if (type == "ssh-dss" && offset + 4 <= blob.Length)
+        {
+            var pLen = ReadUInt32Be();
+            if (offset + pLen > blob.Length) return false;
+            var p = blob.AsSpan(offset, pLen).ToArray();
+            offset += pLen;
+            var qLen = ReadUInt32Be();
+            if (offset + qLen > blob.Length) return false;
+            var q = blob.AsSpan(offset, qLen).ToArray();
+            offset += qLen;
+            var gLen = ReadUInt32Be();
+            if (offset + gLen > blob.Length) return false;
+            var g = blob.AsSpan(offset, gLen).ToArray();
+            offset += gLen;
+            var yLen = ReadUInt32Be();
+            if (offset + yLen > blob.Length) return false;
+            var y = blob.AsSpan(offset, yLen).ToArray();
+            puttyKeyName = "dss";
+            puttyValue = "0x" + BytesToHex(p) + ",0x" + BytesToHex(q) + ",0x" + BytesToHex(g) + ",0x" + BytesToHex(y);
+            return true;
+        }
+        return false;
+    }
+
+    private static string BytesToHex(byte[] bytes)
+    {
+        if (bytes.Length == 0) return "";
+        var sb = new StringBuilder(bytes.Length * 2);
+        foreach (var b in bytes)
+            sb.Append(b.ToString("x2"));
+        return sb.ToString();
+    }
+
+    private static void WritePuttyHostKeyToRegistry(string puttyKeyType, string puttyValue, string host, int port)
+    {
+        var keyName = $"{puttyKeyType}@{port}:{host}";
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(@"Software\SimonTatham\PuTTY\SshHostKeys", writable: true);
+            key?.SetValue(keyName, puttyValue);
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.WriteInfo($"[WritePuttyHostKeyToRegistry] 写入注册表失败 {keyName}: {ex.Message}");
         }
     }
 
@@ -308,6 +434,7 @@ public class SessionManager
             }
 
             var client = new SshClient(conn);
+            AcceptAnyHostKey(client);
             client.Connect();
             var stream = client.CreateShellStream("xterm", 80, 24, 800, 600, 1024);
 

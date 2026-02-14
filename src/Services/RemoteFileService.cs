@@ -33,6 +33,7 @@ public static class RemoteFileService
                     if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return new List<RemoteFileItem>(); }
 
                     var client = new SshClient(conn);
+                    SessionManager.AcceptAnyHostKey(client);
                     client.Connect();
                     chainDisposables.Add(client);
 
@@ -54,6 +55,7 @@ public static class RemoteFileService
             try
             {
                 using var sftp = new SftpClient(connectionInfo);
+                SessionManager.AcceptAnyHostKey(sftp);
                 sftp.Connect();
                 var entries = sftp.ListDirectory(remotePath);
                 var list = new List<RemoteFileItem>();
@@ -113,6 +115,7 @@ public static class RemoteFileService
                     var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
                     if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
+                    SessionManager.AcceptAnyHostKey(client);
                     client.Connect();
                     chainDisposables.Add(client);
                     var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
@@ -132,6 +135,7 @@ public static class RemoteFileService
             try
             {
                 using var scp = new ScpClient(connectionInfo);
+                SessionManager.AcceptAnyHostKey(scp);
                 scp.Connect();
                 using (var fs = File.OpenWrite(localPath))
                     scp.Download(remotePath, fs);
@@ -179,6 +183,7 @@ public static class RemoteFileService
                     var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
                     if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
+                    SessionManager.AcceptAnyHostKey(client);
                     client.Connect();
                     chainDisposables.Add(client);
                     var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
@@ -198,6 +203,7 @@ public static class RemoteFileService
             try
             {
                 using var scp = new ScpClient(connectionInfo);
+                SessionManager.AcceptAnyHostKey(scp);
                 scp.Connect();
                 using (var fs = File.OpenRead(localPath))
                     scp.Upload(fs, remotePath);
@@ -245,6 +251,7 @@ public static class RemoteFileService
                     var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
                     if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
+                    SessionManager.AcceptAnyHostKey(client);
                     client.Connect();
                     chainDisposables.Add(client);
                     var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
@@ -264,6 +271,7 @@ public static class RemoteFileService
             try
             {
                 using var sftp = new SftpClient(connectionInfo);
+                SessionManager.AcceptAnyHostKey(sftp);
                 sftp.Connect();
                 if (isDirectory)
                     DeleteDirectoryRecursive(sftp, remotePath);
@@ -313,6 +321,7 @@ public static class RemoteFileService
                     var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
                     if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
+                    SessionManager.AcceptAnyHostKey(client);
                     client.Connect();
                     chainDisposables.Add(client);
                     var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
@@ -332,6 +341,7 @@ public static class RemoteFileService
             try
             {
                 using var sftp = new SftpClient(connectionInfo);
+                SessionManager.AcceptAnyHostKey(sftp);
                 sftp.Connect();
                 sftp.RenameFile(oldRemotePath, newRemotePath);
                 return true;
@@ -394,6 +404,7 @@ public static class RemoteFileService
                     var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
                     if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
+                    SessionManager.AcceptAnyHostKey(client);
                     client.Connect();
                     chainDisposables.Add(client);
                     var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
@@ -413,6 +424,7 @@ public static class RemoteFileService
             try
             {
                 using var sftp = new SftpClient(connectionInfo);
+                SessionManager.AcceptAnyHostKey(sftp);
                 sftp.Connect();
                 var a = sftp.GetAttributes(remotePath);
                 int owner = (a.OwnerCanRead ? 4 : 0) + (a.OwnerCanWrite ? 2 : 0) + (a.OwnerCanExecute ? 1 : 0);
@@ -464,6 +476,7 @@ public static class RemoteFileService
                     var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
                     if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
                     var client = new SshClient(conn);
+                    SessionManager.AcceptAnyHostKey(client);
                     client.Connect();
                     chainDisposables.Add(client);
                     var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
@@ -483,6 +496,7 @@ public static class RemoteFileService
             try
             {
                 using var sftp = new SftpClient(connectionInfo);
+                SessionManager.AcceptAnyHostKey(sftp);
                 sftp.Connect();
                 sftp.ChangePermissions(remotePath, (short)mode);
                 return true;

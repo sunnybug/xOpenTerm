@@ -6,6 +6,7 @@ using System.Text;
 using System.Windows.Forms;
 using xOpenTerm.Native;
 using xOpenTerm.Services;
+using Task = System.Threading.Tasks.Task;
 
 namespace xOpenTerm.Controls;
 
@@ -51,6 +52,16 @@ public sealed class SshPuttyHostControl : Panel
         }
 
         _isPuttyNg = IsPuttyNg(puttyPath);
+
+        // 仅单元测试时预取 host key 并写入 PuTTY 注册表；正式运行不自动忽略 host key 检查
+        if (SessionManager.IsUnitTestMode)
+        {
+            try
+            {
+                Task.Run(() => SessionManager.TryCacheHostKeyForPutty(host, port, username ?? "", password, keyPath, null, useAgent)).Wait(TimeSpan.FromSeconds(6));
+            }
+            catch { /* 超时或失败不影响后续启动 PuTTY */ }
+        }
 
         var arguments = new List<string>();
         // 与 mRemoteNG 一致：使用 Agent 时先 -load 已保存会话（如 Default Settings），使 PuTTY 使用该会话中的 Pageant 等认证设置，再以命令行覆盖 host/port/user

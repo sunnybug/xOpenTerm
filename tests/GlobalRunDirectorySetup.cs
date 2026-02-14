@@ -11,6 +11,7 @@ public class GlobalRunDirectorySetup
     [OneTimeSetUp]
     public void SetWorkingDirectoryToRun()
     {
+        Environment.SetEnvironmentVariable("XOPENTERM_UNIT_TEST", "1");
         var runDir = FindRunDirectory();
         if (string.IsNullOrEmpty(runDir))
             return;
