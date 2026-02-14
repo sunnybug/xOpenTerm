@@ -1,15 +1,18 @@
 # Function: Build and run xOpenTerm project, default Debug, use --release for Release
 # Runtime working directory is .run（config 与 log 在 .run 下）
+# --test-ssh-status：仅构建并运行 SSH 状态获取单元测试（root@192.168.1.192 agent，连接超时 3s），无 UI，测试结束自动退出。
 
 param(
     [switch]$Release,
-    [switch]$TestRdp
+    [switch]$TestRdp,
+    [switch]$TestSshStatus
 )
 
 if ($args -contains "--release") { $Release = $true }
 if ($args -contains "--test-rdp") { $TestRdp = $true }
+if ($args -contains "--test-ssh-status") { $TestSshStatus = $true }
 
-$AllowedArgs = @("--release", "--test-rdp")
+$AllowedArgs = @("--release", "--test-rdp", "--test-ssh-status")
 foreach ($a in $args) {
     if ($a -notin $AllowedArgs) {
         Write-Host "不支持的参数: $a" -ForegroundColor Red
@@ -46,6 +49,14 @@ if ($Release) {
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed, exit code: $LASTEXITCODE" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
+# --test-ssh-status：仅运行 SSH 状态获取单元测试，无交互，测试结束自动退出
+if ($TestSshStatus) {
+    Write-Host "Running SSH status fetch unit tests..." -ForegroundColor Cyan
+    $testsPath = Join-Path $Root "tests\xOpenTerm.Tests.csproj"
+    & dotnet test $testsPath --filter "FullyQualifiedName~SshStatusFetch"
     exit $LASTEXITCODE
 }
 

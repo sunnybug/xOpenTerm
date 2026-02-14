@@ -11,18 +11,20 @@ namespace xOpenTerm.Services;
 public class SessionManager
 {
     /// <summary>在远程主机上执行单条命令并返回标准输出（用于状态栏统计等）。支持直连与跳板链。执行后即断开。</summary>
+    /// <param name="connectionTimeout">连接超时，null 表示使用库默认。</param>
     public static async Task<string?> RunSshCommandAsync(
         string host, ushort port, string username,
         string? password, string? keyPath, string? keyPassphrase,
         List<JumpHop>? jumpChain, bool useAgent,
-        string command, CancellationToken cancellationToken = default)
+        string command, CancellationToken cancellationToken = default,
+        TimeSpan? connectionTimeout = null)
     {
         return await Task.Run(() =>
         {
             try
             {
                 if (jumpChain == null || jumpChain.Count == 0)
-                    return RunSshCommandDirect(host, port, username, password, keyPath, keyPassphrase, useAgent, command);
+                    return RunSshCommandDirect(host, port, username, password, keyPath, keyPassphrase, useAgent, command, connectionTimeout);
 
                 string connectHost = jumpChain[0].Host;
                 var connectPort = (uint)jumpChain[0].Port;
@@ -31,7 +33,7 @@ public class SessionManager
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
+                    var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent, connectionTimeout);
                     if (conn == null) return null;
                     var client = new SshClient(conn);
                     client.Connect();
@@ -48,7 +50,7 @@ public class SessionManager
 
                 try
                 {
-                    return RunSshCommandDirect(connectHost, (ushort)connectPort, username, password, keyPath, keyPassphrase, useAgent, command);
+                    return RunSshCommandDirect(connectHost, (ushort)connectPort, username, password, keyPath, keyPassphrase, useAgent, command, connectionTimeout);
                 }
                 finally
                 {
@@ -66,9 +68,10 @@ public class SessionManager
     }
 
     private static string? RunSshCommandDirect(string host, ushort port, string username,
-        string? password, string? keyPath, string? keyPassphrase, bool useAgent, string command)
+        string? password, string? keyPath, string? keyPassphrase, bool useAgent, string command,
+        TimeSpan? connectionTimeout = null)
     {
-        var conn = CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent);
+        var conn = CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent, connectionTimeout);
         if (conn == null) return null;
         using var client = new SshClient(conn);
         client.Connect();
@@ -186,22 +189,28 @@ public class SessionManager
     }
 
     /// <summary>供 RemoteFileService 等复用：创建 SSH/SFTP 连接信息。</summary>
-    internal static ConnectionInfo? CreateConnectionInfo(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent = false)
+    /// <param name="connectionTimeout">连接超时，null 表示使用库默认。</param>
+    internal static ConnectionInfo? CreateConnectionInfo(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent = false, TimeSpan? connectionTimeout = null)
     {
+        ConnectionInfo? conn;
         if (useAgent)
-            return CreateConnectionInfoWithAgent(host, port, username);
-        if (!string.IsNullOrEmpty(keyPath))
+            conn = CreateConnectionInfoWithAgent(host, port, username, connectionTimeout);
+        else if (!string.IsNullOrEmpty(keyPath))
         {
             var keyFile = new PrivateKeyFile(keyPath, keyPassphrase);
-            return new ConnectionInfo(host, (int)port, username, new PrivateKeyAuthenticationMethod(username, keyFile));
+            conn = new ConnectionInfo(host, (int)port, username, new PrivateKeyAuthenticationMethod(username, keyFile));
         }
-        if (!string.IsNullOrEmpty(password))
-            return new ConnectionInfo(host, (int)port, username, new PasswordAuthenticationMethod(username, password));
-        return null;
+        else if (!string.IsNullOrEmpty(password))
+            conn = new ConnectionInfo(host, (int)port, username, new PasswordAuthenticationMethod(username, password));
+        else
+            conn = null;
+        if (conn != null && connectionTimeout.HasValue)
+            conn.Timeout = connectionTimeout.Value;
+        return conn;
     }
 
     /// <summary>使用 SSH Agent（OpenSSH 或 PuTTY Pageant）创建连接信息。</summary>
-    private static ConnectionInfo? CreateConnectionInfoWithAgent(string host, int port, string username)
+    private static ConnectionInfo? CreateConnectionInfoWithAgent(string host, int port, string username, TimeSpan? connectionTimeout = null)
     {
         SshAgentPrivateKey[]? keys = null;
         try
@@ -210,7 +219,11 @@ public class SessionManager
             var sshAgent = new SshAgent();
             keys = sshAgent.RequestIdentities();
             if (keys is { Length: > 0 })
-                return new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keys));
+            {
+                var conn = new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keys));
+                if (connectionTimeout.HasValue) conn.Timeout = connectionTimeout.Value;
+                return conn;
+            }
         }
         catch
         {
@@ -223,7 +236,11 @@ public class SessionManager
             var pageant = new Pageant();
             keys = pageant.RequestIdentities();
             if (keys is { Length: > 0 })
-                return new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keys));
+            {
+                var conn = new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keys));
+                if (connectionTimeout.HasValue) conn.Timeout = connectionTimeout.Value;
+                return conn;
+            }
         }
         catch
         {

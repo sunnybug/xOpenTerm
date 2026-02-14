@@ -32,7 +32,7 @@
 ## 项目结构
 
 - `src/` — 源码（编译生成物在仓库根下 `.temp/`，如 `.temp/bin/Debug`、`.temp/obj/`）
-- `test.ps1` — 构建并运行应用（支持 --release）
+- `test.ps1` — 构建并运行应用（支持 --release、--test-rdp、--test-ssh-status）
 - `script/` — 脚本：`build.ps1`、`publish.ps1`、`init_dev.ps1`
 - `bin/` — 工作目录：`config/` 配置、`log/` 日志、`var/` 临时覆盖配置
 - `dist/` — 发布目录（由 `script/publish.ps1` 或 GitHub Actions 生成）
@@ -50,6 +50,9 @@
 
 # 构建并运行 Release
 .\test.ps1 --release
+
+# 仅运行 SSH 状态获取单元测试（root@192.168.1.192，SSH Agent，连接超时 3s，无 UI，测试结束自动退出）
+.\test.ps1 --test-ssh-status
 
 # 初始化开发环境（还原依赖、创建 bin/config 等）
 .\script\init_dev.ps1
