@@ -95,7 +95,8 @@
 ## 其他特性
 
 - RDP 支持内嵌标签页与 mstsc 两种方式；内嵌 RDP 在独立线程的 WinForms 消息循环中承载（通过 SetParent 嵌入），避免在 WPF 消息循环中触发 SEHException（参考 mRemoteNG）；节点可配置域、控制台会话、剪贴板重定向、智能缩放
-- 无「远程文件」面板与 `list_remote_dir`
+- 远程文件面板：切换目录采用异步加载与按路径缓存，已访问目录即时显示，减少卡顿
+- 无 `list_remote_dir` 等独立命令
 - 终端为自定义绘制 VT100 终端（ANSI 颜色/SGR、仅绘制可见行，无 xterm.js）
 - 隧道链配置与选择已支持，SSH 直连与多级跳板均走 PuTTY，多跳通过 Plink -proxycmd 链实现
 - 腾讯云、阿里云、金山云同步功能

@@ -10,6 +10,12 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm;
 
+/// <summary>占位项名称，表示正在加载目录列表。</summary>
+internal static class RemoteFileLoadingPlaceholder
+{
+    public const string Name = "加载中...";
+}
+
 /// <summary>主窗口：远程文件列表（浏览、编辑、改名、权限、删除、上传下载）。</summary>
 public partial class MainWindow
 {
@@ -24,20 +30,68 @@ public partial class MainWindow
         if (node == null) { RemoteFileList.ItemsSource = null; return; }
         var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "." : RemotePathBox.Text.Trim();
         _remoteFilePath = path;
-        var list = RemoteFileService.ListDirectory(node, _nodes, _credentials, _tunnels, path, out var error);
-        if (!string.IsNullOrEmpty(error))
+        _remoteFileCurrentPathByNodeId[_remoteFileNodeId] = path;
+        var loadId = ++_remoteFileLoadId;
+        var nodeId = _remoteFileNodeId;
+        var nodes = _nodes;
+        var credentials = _credentials;
+        var tunnels = _tunnels;
+
+        List<RemoteFileItem>? ApplyParentEntry(IList<RemoteFileItem> raw)
         {
-            RemoteFileList.ItemsSource = new List<RemoteFileItem>();
+            if (path == "." || path == "/") return new List<RemoteFileItem>(raw);
+            var withParent = new List<RemoteFileItem> { new RemoteFileItem { Name = "..", IsDirectory = true } };
+            withParent.AddRange(raw);
+            return withParent;
+        }
+
+        if (_remoteFileCacheByNodeId.TryGetValue(nodeId, out var pathDict) && pathDict.TryGetValue(path, out var cachedList))
+        {
+            RemoteFileList.ItemsSource = cachedList;
+            Task.Run(() =>
+            {
+                var list = RemoteFileService.ListDirectory(node, nodes, credentials, tunnels, path, out var error);
+                if (!string.IsNullOrEmpty(error)) return;
+                Dispatcher.Invoke(() =>
+                {
+                    if (loadId != _remoteFileLoadId || _remoteFileNodeId != nodeId || _remoteFilePath != path) return;
+                    var displayList = ApplyParentEntry(list);
+                    pathDict![path] = displayList!;
+                    RemoteFileList.ItemsSource = displayList;
+                });
+            });
             return;
         }
-        if (path != "." && path != "/")
+
+        RemoteFileList.ItemsSource = new List<RemoteFileItem> { new RemoteFileItem { Name = RemoteFileLoadingPlaceholder.Name, IsDirectory = false } };
+        Task.Run(() =>
         {
-            var parentList = new List<RemoteFileItem> { new RemoteFileItem { Name = "..", IsDirectory = true } };
-            parentList.AddRange(list);
-            list = parentList;
-        }
-        RemoteFileList.ItemsSource = list;
-        _remoteFileCacheByNodeId[_remoteFileNodeId] = (path, new List<RemoteFileItem>(list));
+            var list = RemoteFileService.ListDirectory(node, nodes, credentials, tunnels, path, out var error);
+            Dispatcher.Invoke(() =>
+            {
+                if (loadId != _remoteFileLoadId || _remoteFileNodeId != nodeId || _remoteFilePath != path)
+                    return;
+                if (!string.IsNullOrEmpty(error))
+                {
+                    RemoteFileList.ItemsSource = new List<RemoteFileItem>();
+                    return;
+                }
+                var displayList = ApplyParentEntry(list);
+                if (!_remoteFileCacheByNodeId.TryGetValue(nodeId, out var pathDictInner))
+                {
+                    pathDictInner = new Dictionary<string, List<RemoteFileItem>>();
+                    _remoteFileCacheByNodeId[nodeId] = pathDictInner;
+                }
+                while (pathDictInner.Count >= RemoteFileCacheMaxPathsPerNode && pathDictInner.Count > 0)
+                {
+                    var toRemove = pathDictInner.Keys.FirstOrDefault(k => k != path);
+                    if (toRemove == null) break;
+                    pathDictInner.Remove(toRemove);
+                }
+                pathDictInner[path] = displayList!;
+                RemoteFileList.ItemsSource = displayList;
+            });
+        });
     }
 
     private void RemotePathBox_KeyDown(object sender, KeyEventArgs e)
@@ -65,6 +119,7 @@ public partial class MainWindow
     private void RemoteFileList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (RemoteFileList.SelectedItem is not RemoteFileItem item) return;
+        if (item.Name == RemoteFileLoadingPlaceholder.Name) return;
         var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "." : RemotePathBox.Text.Trim();
         if (path == ".") path = "";
         if (item.Name == "..")
@@ -99,7 +154,7 @@ public partial class MainWindow
             dep = VisualTreeHelper.GetParent(dep);
         }
         var item = RemoteFileList.SelectedItem as RemoteFileItem;
-        var canActOnItem = item != null && item.Name != "..";
+        var canActOnItem = item != null && item.Name != ".." && item.Name != RemoteFileLoadingPlaceholder.Name;
         RemoteFileMenuEdit.IsEnabled = canActOnItem && item != null && !item.IsDirectory;
         RemoteFileMenuRename.IsEnabled = canActOnItem;
         RemoteFileMenuPermissions.IsEnabled = canActOnItem;

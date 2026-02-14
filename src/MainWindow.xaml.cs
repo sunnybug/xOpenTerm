@@ -44,8 +44,13 @@ public partial class MainWindow : Window
     private string? _remoteFileNodeId;
     /// <summary>远程文件当前路径</summary>
     private string _remoteFilePath = ".";
-    /// <summary>远程文件 tab 缓存：nodeId -> (路径, 列表)。该连接对应的所有 tab 关闭后清除。</summary>
-    private readonly Dictionary<string, (string Path, List<RemoteFileItem> List)> _remoteFileCacheByNodeId = new();
+    /// <summary>远程文件按路径缓存：nodeId -> (path -> 列表)。该连接对应的所有 tab 关闭后清除。每节点最多缓存路径数。</summary>
+    private readonly Dictionary<string, Dictionary<string, List<RemoteFileItem>>> _remoteFileCacheByNodeId = new();
+    /// <summary>各节点当前浏览路径（切换 tab 时恢复）。</summary>
+    private readonly Dictionary<string, string> _remoteFileCurrentPathByNodeId = new();
+    private const int RemoteFileCacheMaxPathsPerNode = 30;
+    /// <summary>每次发起加载递增，用于丢弃过期异步结果。</summary>
+    private int _remoteFileLoadId;
     /// <summary>SSH 标签页底部状态栏控件（仅 SSH 连接 tab）。</summary>
     private readonly Dictionary<string, SshStatusBarControl> _tabIdToSshStatusBar = new();
     /// <summary>RDP 标签页底部状态栏控件（仅 RDP 连接 tab）。</summary>

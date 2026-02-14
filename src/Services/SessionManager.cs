@@ -137,9 +137,6 @@ public class SessionManager
     }
     private readonly ConcurrentDictionary<string, ISessionHandle> _sessions = new();
 
-    public event EventHandler<(string SessionId, string Data)>? DataReceived;
-    public event EventHandler<string>? SessionClosed;
-
     /// <summary>仅单元测试时为 true（由测试 SetUpFixture 设置 XOPENTERM_UNIT_TEST=1）。为 true 时自动接受/忽略 host key 检查。</summary>
     internal static bool IsUnitTestMode => Environment.GetEnvironmentVariable("XOPENTERM_UNIT_TEST") == "1";
 

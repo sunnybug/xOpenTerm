@@ -467,6 +467,7 @@ public partial class MainWindow
         if (string.IsNullOrEmpty(nodeId)) return;
         if (_tabIdToNodeId.Values.Any(id => id == nodeId)) return;
         _remoteFileCacheByNodeId.Remove(nodeId);
+        _remoteFileCurrentPathByNodeId.Remove(nodeId);
     }
 
     /// <summary>关闭连接 tab 前提示用户，确认后再执行关闭。</summary>
@@ -574,16 +575,15 @@ public partial class MainWindow
         }
         _remoteFileNodeId = nodeId;
         RemoteFileTitle.Text = "远程文件 - " + node.Name;
-        if (_remoteFileCacheByNodeId.TryGetValue(nodeId, out var cached))
+        var path = _remoteFileCurrentPathByNodeId.TryGetValue(nodeId, out var p) ? p : ".";
+        _remoteFilePath = path;
+        RemotePathBox.Text = path;
+        if (_remoteFileCacheByNodeId.TryGetValue(nodeId, out var pathDict) && pathDict.TryGetValue(path, out var cachedList))
         {
-            _remoteFilePath = cached.Path;
-            RemotePathBox.Text = cached.Path;
-            RemoteFileList.ItemsSource = cached.List;
+            RemoteFileList.ItemsSource = cachedList;
         }
         else
         {
-            _remoteFilePath = ".";
-            RemotePathBox.Text = ".";
             LoadRemoteFileList();
         }
     }
