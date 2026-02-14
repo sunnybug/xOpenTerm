@@ -38,11 +38,12 @@ public sealed class SshPuttyHostControl : Panel
 
     public bool IsRunning => _puttyProcess != null && !_puttyProcess.HasExited;
 
+    /// <param name="keyPassphrase">密钥口令（用于非 .ppk 密钥转 .ppk 时若需解密）。</param>
     /// <param name="useAgent">为 true 时使用 SSH Agent（Pageant），不传 -noagent；为 false 时传 -noagent 避免多密钥导致 "Too many authentication failures"。</param>
     /// <param name="fontName">保留参数，Windows 版 PuTTY 不支持命令行指定字体，仅用于兼容调用方。</param>
     /// <param name="fontSize">保留参数，Windows 版 PuTTY 不支持命令行指定字号，仅用于兼容调用方。</param>
     public void Connect(string host, int port, string username, string? password, string? keyPath, string puttyPath,
-        bool useAgent = false, string? fontName = null, double fontSize = 14)
+        string? keyPassphrase = null, bool useAgent = false, string? fontName = null, double fontSize = 14)
     {
         if (string.IsNullOrWhiteSpace(puttyPath) || !File.Exists(puttyPath))
         {
@@ -58,10 +59,13 @@ public sealed class SshPuttyHostControl : Panel
         {
             try
             {
-                Task.Run(() => SessionManager.TryCacheHostKeyForPutty(host, port, username ?? "", password, keyPath, null, useAgent)).Wait(TimeSpan.FromSeconds(6));
+                Task.Run(() => SessionManager.TryCacheHostKeyForPutty(host, port, username ?? "", password, keyPath, keyPassphrase, useAgent)).Wait(TimeSpan.FromSeconds(6));
             }
             catch { /* 超时或失败不影响后续启动 PuTTY */ }
         }
+
+        // 若为密钥文件登录且非 PuTTY 支持的 .ppk：优先使用同路径的 .ppk，否则用 puttygen 转换后使用
+        keyPath = GetPuttyKeyPath(keyPath, puttyPath, keyPassphrase) ?? keyPath;
 
         var arguments = new List<string>();
         // 与 mRemoteNG 一致：使用 Agent 时先 -load 已保存会话（如 Default Settings），使 PuTTY 使用该会话中的 Pageant 等认证设置，再以命令行覆盖 host/port/user
@@ -243,6 +247,96 @@ public sealed class SshPuttyHostControl : Panel
             return (vi.InternalName ?? "").Contains("PuTTYNG", StringComparison.OrdinalIgnoreCase);
         }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// 解析供 PuTTY 使用的密钥路径：若已是 .ppk 则直接返回；否则查找 原路径.ppk，存在则用其，否则用 puttygen 转换并保存为 原路径.ppk 后返回。
+    /// </summary>
+    /// <returns>供 -i 使用的密钥路径，若无需密钥或解析失败则返回 null。</returns>
+    private static string? GetPuttyKeyPath(string? keyPath, string puttyPath, string? keyPassphrase)
+    {
+        if (string.IsNullOrWhiteSpace(keyPath) || !File.Exists(keyPath))
+            return null;
+
+        const StringComparison cmp = StringComparison.OrdinalIgnoreCase;
+        if (keyPath.EndsWith(".ppk", cmp))
+            return keyPath;
+
+        var ppkPath = keyPath + ".ppk";
+        if (File.Exists(ppkPath))
+        {
+            ExceptionLog.WriteInfo($"[PuttyKey] 使用已有 .ppk: {ppkPath}");
+            return ppkPath;
+        }
+
+        // 优先进程内转换（无交互），不支持的类型再尝试 puttygen
+        if (PemToPpkConverter.TryConvert(keyPath, ppkPath, keyPassphrase))
+        {
+            ExceptionLog.WriteInfo($"[PuttyKey] 已转换并保存(进程内): {ppkPath}");
+            return ppkPath;
+        }
+        if (TryConvertToPpkWithPuttygen(keyPath, ppkPath, puttyPath, keyPassphrase))
+        {
+            ExceptionLog.WriteInfo($"[PuttyKey] 已转换并保存(puttygen): {ppkPath}");
+            return ppkPath;
+        }
+
+        return null;
+    }
+
+    private static bool TryConvertToPpkWithPuttygen(string keyPath, string ppkPath, string puttyPath, string? keyPassphrase)
+    {
+        var dir = Path.GetDirectoryName(puttyPath);
+        if (string.IsNullOrEmpty(dir)) return false;
+
+        var puttygen = Path.Combine(dir, "puttygen.exe");
+        if (!File.Exists(puttygen))
+            puttygen = Path.Combine(dir, "PuTTYgen.exe");
+        if (!File.Exists(puttygen))
+        {
+            ExceptionLog.WriteInfo("[PuttyKey] 未找到 puttygen.exe，无法转换非 .ppk 密钥");
+            return false;
+        }
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = puttygen,
+                ArgumentList = { keyPath, "-O", "private", "-o", ppkPath },
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true,
+                RedirectStandardError = true
+            };
+            using var process = Process.Start(startInfo);
+            if (process == null) return false;
+
+            if (!string.IsNullOrEmpty(keyPassphrase))
+            {
+                process.StandardInput.WriteLine(keyPassphrase);
+                process.StandardInput.Close();
+            }
+            // 先等待退出再读 stderr，避免管道满导致死锁
+            if (!process.WaitForExit(TimeSpan.FromSeconds(30)))
+            {
+                try { process.Kill(); } catch { }
+                ExceptionLog.WriteInfo("[PuttyKey] puttygen 超时");
+                return false;
+            }
+            var err = process.StandardError.ReadToEnd();
+            if (process.ExitCode != 0)
+            {
+                ExceptionLog.WriteInfo($"[PuttyKey] puttygen 退出码 {process.ExitCode}: {err?.Trim()}");
+                return false;
+            }
+            return File.Exists(ppkPath);
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "[PuttyKey] puttygen 转换失败");
+            return false;
+        }
     }
 
     private static string GetDefaultPuttyPath()

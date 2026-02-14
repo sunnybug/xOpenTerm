@@ -44,7 +44,7 @@ public partial class MainWindow
 
                 if (jumpChain == null || jumpChain.Count == 0)
                 {
-                    OpenSshPuttyTab(tabId, tabTitle, node, host, port, username, password, keyPath, useAgent);
+                    OpenSshPuttyTab(tabId, tabTitle, node, host, port, username, password, keyPath, keyPassphrase, useAgent);
                     return;
                 }
 
@@ -74,7 +74,7 @@ public partial class MainWindow
     }
 
     private void OpenSshPuttyTab(string tabId, string tabTitle, Node node,
-        string host, int port, string username, string? password, string? keyPath, bool useAgent = false)
+        string host, int port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent = false)
     {
         var puttyControl = new SshPuttyHostControl();
         puttyControl.Closed += (_, _) =>
@@ -108,7 +108,7 @@ public partial class MainWindow
         _tabIdToPuttyControl[tabId] = puttyControl;
         _tabIdToNodeId[tabId] = node.Id;
         _tabIdToSshStatusBar[tabId] = statusBar;
-        _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, null, null, useAgent);
+        _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, keyPassphrase, null, useAgent);
         puttyControl.Connected += (_, _) =>
         {
             Dispatcher.BeginInvoke(() =>
@@ -129,7 +129,7 @@ public partial class MainWindow
         {
             try
             {
-                puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, useAgent);
+                puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, keyPassphrase, useAgent);
             }
             catch (Exception ex)
             {
@@ -402,7 +402,7 @@ public partial class MainWindow
             {
                 try
                 {
-                    puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, useAgent);
+                    puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, keyPassphrase, useAgent);
                 }
                 catch (Exception ex)
                 {
