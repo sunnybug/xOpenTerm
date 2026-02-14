@@ -227,7 +227,7 @@ public partial class SshNodeEditWindow : NodeEditWindowBase
             return;
         }
         if (string.IsNullOrEmpty(username)) { MessageBox.Show(this, "请填写用户名。", "xOpenTerm"); return; }
-        var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
+        var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent, logContext: "节点设置");
         MessageBox.Show(this, result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
     }
 

@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Win32;
 using Renci.SshNet;
@@ -102,7 +104,11 @@ public class SessionManager
             ExceptionLog.WriteInfo($"[RunSshCommandDirect] Connect 异常 host={host} 耗时={connectSw.ElapsedMilliseconds}ms");
             // 认证失败次数过多时不再重试，让调用方弹窗并停止轮询
             if (ex is SshConnectionException && ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
+            {
+                ExceptionLog.WriteInfo($"[RunSshCommandDirect] 连接失败 host={host}：Too many authentication failures。说明：使用 Agent 时会按顺序尝试所有密钥，服务器通常限制约 6 次尝试。建议减少 Agent 中的密钥数量或改用指定私钥。");
+                ExceptionLog.Write(ex, $"[RunSshCommandDirect] Too many authentication failures host={host}", toCrashLog: false);
                 throw;
+            }
             ExceptionLog.Write(ex, $"[RunSshCommandDirect] host={host}", toCrashLog: false);
             return null;
         }
@@ -380,6 +386,7 @@ public class SessionManager
     private static ConnectionInfo? CreateConnectionInfoWithAgent(string host, int port, string username, TimeSpan? connectionTimeout = null)
     {
         SshAgentPrivateKey[]? keys = null;
+        string? agentSource = null;
         try
         {
             // 先尝试 OpenSSH Agent（Windows 上为 openssh-ssh-agent 或 SSH_AUTH_SOCK）
@@ -387,6 +394,8 @@ public class SessionManager
             keys = sshAgent.RequestIdentities();
             if (keys is { Length: > 0 })
             {
+                agentSource = "OpenSSH Agent";
+                LogAgentKeyAttempt(host, port, username, agentSource, keys);
                 var conn = new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keys));
                 if (connectionTimeout.HasValue) conn.Timeout = connectionTimeout.Value;
                 return conn;
@@ -404,6 +413,8 @@ public class SessionManager
             keys = pageant.RequestIdentities();
             if (keys is { Length: > 0 })
             {
+                agentSource = "PuTTY Pageant";
+                LogAgentKeyAttempt(host, port, username, agentSource, keys);
                 var conn = new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keys));
                 if (connectionTimeout.HasValue) conn.Timeout = connectionTimeout.Value;
                 return conn;
@@ -415,6 +426,93 @@ public class SessionManager
         }
 
         return null;
+    }
+
+    /// <summary>将 Agent 密钥尝试过程写入日志（密钥数量、顺序、类型/算法/指纹等详细信息及 Too many authentication failures 提示）。</summary>
+    private static void LogAgentKeyAttempt(string host, int port, string username, string agentSource, SshAgentPrivateKey[] keys)
+    {
+        var n = keys.Length;
+        ExceptionLog.WriteInfo($"[SSH Agent] host={host} port={port} user={username} 使用 {agentSource}，共 {n} 个密钥，将按顺序依次尝试。服务器通常限制约 6 次认证尝试，若密钥过多可能出现 Too many authentication failures。");
+        for (var i = 0; i < keys.Length; i++)
+        {
+            var detail = DescribeAgentKey(keys[i], i + 1, n);
+            ExceptionLog.WriteInfo($"[SSH Agent] 密钥 {i + 1}/{n}: {detail}");
+        }
+    }
+
+    /// <summary>通过反射（含私有字段）提取 Agent 密钥的 Comment 与公钥字节，生成指纹与算法信息以便区分是哪个 key。</summary>
+    private static string DescribeAgentKey(SshAgentPrivateKey key, int indexOneBased, int total)
+    {
+        var sb = new StringBuilder();
+        var type = key.GetType();
+        sb.Append($"key[{indexOneBased - 1}] 类型={type.Name}");
+        string? comment = null;
+        string? fingerprint = null;
+        string? algorithm = null;
+        try
+        {
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+            foreach (var mi in type.GetFields(flags).Cast<MemberInfo>().Concat(type.GetProperties(flags).Cast<MemberInfo>()))
+            {
+                object? value = null;
+                var name = mi.Name;
+                if (mi is FieldInfo fi)
+                {
+                    try { value = fi.GetValue(key); }
+                    catch { continue; }
+                }
+                else if (mi is PropertyInfo pi && pi.GetIndexParameters().Length == 0)
+                {
+                    try { value = pi.GetValue(key); }
+                    catch { continue; }
+                }
+                if (value == null) continue;
+                if (value is string s && !string.IsNullOrEmpty(s) && (name.IndexOf("Comment", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("comment", StringComparison.OrdinalIgnoreCase) >= 0))
+                    comment = s;
+                if (value is byte[] bytes && bytes.Length > 20)
+                {
+                    try
+                    {
+                        var algo = TryGetSshKeyAlgorithmFromBlob(bytes);
+                        var fp = Convert.ToBase64String(SHA256.HashData(bytes)).TrimEnd('=');
+                        if (!string.IsNullOrEmpty(algo) && algo.StartsWith("ssh-", StringComparison.Ordinal))
+                        {
+                            fingerprint = fp;
+                            algorithm = algo;
+                        }
+                        else if (string.IsNullOrEmpty(fingerprint))
+                            fingerprint = fp;
+                    }
+                    catch { }
+                }
+            }
+            if (!string.IsNullOrEmpty(comment))
+                sb.Append($" Comment=\"{comment}\"");
+            if (!string.IsNullOrEmpty(algorithm))
+                sb.Append($" 算法={algorithm}");
+            if (!string.IsNullOrEmpty(fingerprint))
+                sb.Append($" SHA256:{fingerprint}");
+            if (string.IsNullOrEmpty(comment) && string.IsNullOrEmpty(fingerprint))
+                sb.Append(" (未解析到 Comment/公钥字节，请检查 SshNet.Agent 版本或实现)");
+        }
+        catch (Exception ex)
+        {
+            sb.Append($" (DescribeAgentKey异常:{ex.Message})");
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>从 SSH 公钥 blob（agent 格式）前若干字节解析算法名（如 ssh-ed25519、ssh-rsa）。</summary>
+    private static string? TryGetSshKeyAlgorithmFromBlob(byte[] blob)
+    {
+        try
+        {
+            if (blob.Length < 4) return null;
+            var len = (blob[0] << 24) | (blob[1] << 16) | (blob[2] << 8) | blob[3];
+            if (len <= 0 || len > 200 || 4 + len > blob.Length) return null;
+            return Encoding.UTF8.GetString(blob, 4, len);
+        }
+        catch { return null; }
     }
 
     private void CreateSshSessionDirect(string sessionId, string nodeId,

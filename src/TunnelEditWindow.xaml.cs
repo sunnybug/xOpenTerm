@@ -119,7 +119,7 @@ public partial class TunnelEditWindow : Window
                 var keyPath = resolved.keyPath;
                 var keyPassphrase = resolved.keyPassphrase;
                 var useAgent = resolved.useAgent;
-                var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
+                var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent, logContext: "隧道编辑");
                 MessageBox.Show(this, result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
             }
             catch (Exception ex)
@@ -161,7 +161,7 @@ public partial class TunnelEditWindow : Window
                 keyPath = KeyPathBox.Text?.Trim();
             else
                 useAgent = true;
-            var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent);
+            var result = SshTester.Test(host, port, username, password, keyPath, keyPassphrase, useAgent, logContext: "隧道编辑");
             MessageBox.Show(this, result.Success ? "连接成功" : ("连接失败：\n" + (result.FailureReason ?? "未知原因")), "测试连接");
         }
     }
