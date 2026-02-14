@@ -12,8 +12,8 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Text="组名称" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-            <TextBox x:Name="NameBox" Width="300" Padding="6" TextAlignment="Center" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+            <TextBlock Text="组名称" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+            <TextBox x:Name="NameBox" Width="300" Padding="6" VerticalContentAlignment="Center" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
         </StackPanel>
         <TextBlock Grid.Row="1" Text="API 密钥请在「设置」中配置。" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,0,8"/>
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">

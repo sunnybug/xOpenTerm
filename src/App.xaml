@@ -229,7 +229,7 @@
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="Padding" Value="8,8"/>
                 <Setter Property="MinHeight" Value="20"/>
-                <Setter Property="TextAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
             </Style>
             <!-- 对话框列表框：边框+圆角，与输入区统一；选中项使用 SelectionBg -->
             <Style x:Key="DialogListBoxStyle" TargetType="ListBox">

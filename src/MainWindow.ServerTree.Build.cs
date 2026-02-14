@@ -143,7 +143,7 @@ public partial class MainWindow
                 VerticalAlignment = VerticalAlignment.Center
             });
         }
-        if (node.Type == NodeType.ssh && !string.IsNullOrEmpty(node.Config?.Host))
+        if ((node.Type == NodeType.ssh || node.Type == NodeType.rdp) && !string.IsNullOrEmpty(node.Config?.Host))
         {
             header.Children.Add(new TextBlock
             {

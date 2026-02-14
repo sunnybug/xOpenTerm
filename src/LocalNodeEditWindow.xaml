@@ -12,11 +12,11 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="名称" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-            <TextBox x:Name="NameBox" Width="260" Padding="6" TextAlignment="Center" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
+            <TextBlock Text="名称" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+            <TextBox x:Name="NameBox" Width="260" Padding="6" VerticalContentAlignment="Center" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}"/>
         </StackPanel>
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Text="协议" Width="80" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+            <TextBlock Text="协议" Width="80" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
             <ComboBox x:Name="ProtocolCombo" Width="120" Padding="6" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"/>
         </StackPanel>
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
