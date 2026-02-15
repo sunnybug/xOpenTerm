@@ -26,6 +26,8 @@
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="8"/>
             <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
         <!-- 连接状态 -->
         <StackPanel Grid.Column="0" Orientation="Horizontal">
@@ -75,6 +77,10 @@
         <StackPanel Grid.Column="12" Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="UDP:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
             <TextBlock x:Name="UdpText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <!-- 磁盘（按物理硬盘，每3分钟更新，无前缀以节省空间） -->
+        <StackPanel Grid.Column="14" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock x:Name="DiskText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="200"/>
         </StackPanel>
     </Grid>
 </UserControl>

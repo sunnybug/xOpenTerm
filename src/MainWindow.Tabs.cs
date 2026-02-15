@@ -723,6 +723,45 @@ public partial class MainWindow
                 catch (OperationCanceledException) { break; }
             }
         }, token);
+
+        // 磁盘占用率：每 3 分钟拉取一次（按分区）
+        const int diskIntervalSeconds = 180;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(2000, token);
+            }
+            catch (OperationCanceledException) { return; }
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    var diskOutput = await SessionManager.RunSshCommandAsync(
+                        host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent,
+                        SshStatsHelper.DiskStatsCommand, token);
+                    if (token.IsCancellationRequested) break;
+                    var diskList = SshStatsHelper.ParseDiskStatsOutput(diskOutput);
+                    if (!_tabIdToSshStatusBar.TryGetValue(tabId, out var bar)) break;
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (_tabIdToSshStatusBar.TryGetValue(tabId, out var b))
+                            b.UpdateDiskStats(diskList);
+                    });
+                }
+                catch (OperationCanceledException) { break; }
+                catch
+                {
+                    if (_tabIdToSshStatusBar.TryGetValue(tabId, out var bar))
+                        Dispatcher.Invoke(() => bar.UpdateDiskStats(null));
+                }
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(diskIntervalSeconds), token);
+                }
+                catch (OperationCanceledException) { break; }
+            }
+        }, token);
     }
 
     /// <summary>停止指定 tab 的状态栏轮询并更新为未连接。</summary>
@@ -734,7 +773,10 @@ public partial class MainWindow
             _tabIdToStatsCts.Remove(tabId);
         }
         if (_tabIdToSshStatusBar.TryGetValue(tabId, out var bar))
+        {
             bar.UpdateStats(false, null, null, null, null, null, null);
+            bar.UpdateDiskStats(null);
+        }
         if (_tabIdToRdpStatusBar.TryGetValue(tabId, out var rdpBar))
             rdpBar.UpdateStats(false, null, null, null, null, null, null);
     }

@@ -7,7 +7,7 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm.Controls;
 
-/// <summary>SSH 连接标签页底部状态栏：连接状态、CPU/内存占用率、网络流量走势图、TCP/UDP 连接数。</summary>
+/// <summary>SSH 连接标签页底部状态栏：连接状态、CPU/内存占用率、网络流量走势图、TCP/UDP 连接数、磁盘占用率（按分区）。</summary>
 public partial class SshStatusBarControl : UserControl
 {
     private const int MaxHistory = 30;
@@ -28,6 +28,24 @@ public partial class SshStatusBarControl : UserControl
         InitializeComponent();
         Loaded += (_, _) => RedrawCharts();
         SizeChanged += (_, _) => RedrawCharts();
+    }
+
+    /// <summary>更新磁盘占用率显示（按物理硬盘，每3分钟由外部拉取后调用）。格式：硬盘a xx% 硬盘b xx%。null 或空表示暂无数据。</summary>
+    public void UpdateDiskStats(IReadOnlyList<(string DiskName, double UsePercent)>? diskList)
+    {
+        if (diskList == null || diskList.Count == 0)
+        {
+            DiskText.Text = "—";
+            try { DiskText.Foreground = (SolidColorBrush)FindResource("TextSecondary"); }
+            catch { DiskText.Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8)); }
+            return;
+        }
+        var parts = new List<string>();
+        foreach (var x in diskList)
+            parts.Add($"硬盘{x.DiskName} {x.UsePercent:F0}%");
+        DiskText.Text = string.Join("  ", parts);
+        try { DiskText.Foreground = (SolidColorBrush)FindResource("TextPrimary"); }
+        catch { DiskText.Foreground = new SolidColorBrush(Color.FromRgb(0xf8, 0xfa, 0xfc)); }
     }
 
     /// <summary>更新状态栏显示。null 表示暂无数据或未连接。</summary>
@@ -55,6 +73,12 @@ public partial class SshStatusBarControl : UserControl
         TxText.Text = txBps.HasValue ? FormatBytesPerSecond(txBps.Value) : "—";
         TcpText.Text = tcpCount.HasValue ? tcpCount.Value.ToString() : "—";
         UdpText.Text = udpCount.HasValue ? udpCount.Value.ToString() : "—";
+        if (!connected)
+        {
+            DiskText.Text = "—";
+            try { DiskText.Foreground = (SolidColorBrush)FindResource("TextSecondary"); }
+            catch { DiskText.Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8)); }
+        }
 
         // 设置文本颜色：有数据时使用正常颜色，无数据时使用灰色
         SolidColorBrush textPrimary;
@@ -145,6 +169,8 @@ public partial class SshStatusBarControl : UserControl
         TcpText.Foreground = textSecondary;
         UdpText.Text = "—";
         UdpText.Foreground = textSecondary;
+        DiskText.Text = "—";
+        DiskText.Foreground = textSecondary;
 
         // 清空历史数据并重新绘制图表
         _cpuHistory.Clear();

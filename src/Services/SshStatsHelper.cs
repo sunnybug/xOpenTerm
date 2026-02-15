@@ -3,11 +3,14 @@ using System.Text.RegularExpressions;
 
 namespace xOpenTerm.Services;
 
-/// <summary>SSH 状态栏：远程执行统计命令与解析输出（Linux /proc、ss）。</summary>
+/// <summary>SSH 状态栏：远程执行统计命令与解析输出（Linux /proc、ss、df）。</summary>
 public static class SshStatsHelper
 {
     /// <summary>在 Linux 上采集 CPU/内存/网络/TCP/UDP 的单条命令（约 1 秒，含 sleep 1）。TCP/UDP 用 ss 统计，避免 netstat 在 CentOS 上卡住。</summary>
     public const string StatsCommand = "grep '^cpu ' /proc/stat; echo '---'; grep 'MemTotal' /proc/meminfo; echo '---'; grep 'MemFree' /proc/meminfo; echo '---'; awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev; echo '---'; sleep 1; grep '^cpu ' /proc/stat; echo '---'; awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev; echo '---'; ss -t -a 2>/dev/null | wc -l; echo '---'; ss -u -a 2>/dev/null | wc -l;";
+
+    /// <summary>在 Linux 上按物理硬盘汇总磁盘占用率（df -P -T 按块设备名聚合，排除 tmpfs/devtmpfs/overlay 等非物理设备），输出每行：设备名 占用率整数（如 vda 45）。</summary>
+    public const string DiskStatsCommand = "df -P -T 2>/dev/null | tail -n +2 | awk '$2!~/^(tmpfs|devtmpfs|overlay|squashfs|fuse|aufs)$/{d=$1; sub(/^.*\\//,\"\",d); if(match(d,/p[0-9]+$/)) sub(/p[0-9]+$/,\"\",d); else sub(/[0-9]+$/,\"\",d); u[d]+=$4; a[d]+=$5} END{for(x in u) if(u[x]+a[x]>0) print x, int(100*u[x]/(u[x]+a[x]))}'";
 
     /// <summary>用于调试的简化命令，不包含 sleep，用于快速测试。TCP/UDP 用 ss，避免 netstat 在 CentOS 上卡住。</summary>
     public const string DebugCommand = "echo \"CPU:$(grep '^cpu ' /proc/stat)\"; echo \"MEM:$(grep -E 'MemTotal|MemFree' /proc/meminfo)\"; echo \"NET:$(awk 'NR>2{rx+=$2;tx+=$10}END{print rx+0,tx+0}' /proc/net/dev)\"; echo \"TCP:$(ss -t -a 2>/dev/null | wc -l)\"; echo \"UDP:$(ss -u -a 2>/dev/null | wc -l)\"; echo \"VERSION:$(cat /etc/centos-release 2>/dev/null || cat /etc/redhat-release 2>/dev/null || echo 'Unknown')\"";
@@ -174,5 +177,23 @@ public static class SshStatsHelper
     {
         var m = Regex.Match(text, key + @"\s*:\s*(\d+)", RegexOptions.IgnoreCase);
         return m.Success && long.TryParse(m.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
+    }
+
+    /// <summary>解析磁盘统计命令输出（每行 设备名 占用率），按物理硬盘返回 (设备名, 占用率%) 列表。</summary>
+    public static IReadOnlyList<(string DiskName, double UsePercent)> ParseDiskStatsOutput(string? output)
+    {
+        var list = new List<(string, double)>();
+        if (string.IsNullOrWhiteSpace(output)) return list;
+        foreach (var line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) continue;
+            var diskName = parts[0].Trim();
+            if (string.IsNullOrEmpty(diskName)) continue;
+            if (!double.TryParse(parts[^1], NumberStyles.Any, CultureInfo.InvariantCulture, out var percent))
+                continue;
+            list.Add((diskName, percent));
+        }
+        return list;
     }
 }
