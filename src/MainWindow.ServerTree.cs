@@ -283,14 +283,14 @@ public partial class MainWindow
                     }
                 }
             }
-            // SSH 节点：用户名为非 [xxx]，且无密码、无密钥时，导入后转为 SSH Agent
+            // SSH 节点：有用户名（非 [xxx] 包裹）、无密码、无密钥时，导入后转为 SSH Agent
             if (!item.IsRdp && sessionNode.Config != null)
             {
                 var un = sessionNode.Config.Username?.Trim() ?? "";
-                var notBracketUser = !(un.StartsWith("[", StringComparison.Ordinal) && un.Contains("]"));
+                var hasRealUsername = !string.IsNullOrEmpty(un) && !(un.StartsWith("[", StringComparison.Ordinal) && un.Contains("]"));
                 var noPassword = string.IsNullOrEmpty(sessionNode.Config.Password);
                 var noKey = string.IsNullOrEmpty(sessionNode.Config.KeyPath);
-                if (notBracketUser && noPassword && noKey)
+                if (hasRealUsername && noPassword && noKey)
                 {
                     sessionNode.Config.AuthSource = AuthSource.agent;
                     sessionNode.Config.AuthType = AuthType.agent;

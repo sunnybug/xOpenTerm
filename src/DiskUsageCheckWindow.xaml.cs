@@ -115,15 +115,18 @@ public partial class DiskUsageCheckWindow : Window
             if (string.IsNullOrEmpty(host))
             {
                 onComplete();
-                return null;
+                return (node, -1, new List<(string, double)> { ("无主机或未配置", 0) });
             }
             const ushort sshPort = 22;
-            var diskOutput = await SessionManager.RunSshCommandAsync(
+            var (diskOutput, sshFailureReason) = await SessionManager.RunSshCommandAsync(
                 host, sshPort, username ?? "", password, null, null, null, false,
                 RdpStatsHelper.DiskStatsCommand, token);
             onComplete();
+            if (diskOutput == null)
+                return (node, -1, new List<(string, double)> { (sshFailureReason ?? "SSH 连接失败", 0) });
             var diskListSsh = RdpStatsHelper.ParseDiskStatsOutput(diskOutput);
-            if (diskListSsh.Count == 0) return null;
+            if (diskListSsh.Count == 0)
+                return (node, -1, new List<(string, double)> { ("无磁盘数据或解析失败", 0) });
             var maxPercent = diskListSsh.Max(x => x.UsePercent);
             if (maxPercent < threshold) return null;
             return (node, maxPercent, diskListSsh);
@@ -138,7 +141,7 @@ public partial class DiskUsageCheckWindow : Window
             var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
             ExceptionLog.Write(ex, $"云 RDP 磁盘占用检查节点 {nodeName}");
             onComplete();
-            return null;
+            return (node, -1, new List<(string, double)> { ($"错误: {ex.Message}", 0) });
         }
     }
 
@@ -176,14 +179,19 @@ public partial class DiskUsageCheckWindow : Window
         {
             var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
                 ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
-            var diskOutput = await SessionManager.RunSshCommandAsync(
+            var (diskOutput, failureReason) = await SessionManager.RunSshCommandAsync(
                 host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent,
                 SshStatsHelper.DiskStatsCommand, token);
+            if (diskOutput == null)
+            {
+                onComplete();
+                return (node, -1, new List<(string, string)> { (failureReason ?? "连接或认证失败", "") });
+            }
             var diskList = SshStatsHelper.ParseDiskStatsOutput(diskOutput);
             var maxPercent = diskList.Count > 0 ? diskList.Max(x => x.UsePercent) : 0;
             if (maxPercent >= threshold)
             {
-                var duOutput = await SessionManager.RunSshCommandAsync(
+                var (duOutput, _) = await SessionManager.RunSshCommandAsync(
                     host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent,
                     SshStatsHelper.LargestDirsCommand, token);
                 var dirs = SshStatsHelper.ParseLargestDirsOutput(duOutput);
@@ -225,6 +233,7 @@ public partial class DiskUsageCheckWindow : Window
             return;
         }
 
+        // 检查期间禁用「开始检查」和阈值输入，防止重复点击
         StartBtn.IsEnabled = false;
         ThresholdBox.IsEnabled = false;
         ProgressText.Visibility = Visibility.Visible;
@@ -237,34 +246,43 @@ public partial class DiskUsageCheckWindow : Window
         var token = _cts.Token;
         var completed = 0;
 
-        var sshTasks = toCheckSsh.Select(node => CheckOneNodeAsync(node, threshold, token, () =>
+        List<(Node Node, double MaxPercent, IReadOnlyList<(string SizeText, string Path)> Dirs)>? sshResults = null;
+        List<(Node Node, double MaxPercent, IReadOnlyList<(string DiskName, double UsePercent)> DiskList)>? cloudRdpUsageResults = null;
+        try
         {
-            var n = Interlocked.Increment(ref completed);
-            UpdateUi(() => { ProgressText.Text = $"正在检查… 已完成 {n}/{total}"; ProgressBar.Value = n; });
-        })).ToList();
-        var cloudTasks = cloudRdpNodes.Select(node => CheckOneCloudRdpNodeAsync(node, threshold, token, () =>
+            var sshTasks = toCheckSsh.Select(node => CheckOneNodeAsync(node, threshold, token, () =>
+            {
+                var n = Interlocked.Increment(ref completed);
+                UpdateUi(() => { ProgressText.Text = $"正在检查… 已完成 {n}/{total}"; ProgressBar.Value = n; });
+            })).ToList();
+            var cloudTasks = cloudRdpNodes.Select(node => CheckOneCloudRdpNodeAsync(node, threshold, token, () =>
+            {
+                var n = Interlocked.Increment(ref completed);
+                UpdateUi(() => { ProgressText.Text = $"正在检查… 已完成 {n}/{total}"; ProgressBar.Value = n; });
+            })).ToList();
+
+            var sshWhenAll = Task.WhenAll(sshTasks);
+            var cloudWhenAll = Task.WhenAll(cloudTasks);
+            await Task.WhenAll(sshWhenAll, cloudWhenAll);
+
+            sshResults = (await sshWhenAll).Where(r => r != null).Select(r => r!.Value).ToList();
+            cloudRdpUsageResults = (await cloudWhenAll).Where(r => r != null).Select(r => r!.Value).ToList();
+        }
+        finally
         {
-            var n = Interlocked.Increment(ref completed);
-            UpdateUi(() => { ProgressText.Text = $"正在检查… 已完成 {n}/{total}"; ProgressBar.Value = n; });
-        })).ToList();
-
-        var sshWhenAll = Task.WhenAll(sshTasks);
-        var cloudWhenAll = Task.WhenAll(cloudTasks);
-        await Task.WhenAll(sshWhenAll, cloudWhenAll);
-
-        var sshResults = (await sshWhenAll).Where(r => r != null).Select(r => r!.Value).ToList();
-        var cloudRdpUsageResults = (await cloudWhenAll).Where(r => r != null).Select(r => r!.Value).ToList();
-
-        _completed = true;
-        UpdateUi(() =>
-        {
-            ProgressText.Text = _cts?.IsCancellationRequested == true ? "已取消" : "检查完成";
-            ProgressBar.Value = total;
-            StartBtn.IsEnabled = true;
-            ThresholdBox.IsEnabled = true;
-            CancelBtn.Content = "关闭";
-            BuildResultUi(sshResults, cloudRdpUsageResults);
-        });
+            _completed = true;
+            // 无论正常结束、取消或异常，都恢复按钮状态
+            UpdateUi(() =>
+            {
+                ProgressText.Text = _cts?.IsCancellationRequested == true ? "已取消" : "检查完成";
+                ProgressBar.Value = total;
+                StartBtn.IsEnabled = true;
+                ThresholdBox.IsEnabled = true;
+                CancelBtn.Content = "关闭";
+                if (sshResults != null && cloudRdpUsageResults != null)
+                    BuildResultUi(sshResults, cloudRdpUsageResults);
+            });
+        }
     }
 
     private void BuildResultUi(
@@ -287,18 +305,32 @@ public partial class DiskUsageCheckWindow : Window
         foreach (var (node, maxPercent, dirs) in sshResults)
         {
             var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
-            var headerText = maxPercent >= 0 ? $"{nodeName} — 磁盘占用 {maxPercent:F0}%" : $"{nodeName} — 采集失败";
+            var firstFailureReason = maxPercent < 0 && dirs.Count > 0 ? dirs[0].SizeText?.Trim() : null;
+            var headerText = maxPercent >= 0
+                ? $"{nodeName} — 磁盘占用 {maxPercent:F0}%"
+                : (string.IsNullOrEmpty(firstFailureReason) ? $"{nodeName} — 采集失败" : $"{nodeName} — 采集失败：{firstFailureReason}");
             var pathsPanel = new StackPanel { Margin = new Thickness(12, 0, 0, 8) };
             foreach (var (sizeText, path) in dirs)
             {
-                if (string.IsNullOrEmpty(path)) continue;
-                var line = new TextBlock
+                if (string.IsNullOrEmpty(path))
+                {
+                    if (!string.IsNullOrEmpty(sizeText))
+                    {
+                        pathsPanel.Children.Add(new TextBlock
+                        {
+                            Text = sizeText,
+                            Margin = new Thickness(0, 2, 0, 2),
+                            Foreground = (Brush)FindResource("TextSecondary")
+                        });
+                    }
+                    continue;
+                }
+                pathsPanel.Children.Add(new TextBlock
                 {
                     Text = $"{sizeText}  {path}",
                     Margin = new Thickness(0, 2, 0, 2),
                     Foreground = (Brush)FindResource("TextSecondary")
-                };
-                pathsPanel.Children.Add(line);
+                });
             }
             AddResultExpander(node, headerText, pathsPanel);
         }
@@ -306,10 +338,21 @@ public partial class DiskUsageCheckWindow : Window
         foreach (var (node, maxPercent, diskList) in cloudRdpUsageResults)
         {
             var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
-            var headerText = $"{nodeName} — 磁盘占用 {maxPercent:F0}%";
+            var firstFailureReason = maxPercent < 0 && diskList.Count > 0 ? diskList[0].DiskName?.Trim() : null;
+            var headerText = maxPercent >= 0
+                ? $"{nodeName} — 磁盘占用 {maxPercent:F0}%"
+                : (string.IsNullOrEmpty(firstFailureReason) ? $"{nodeName} — 采集失败" : $"{nodeName} — 采集失败：{firstFailureReason}");
             var contentPanel = new StackPanel { Margin = new Thickness(12, 0, 0, 8) };
-            var driveText = string.Join("  ", diskList.Select(d => $"{d.DiskName}: {d.UsePercent:F0}%"));
-            contentPanel.Children.Add(new TextBlock { Text = driveText, Foreground = (Brush)FindResource("TextSecondary") });
+            if (maxPercent >= 0)
+            {
+                var driveText = string.Join("  ", diskList.Select(d => $"{d.DiskName}: {d.UsePercent:F0}%"));
+                contentPanel.Children.Add(new TextBlock { Text = driveText, Foreground = (Brush)FindResource("TextSecondary") });
+            }
+            else
+            {
+                foreach (var d in diskList)
+                    contentPanel.Children.Add(new TextBlock { Text = d.DiskName, Foreground = (Brush)FindResource("TextSecondary"), Margin = new Thickness(0, 2, 0, 2) });
+            }
             AddResultExpander(node, headerText, contentPanel);
         }
     }

@@ -62,7 +62,7 @@ public class SshStatusFetchTests
             Assert.Fail($"SSH 在 {OverallTimeout.TotalSeconds}s 内未返回（host={host}）。请查看 .run/log：无「RunCommand 完成」即卡在命令执行，无「Connect 完成」即卡在连接");
         }
 
-        var output = await task.ConfigureAwait(false);
+        var (output, _) = await task.ConfigureAwait(false);
         ExceptionLog.WriteInfo($"[SshStatusFetchTests] host={host} 返回 耗时={sw.ElapsedMilliseconds}ms 有输出={output != null && output.Length > 0}");
 
         Assert.That(output, Is.Not.Null.And.Not.Empty, "SSH 连接或命令执行失败（需 SSH Agent 已启动并添加私钥，且目标可达，连接超时 3s）");

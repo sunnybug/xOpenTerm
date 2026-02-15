@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -14,9 +15,9 @@ namespace xOpenTerm.Services;
 /// <summary>管理 SSH 与本地终端会话，向 UI 推送输出</summary>
 public class SessionManager
 {
-    /// <summary>在远程主机上执行单条命令并返回标准输出（用于状态栏统计等）。支持直连与跳板链。执行后即断开。</summary>
+    /// <summary>在远程主机上执行单条命令并返回标准输出（用于状态栏统计等）。支持直连与跳板链。执行后即断开。失败时 FailureReason 为具体原因（认证失败/连接失败等）。</summary>
     /// <param name="connectionTimeout">连接超时，null 表示使用库默认。</param>
-    public static async Task<string?> RunSshCommandAsync(
+    public static async Task<(string? Output, string? FailureReason)> RunSshCommandAsync(
         string host, ushort port, string username,
         string? password, string? keyPath, string? keyPassphrase,
         List<JumpHop>? jumpChain, bool useAgent,
@@ -38,10 +39,19 @@ public class SessionManager
                 {
                     var hop = jumpChain[i];
                     var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent, connectionTimeout);
-                    if (conn == null) return null;
+                    if (conn == null) return (null, "跳板机连接失败：未配置认证方式（请配置密码、私钥或 SSH Agent）");
                     var client = new SshClient(conn);
                     AcceptAnyHostKey(client);
-                    client.Connect();
+                    try
+                    {
+                        client.Connect();
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ex is SshConnectionException && ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
+                            throw;
+                        return (null, "跳板机连接失败：" + ClassifyConnectException(ex));
+                    }
                     chainDisposables.Add(client);
                     var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
                     var nextPort = (uint)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
@@ -69,12 +79,43 @@ public class SessionManager
             {
                 if (ex is SshConnectionException && ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
                     throw;
-                return null;
+                return (null, ClassifyConnectException(ex));
             }
         }, cancellationToken).ConfigureAwait(false);
     }
 
-    private static string? RunSshCommandDirect(string host, ushort port, string username,
+    /// <summary>将 Connect 阶段异常归类为用户可读的失败原因（认证失败 vs 连接失败等）。</summary>
+    private static string ClassifyConnectException(Exception ex)
+    {
+        var msg = ex.Message ?? "";
+        if (ex is SocketException sock)
+        {
+            return sock.SocketErrorCode switch
+            {
+                SocketError.ConnectionRefused => "连接被拒绝（端口不通或未开放，请检查主机、端口与防火墙）。",
+                SocketError.TimedOut => "连接超时（请检查网络与主机是否可达）。",
+                SocketError.HostNotFound => "无法解析主机名（请检查主机地址）。",
+                _ => $"网络错误：{sock.SocketErrorCode}（{msg}）。"
+            };
+        }
+        if (ex is SshAuthenticationException)
+        {
+            if (msg.Contains("No suitable authentication method", StringComparison.OrdinalIgnoreCase))
+                return "认证失败：服务器不接受当前认证方式（请检查密码或密钥）。";
+            return "认证失败：密码错误或密钥未被接受。" + (string.IsNullOrEmpty(msg) ? "" : " " + msg);
+        }
+        if (ex is SshConnectionException)
+        {
+            if (msg.Contains("server response does not contain ssh protocol identification", StringComparison.OrdinalIgnoreCase))
+                return "端口不通或非 SSH 服务（该端口可能被其他服务占用）。";
+            return "连接异常：" + (string.IsNullOrEmpty(msg) ? "请检查主机与端口。" : msg);
+        }
+        if (ex is TimeoutException)
+            return "连接超时（请检查网络与主机是否可达）。";
+        return "连接失败：" + (string.IsNullOrEmpty(msg) ? ex.GetType().Name : msg);
+    }
+
+    private static (string? output, string? failureReason) RunSshCommandDirect(string host, ushort port, string username,
         string? password, string? keyPath, string? keyPassphrase, bool useAgent, string command,
         TimeSpan? connectionTimeout = null)
     {
@@ -87,7 +128,7 @@ public class SessionManager
         if (conn == null)
         {
             ExceptionLog.WriteInfo($"[RunSshCommandDirect] CreateConnectionInfo 返回 null host={host}");
-            return null;
+            return (null, "未配置认证方式（请配置密码、私钥或 SSH Agent）");
         }
         using var client = new SshClient(conn);
         AcceptAnyHostKey(client);
@@ -110,7 +151,7 @@ public class SessionManager
                 throw;
             }
             ExceptionLog.Write(ex, $"[RunSshCommandDirect] host={host}", toCrashLog: false);
-            return null;
+            return (null, ClassifyConnectException(ex));
         }
         try
         {
@@ -121,14 +162,14 @@ public class SessionManager
             cmdSw.Stop();
             totalSw.Stop();
             ExceptionLog.WriteInfo($"[RunSshCommandDirect] RunCommand 完成 host={host} 命令耗时={cmdSw.ElapsedMilliseconds}ms 总耗时={totalSw.ElapsedMilliseconds}ms 输出长度={result?.Length ?? 0}");
-            return result;
+            return (result, null);
         }
         catch (Exception ex)
         {
             totalSw.Stop();
             ExceptionLog.WriteInfo($"[RunSshCommandDirect] RunCommand 异常 host={host} 总耗时={totalSw.ElapsedMilliseconds}ms");
             ExceptionLog.Write(ex, $"[RunSshCommandDirect] RunCommand host={host}", toCrashLog: false);
-            return null;
+            return (null, "命令执行失败：" + (ex.Message ?? ex.GetType().Name));
         }
         finally
         {

@@ -111,8 +111,10 @@ public partial class MainWindow
     private ContextMenu BuildContextMenuMultiSelect(List<Node> selectedNodes)
     {
         var menu = new ContextMenu();
+        // 1. 连接/维护等操作
         menu.Items.Add(CreateMenuItem("连接(_L)", () => ConnectSelected(selectedNodes)));
         menu.Items.Add(new Separator());
+        // 3. 对选中项的编辑/删除
         menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteSelected(selectedNodes)));
         return menu;
     }
@@ -219,6 +221,7 @@ public partial class MainWindow
         var menu = new ContextMenu();
         if (node == null)
         {
+            // 空白处：仅 2. 新建/导入/导出
             var newSub = new MenuItem { Header = "新建(_N)" };
             newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, null)));
             newSub.Items.Add(CreateMenuItem("分组 - 腾讯云(_T)", () => AddTencentCloudGroup(null)));
@@ -238,6 +241,16 @@ public partial class MainWindow
         }
         if (node.Type == NodeType.group)
         {
+            // 1. 连接/维护等操作
+            menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
+            {
+                var maintainSub = new MenuItem { Header = "维护(_M)" };
+                maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                menu.Items.Add(maintainSub);
+            }
+            menu.Items.Add(new Separator());
+            // 2. 新建/导入/导出
             var newSub = new MenuItem { Header = "新建(_N)" };
             newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, node.Id)));
             if (!HasAncestorOrSelfCloudGroup(node))
@@ -248,7 +261,6 @@ public partial class MainWindow
             }
             newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
-            menu.Items.Add(new Separator());
             var importSub = new MenuItem { Header = "导入(_I)" };
             importSub.Items.Add(CreateMenuItem("导入 MobaXterm(_M)", () => ImportMobaXterm(node)));
             importSub.Items.Add(CreateMenuItem("导入 YAML(_Y)", () => ImportYaml(node)));
@@ -257,26 +269,26 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
+            // 3. 对选中项：编辑/删除
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
-            menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
+        }
+        else if (node.Type == NodeType.tencentCloudGroup)
+        {
+            // 1. 连接/维护等操作
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
             {
-                menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
                 maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
-        }
-        else if (node.Type == NodeType.tencentCloudGroup)
-        {
+            // 2. 新建/同步/导入/导出
             var newSub = new MenuItem { Header = "新建(_N)" };
             newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, node.Id)));
             newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
-            menu.Items.Add(new Separator());
             var syncSubTencent = new MenuItem { Header = "同步(_Y)" };
             syncSubTencent.Items.Add(CreateMenuItem("同步", () => SyncTencentCloudGroup(node)));
             syncSubTencent.Items.Add(CreateMenuItem("重建", () => RebuildTencentCloudGroup(node)));
@@ -289,26 +301,26 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
+            // 3. 对选中项：编辑/删除
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
-            menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
+        }
+        else if (node.Type == NodeType.aliCloudGroup)
+        {
+            // 1. 连接/维护等操作
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
             {
-                menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
                 maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
-        }
-        else if (node.Type == NodeType.aliCloudGroup)
-        {
+            // 2. 新建/同步/导入/导出
             var newSub = new MenuItem { Header = "新建(_N)" };
             newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, node.Id)));
             newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
-            menu.Items.Add(new Separator());
             var syncSubAli = new MenuItem { Header = "同步(_Y)" };
             syncSubAli.Items.Add(CreateMenuItem("同步", () => SyncAliCloudGroup(node)));
             syncSubAli.Items.Add(CreateMenuItem("重建", () => RebuildAliCloudGroup(node)));
@@ -321,26 +333,26 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
+            // 3. 对选中项：编辑/删除
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
-            menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
+        }
+        else if (node.Type == NodeType.kingsoftCloudGroup)
+        {
+            // 1. 连接/维护等操作
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
             if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
             {
-                menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
                 maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
-        }
-        else if (node.Type == NodeType.kingsoftCloudGroup)
-        {
+            // 2. 新建/同步/导入/导出
             var newSub = new MenuItem { Header = "新建(_N)" };
             newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, node.Id)));
             newSub.Items.Add(CreateMenuItem("主机(_H)", () => AddNode(NodeType.ssh, node.Id)));
             menu.Items.Add(newSub);
-            menu.Items.Add(new Separator());
             var syncSubKingsoft = new MenuItem { Header = "同步(_Y)" };
             syncSubKingsoft.Items.Add(CreateMenuItem("同步", () => SyncKingsoftCloudGroup(node)));
             syncSubKingsoft.Items.Add(CreateMenuItem("重建", () => RebuildKingsoftCloudGroup(node)));
@@ -353,33 +365,24 @@ public partial class MainWindow
             exportSub.Items.Add(CreateMenuItem("导出 YAML(_Y)", () => ExportYaml()));
             menu.Items.Add(exportSub);
             menu.Items.Add(new Separator());
+            // 3. 对选中项：编辑/删除
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
-            menu.Items.Add(new Separator());
-            menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
-            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
-            {
-                menu.Items.Add(new Separator());
-                var maintainSub = new MenuItem { Header = "维护(_M)" };
-                maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
-                menu.Items.Add(maintainSub);
-            }
-            menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
         else
         {
+            // 叶子节点(SSH/RDP)：1. 连接/维护  3. 编辑/删除/克隆（无新建/导入/导出）
             menu.Items.Add(CreateMenuItem("连接(_L)", () => OpenTab(node)));
             if (TryGetCloudDetailUrl(node, out var cloudDetailUrl))
                 menu.Items.Add(CreateMenuItem("云详情(_V)", () => OpenCloudDetail(cloudDetailUrl!)));
-            menu.Items.Add(CreateMenuItem("编辑(_E)", () => EditNode(node)));
             if (node.Type == NodeType.ssh || (node.Type == NodeType.rdp && ConfigResolver.IsCloudRdpNode(node, _nodes)))
             {
-                menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
                 maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());
+            menu.Items.Add(CreateMenuItem("编辑(_E)", () => EditNode(node)));
             menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteNode(node)));
             menu.Items.Add(CreateMenuItem("克隆(_C)", () => DuplicateNode(node)));
         }

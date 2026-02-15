@@ -87,7 +87,7 @@ public partial class MainWindow
         {
             if (!_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
                 return RemoteOsInfoService.GetProcessTrafficCommand(null);
-            var output = await SessionManager.RunSshCommandAsync(
+            var (output, _) = await SessionManager.RunSshCommandAsync(
                 p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent,
                 RemoteOsInfoService.DetectionCommand, CancellationToken.None);
             var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
@@ -97,7 +97,7 @@ public partial class MainWindow
         {
             if (!_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
                 return RemoteOsInfoService.GetLargestFilesCommand(null);
-            var output = await SessionManager.RunSshCommandAsync(
+            var (output, _) = await SessionManager.RunSshCommandAsync(
                 p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent,
                 RemoteOsInfoService.DetectionCommand, CancellationToken.None);
             var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
@@ -317,7 +317,7 @@ public partial class MainWindow
             {
                 if (!_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
                     return RemoteOsInfoService.GetProcessTrafficCommand(null);
-                var output = await SessionManager.RunSshCommandAsync(
+                var (output, _) = await SessionManager.RunSshCommandAsync(
                     p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent,
                     RemoteOsInfoService.DetectionCommand, CancellationToken.None);
                 var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
@@ -327,7 +327,7 @@ public partial class MainWindow
             {
                 if (!_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
                     return RemoteOsInfoService.GetLargestFilesCommand(null);
-                var output = await SessionManager.RunSshCommandAsync(
+                var (output, _) = await SessionManager.RunSshCommandAsync(
                     p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent,
                     RemoteOsInfoService.DetectionCommand, CancellationToken.None);
                 var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
@@ -710,7 +710,7 @@ public partial class MainWindow
             {
                 try
                 {
-                    var output = await SessionManager.RunSshCommandAsync(
+                    var (output, _) = await SessionManager.RunSshCommandAsync(
                         host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent,
                         SshStatsHelper.StatsCommand, token);
                     if (token.IsCancellationRequested) break;
@@ -758,7 +758,7 @@ public partial class MainWindow
             {
                 try
                 {
-                    var diskOutput = await SessionManager.RunSshCommandAsync(
+                    var (diskOutput, _) = await SessionManager.RunSshCommandAsync(
                         host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent,
                         SshStatsHelper.DiskStatsCommand, token);
                     if (token.IsCancellationRequested) break;
@@ -821,7 +821,7 @@ public partial class MainWindow
                 try
                 {
                     // 使用 SSH 方式连接到 Windows 服务器执行命令
-                    var output = await SessionManager.RunSshCommandAsync(
+                    var (output, _) = await SessionManager.RunSshCommandAsync(
                         host, port, username, password, null, null, null, false,
                         RdpStatsHelper.StatsCommand, token);
                     if (token.IsCancellationRequested) break;
