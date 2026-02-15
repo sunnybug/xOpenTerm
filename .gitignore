@@ -18,6 +18,9 @@ obj/
 *.cache
 *.dll
 *.exe
+# 允许提交 RDP 互操作程序集（便于 CI 或无 aximp 环境构建）
+!src/References/AxInterop.MSTSCLib.dll
+!src/References/Interop.MSTSCLib.dll
 *.pdb
 *.log
 .vs/

@@ -24,13 +24,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- 系统 RDP 控件互操作（aximp mstscax.dll），参考 mRemoteNG，不依赖 MsRdpEx -->
-    <Reference Include="AxMSTSCLib">
-      <HintPath>References\AxMSTSCLib.dll</HintPath>
+    <!-- 系统 RDP 控件互操作（aximp mstscax.dll 生成 AxInterop.MSTSCLib / Interop.MSTSCLib），参考 mRemoteNG -->
+    <Reference Include="AxInterop.MSTSCLib">
+      <HintPath>References\AxInterop.MSTSCLib.dll</HintPath>
       <Private>true</Private>
     </Reference>
-    <Reference Include="MSTSCLib">
-      <HintPath>References\MSTSCLib.dll</HintPath>
+    <Reference Include="Interop.MSTSCLib">
+      <HintPath>References\Interop.MSTSCLib.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>

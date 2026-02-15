@@ -63,6 +63,10 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: 生成 RDP 互操作程序集
+        run: .\script\gen_mstsc_interop.ps1
+        shell: pwsh
+
       - name: 构建 Release
         run: dotnet build src/xOpenTerm.csproj -c Release
 

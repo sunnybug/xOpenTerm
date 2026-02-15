@@ -66,13 +66,13 @@
 
 ### 内嵌 RDP 互操作程序集（开发/打包用）
 
-内嵌 RDP 使用系统 mstscax.dll 的互操作（参考 mRemoteNG）。若从源码构建且 `src/References/` 下尚无 `AxMSTSCLib.dll`、`MSTSCLib.dll`，可运行（需已安装 Visual Studio 或 Windows SDK）：
+内嵌 RDP 使用系统 mstscax.dll 的互操作（参考 mRemoteNG）。若从源码构建且 `src/References/` 下尚无 `AxInterop.MSTSCLib.dll`、`Interop.MSTSCLib.dll`，可运行（需已安装 Visual Studio 或 Windows SDK）：
 
 ```powershell
 .\script\gen_mstsc_interop.ps1
 ```
 
-再将生成的两个 DLL 放入 `src/References/` 后重新构建。
+脚本会将生成的两个 DLL 写入 `src/References/`，然后即可构建。GitHub Actions 构建时会自动执行该脚本；若 CI 环境无 aximp，可在本机运行脚本后执行 `git add -f src/References/*.dll` 并提交，即可在任意环境通过构建。
 
 ## 配置目录
 

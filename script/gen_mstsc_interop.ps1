@@ -11,8 +11,10 @@ if (-not (Test-Path -LiteralPath $mstscax)) {
 }
 
 $aximpPaths = @(
-    "C:\Program Files\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\aximp.exe",
     "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\aximp.exe",
+    "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\aximp.exe",
+    "C:\Program Files\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\aximp.exe",
+    "C:\Program Files\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\aximp.exe",
     "C:\Program Files\Microsoft SDKs\Windows\v7.0A\Bin\aximp.exe"
 )
 $aximp = $null
@@ -31,6 +33,13 @@ Push-Location $outDir
 try {
     & $aximp $mstscax
     if ($LASTEXITCODE -ne 0) { throw "aximp 退出码: $LASTEXITCODE" }
-    Get-ChildItem -Filter "*.dll" | ForEach-Object { Write-Host "已生成: $($_.FullName)" -ForegroundColor Green }
+    # 部分 aximp 输出 AxMSTSCLib.dll/MSTSCLib.dll，csproj 统一引用 AxInterop.MSTSCLib/Interop.MSTSCLib，此处做名称归一
+    $axShort = Join-Path $outDir "AxMSTSCLib.dll"
+    $interopShort = Join-Path $outDir "MSTSCLib.dll"
+    $axInterop = Join-Path $outDir "AxInterop.MSTSCLib.dll"
+    $interopLib = Join-Path $outDir "Interop.MSTSCLib.dll"
+    if ((Test-Path -LiteralPath $axShort) -and -not (Test-Path -LiteralPath $axInterop)) { Copy-Item -LiteralPath $axShort -Destination $axInterop -Force; Write-Host "已复制为: $axInterop" -ForegroundColor Green }
+    if ((Test-Path -LiteralPath $interopShort) -and -not (Test-Path -LiteralPath $interopLib)) { Copy-Item -LiteralPath $interopShort -Destination $interopLib -Force; Write-Host "已复制为: $interopLib" -ForegroundColor Green }
+    Get-ChildItem -Path $outDir -Filter "*.dll" | ForEach-Object { Write-Host "已生成: $($_.FullName)" -ForegroundColor Green }
 }
 finally { Pop-Location }
