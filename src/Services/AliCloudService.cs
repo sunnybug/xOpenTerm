@@ -1,8 +1,11 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using AlibabaCloud.SDK.Cms20190101;
+using AlibabaCloud.SDK.Cms20190101.Models;
 using AlibabaCloud.SDK.Ecs20140526;
 using AlibabaCloud.SDK.Ecs20140526.Models;
 using AlibabaCloud.OpenApiClient.Models;
@@ -327,5 +330,57 @@ public static class AliCloudService
                 dataList.Add(size);
         }
         return (systemGb, dataList);
+    }
+
+    /// <summary>通过云监控 API 查询 ECS 实例磁盘使用率（需实例已安装云监控插件）。返回各设备使用率及最大值；失败或非 ECS 返回 null。</summary>
+    public static (double MaxPercent, IReadOnlyList<(string Device, double Percent)>? ByDevice)? GetInstanceDiskUsageFromApi(
+        string accessKeyId,
+        string accessKeySecret,
+        string instanceId,
+        string regionId,
+        bool isLightweight,
+        System.Threading.CancellationToken cancellationToken = default)
+    {
+        if (isLightweight) return null;
+        try
+        {
+            var config = new AlibabaCloud.OpenApiClient.Models.Config
+            {
+                AccessKeyId = accessKeyId,
+                AccessKeySecret = accessKeySecret,
+                Endpoint = "cms.aliyuncs.com",
+                RegionId = "cn-hangzhou"
+            };
+            var client = new AlibabaCloud.SDK.Cms20190101.Client(config);
+            var req = new DescribeMetricLastRequest
+            {
+                Namespace = "acs_ecs",
+                MetricName = "diskusage_utilization",
+                Period = "60",
+                Dimensions = $"[{{\"instanceId\":\"{instanceId}\"}}]"
+            };
+            var resp = client.DescribeMetricLast(req);
+            if (resp?.Body?.Datapoints == null || string.IsNullOrWhiteSpace(resp.Body.Datapoints))
+                return null;
+            var list = new List<(string Device, double Percent)>();
+            using var doc = JsonDocument.Parse(resp.Body.Datapoints);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Array) return null;
+            foreach (var item in root.EnumerateArray())
+            {
+                if (!item.TryGetProperty("Maximum", out var maxProp)) continue;
+                if (maxProp.ValueKind != JsonValueKind.Number) continue;
+                var pct = maxProp.GetDouble();
+                var device = item.TryGetProperty("device", out var devProp) ? devProp.GetString() ?? "" : "";
+                list.Add((device, pct));
+            }
+            if (list.Count == 0) return null;
+            var maxPercent = list.Max(x => x.Percent);
+            return (maxPercent, list);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

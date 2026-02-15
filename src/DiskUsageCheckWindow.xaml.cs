@@ -47,8 +47,10 @@ public partial class DiskUsageCheckWindow : Window
             dispatcher.Invoke(action);
     }
 
-    private async Task<(Node Node, int? SystemGb, IReadOnlyList<int> DataGb, string? Error)?> CheckOneCloudRdpNodeAsync(
+    /// <summary>云 RDP 节点：阿里/腾讯/金山云优先用云监控 API 获取磁盘占用率；其他云或 API 不可用时通过 SSH(22) 执行 Windows 磁盘命令。仅当最大占用率 ≥ 阈值时返回。</summary>
+    private async Task<(Node Node, double MaxPercent, IReadOnlyList<(string DiskName, double UsePercent)> DiskList)?> CheckOneCloudRdpNodeAsync(
         Node node,
+        int threshold,
         CancellationToken token,
         Action onComplete)
     {
@@ -56,55 +58,75 @@ public partial class DiskUsageCheckWindow : Window
         {
             token.ThrowIfCancellationRequested();
             var groupNode = ConfigResolver.GetAncestorCloudGroupNode(node, _nodes);
-            if (groupNode?.Config == null)
+            var instanceId = node.Config?.ResourceId?.Trim() ?? "";
+            var region = node.Config?.CloudRegionId ?? "";
+
+            if (groupNode?.Config != null && !string.IsNullOrEmpty(instanceId) && !string.IsNullOrEmpty(region))
             {
-                onComplete();
-                return (node, null, Array.Empty<int>(), "未找到云组或未配置密钥");
-            }
-            var instanceId = node.Config!.ResourceId!.Trim();
-            var region = node.Config.CloudRegionId ?? "";
-            var isLightweight = node.Config.CloudIsLightweight == true;
-            if (groupNode.Type == NodeType.tencentCloudGroup)
-            {
-                var sid = groupNode.Config.TencentSecretId ?? "";
-                var skey = groupNode.Config.TencentSecretKey ?? "";
-                if (string.IsNullOrEmpty(sid) || string.IsNullOrEmpty(skey))
+                if (groupNode.Type == NodeType.aliCloudGroup && !(node.Config?.CloudIsLightweight == true))
                 {
-                    onComplete();
-                    return (node, null, Array.Empty<int>(), "腾讯云组未配置 SecretId/SecretKey");
+                    var ak = groupNode.Config.AliAccessKeyId ?? "";
+                    var sk = groupNode.Config.AliAccessKeySecret ?? "";
+                    if (!string.IsNullOrEmpty(ak) && !string.IsNullOrEmpty(sk))
+                    {
+                        var apiResult = AliCloudService.GetInstanceDiskUsageFromApi(ak, sk, instanceId, region, false, token);
+                        if (apiResult.HasValue && apiResult.Value.MaxPercent >= threshold && apiResult.Value.ByDevice != null)
+                        {
+                            var diskList = apiResult.Value.ByDevice.Select(d => (d.Device, d.Percent)).ToList();
+                            onComplete();
+                            return (node, apiResult.Value.MaxPercent, diskList);
+                        }
+                    }
                 }
-                var (sys, data) = TencentCloudService.GetInstanceDiskInfo(sid, skey, instanceId, region, isLightweight, token);
-                onComplete();
-                return (node, sys, data, null);
-            }
-            if (groupNode.Type == NodeType.aliCloudGroup)
-            {
-                var ak = groupNode.Config.AliAccessKeyId ?? "";
-                var sk = groupNode.Config.AliAccessKeySecret ?? "";
-                if (string.IsNullOrEmpty(ak) || string.IsNullOrEmpty(sk))
+                else if (groupNode.Type == NodeType.tencentCloudGroup)
                 {
-                    onComplete();
-                    return (node, null, Array.Empty<int>(), "阿里云组未配置 AccessKey");
+                    var sid = groupNode.Config?.TencentSecretId ?? "";
+                    var skey = groupNode.Config?.TencentSecretKey ?? "";
+                    var isLight = node.Config?.CloudIsLightweight == true;
+                    if (!string.IsNullOrEmpty(sid) && !string.IsNullOrEmpty(skey))
+                    {
+                        var apiResult = TencentCloudService.GetInstanceDiskUsageFromApi(sid, skey, instanceId, region, isLight, token);
+                        if (apiResult.HasValue && apiResult.Value.MaxPercent >= threshold && apiResult.Value.ByDevice != null)
+                        {
+                            var diskList = apiResult.Value.ByDevice.Select(d => (d.Device, d.Percent)).ToList();
+                            onComplete();
+                            return (node, apiResult.Value.MaxPercent, diskList);
+                        }
+                    }
                 }
-                var (sys, data) = AliCloudService.GetInstanceDiskInfo(ak, sk, instanceId, region, isLightweight, token);
-                onComplete();
-                return (node, sys, data, null);
-            }
-            if (groupNode.Type == NodeType.kingsoftCloudGroup)
-            {
-                var ak = groupNode.Config.KsyunAccessKeyId ?? "";
-                var sk = groupNode.Config.KsyunAccessKeySecret ?? "";
-                if (string.IsNullOrEmpty(ak) || string.IsNullOrEmpty(sk))
+                else if (groupNode.Type == NodeType.kingsoftCloudGroup)
                 {
-                    onComplete();
-                    return (node, null, Array.Empty<int>(), "金山云组未配置 AccessKey");
+                    var ak = groupNode.Config?.KsyunAccessKeyId ?? "";
+                    var sk = groupNode.Config?.KsyunAccessKeySecret ?? "";
+                    if (!string.IsNullOrEmpty(ak) && !string.IsNullOrEmpty(sk))
+                    {
+                        var apiResult = KingsoftCloudService.GetInstanceDiskUsageFromApi(ak, sk, instanceId, region, token);
+                        if (apiResult.HasValue && apiResult.Value.MaxPercent >= threshold && apiResult.Value.ByDevice != null)
+                        {
+                            var diskList = apiResult.Value.ByDevice.Select(d => (d.Device, d.Percent)).ToList();
+                            onComplete();
+                            return (node, apiResult.Value.MaxPercent, diskList);
+                        }
+                    }
                 }
-                var (sys, data) = KingsoftCloudService.GetInstanceDiskInfo(ak, sk, instanceId, region, token);
-                onComplete();
-                return (node, sys, data, null);
             }
+
+            var (host, _, username, _, password, _) = ConfigResolver.ResolveRdp(node, _nodes, _credentials);
+            if (string.IsNullOrEmpty(host))
+            {
+                onComplete();
+                return null;
+            }
+            const ushort sshPort = 22;
+            var diskOutput = await SessionManager.RunSshCommandAsync(
+                host, sshPort, username ?? "", password, null, null, null, false,
+                RdpStatsHelper.DiskStatsCommand, token);
             onComplete();
-            return (node, null, Array.Empty<int>(), "不支持的云类型");
+            var diskListSsh = RdpStatsHelper.ParseDiskStatsOutput(diskOutput);
+            if (diskListSsh.Count == 0) return null;
+            var maxPercent = diskListSsh.Max(x => x.UsePercent);
+            if (maxPercent < threshold) return null;
+            return (node, maxPercent, diskListSsh);
         }
         catch (OperationCanceledException)
         {
@@ -114,9 +136,9 @@ public partial class DiskUsageCheckWindow : Window
         catch (Exception ex)
         {
             var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
-            ExceptionLog.Write(ex, $"云 RDP 磁盘检查节点 {nodeName}");
+            ExceptionLog.Write(ex, $"云 RDP 磁盘占用检查节点 {nodeName}");
             onComplete();
-            return (node, null, Array.Empty<int>(), ex.Message);
+            return null;
         }
     }
 
@@ -220,14 +242,18 @@ public partial class DiskUsageCheckWindow : Window
             var n = Interlocked.Increment(ref completed);
             UpdateUi(() => { ProgressText.Text = $"正在检查… 已完成 {n}/{total}"; ProgressBar.Value = n; });
         })).ToList();
-        var cloudTasks = cloudRdpNodes.Select(node => CheckOneCloudRdpNodeAsync(node, token, () =>
+        var cloudTasks = cloudRdpNodes.Select(node => CheckOneCloudRdpNodeAsync(node, threshold, token, () =>
         {
             var n = Interlocked.Increment(ref completed);
             UpdateUi(() => { ProgressText.Text = $"正在检查… 已完成 {n}/{total}"; ProgressBar.Value = n; });
         })).ToList();
 
-        var sshResults = (await Task.WhenAll(sshTasks)).Where(r => r != null).Select(r => r!.Value).ToList();
-        var cloudResults = (await Task.WhenAll(cloudTasks)).Where(r => r != null).Select(r => r!.Value).ToList();
+        var sshWhenAll = Task.WhenAll(sshTasks);
+        var cloudWhenAll = Task.WhenAll(cloudTasks);
+        await Task.WhenAll(sshWhenAll, cloudWhenAll);
+
+        var sshResults = (await sshWhenAll).Where(r => r != null).Select(r => r!.Value).ToList();
+        var cloudRdpUsageResults = (await cloudWhenAll).Where(r => r != null).Select(r => r!.Value).ToList();
 
         _completed = true;
         UpdateUi(() =>
@@ -237,20 +263,20 @@ public partial class DiskUsageCheckWindow : Window
             StartBtn.IsEnabled = true;
             ThresholdBox.IsEnabled = true;
             CancelBtn.Content = "关闭";
-            BuildResultUi(sshResults, cloudResults);
+            BuildResultUi(sshResults, cloudRdpUsageResults);
         });
     }
 
     private void BuildResultUi(
         List<(Node Node, double MaxPercent, IReadOnlyList<(string SizeText, string Path)> Dirs)> sshResults,
-        List<(Node Node, int? SystemGb, IReadOnlyList<int> DataGb, string? Error)> cloudResults)
+        List<(Node Node, double MaxPercent, IReadOnlyList<(string DiskName, double UsePercent)> DiskList)> cloudRdpUsageResults)
     {
         ResultPanel.Children.Clear();
-        if (sshResults.Count == 0 && cloudResults.Count == 0)
+        if (sshResults.Count == 0 && cloudRdpUsageResults.Count == 0)
         {
             var noResult = new TextBlock
             {
-                Text = "没有超过阈值的 SSH 节点，且无云 RDP 结果；或未采集到数据。",
+                Text = "没有超过阈值的节点；或云 RDP 主机未开启 SSH(22)，无法采集占用率。",
                 Foreground = (Brush)FindResource("TextSecondary"),
                 Margin = new Thickness(0, 8, 0, 0)
             };
@@ -277,24 +303,13 @@ public partial class DiskUsageCheckWindow : Window
             AddResultExpander(node, headerText, pathsPanel);
         }
 
-        foreach (var (node, systemGb, dataGb, error) in cloudResults)
+        foreach (var (node, maxPercent, diskList) in cloudRdpUsageResults)
         {
             var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
-            string headerText;
+            var headerText = $"{nodeName} — 磁盘占用 {maxPercent:F0}%";
             var contentPanel = new StackPanel { Margin = new Thickness(12, 0, 0, 8) };
-            if (error != null)
-            {
-                headerText = $"{nodeName} — 采集失败";
-                contentPanel.Children.Add(new TextBlock { Text = error, Foreground = (Brush)FindResource("TextSecondary"), TextWrapping = TextWrapping.Wrap });
-            }
-            else
-            {
-                var parts = new List<string>();
-                if (systemGb.HasValue && systemGb.Value > 0) parts.Add($"系统盘 {systemGb} GB");
-                if (dataGb.Count > 0) parts.Add("数据盘 " + string.Join(", ", dataGb.Select(g => $"{g} GB")));
-                headerText = parts.Count > 0 ? $"{nodeName} — {string.Join(", ", parts)}" : $"{nodeName} — 无磁盘信息";
-                contentPanel.Children.Add(new TextBlock { Text = "来自云控制台，非主机内 df。", Foreground = (Brush)FindResource("TextSecondary") });
-            }
+            var driveText = string.Join("  ", diskList.Select(d => $"{d.DiskName}: {d.UsePercent:F0}%"));
+            contentPanel.Children.Add(new TextBlock { Text = driveText, Foreground = (Brush)FindResource("TextSecondary") });
             AddResultExpander(node, headerText, contentPanel);
         }
     }

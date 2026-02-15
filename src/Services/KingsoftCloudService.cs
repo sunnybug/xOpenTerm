@@ -1,6 +1,9 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -188,5 +191,96 @@ public static class KingsoftCloudService
             idx++;
         }
         return (systemGb, dataList);
+    }
+
+    /// <summary>通过云监控 GetMetricStatistics 查询 KEC 实例磁盘使用率（需实例已安装监控代理）。失败或无数据返回 null。</summary>
+    public static (double MaxPercent, IReadOnlyList<(string Device, double Percent)>? ByDevice)? GetInstanceDiskUsageFromApi(
+        string accessKeyId,
+        string accessKeySecret,
+        string instanceId,
+        string regionId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var endUtc = DateTime.UtcNow.AddMinutes(-2);
+            var startUtc = endUtc.AddMinutes(-10);
+            var startTime = startUtc.ToString("yyyy-MM-ddTHH:mm:ssZ");
+            var endTime = endUtc.ToString("yyyy-MM-ddTHH:mm:ssZ");
+            var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+            var query = new SortedDictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["AccessKey"] = accessKeyId,
+                ["Action"] = "GetMetricStatistics",
+                ["Aggregate"] = "Max",
+                ["EndTime"] = endTime,
+                ["InstanceID"] = instanceId,
+                ["MetricName"] = "disk.utilizition.total",
+                ["Namespace"] = "KEC",
+                ["Period"] = "60",
+                ["Service"] = "monitor",
+                ["SignatureMethod"] = "HMAC-SHA256",
+                ["SignatureVersion"] = "1.0",
+                ["StartTime"] = startTime,
+                ["Timestamp"] = timestamp,
+                ["Version"] = "2010-05-25"
+            };
+            var canonical = string.Join("&", query.Select(kv => $"{Rfc3986Encode(kv.Key)}={Rfc3986Encode(kv.Value)}"));
+            var sign = ComputeHmacSha256Hex(canonical, accessKeySecret);
+            query["Signature"] = sign;
+
+            var queryString = string.Join("&", query.Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}"));
+            var host = $"monitor.{regionId}.api.ksyun.com";
+            var url = $"https://{host}/?{queryString}";
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Host", host);
+            var resp = client.GetAsync(url, cancellationToken).GetAwaiter().GetResult();
+            resp.EnsureSuccessStatusCode();
+            var json = resp.Content.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
+            var root = JObject.Parse(json);
+            var result = root["getMetricStatisticsResult"];
+            if (result == null) return null;
+            var members = result["datapoints"]?["member"] as JArray;
+            if (members == null || members.Count == 0) return null;
+
+            double maxPct = 0;
+            foreach (var m in members.OfType<JObject>())
+            {
+                var maxToken = m["max"];
+                if (maxToken == null) continue;
+                if (!double.TryParse(maxToken.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var val)) continue;
+                if (val > maxPct) maxPct = val;
+            }
+            var diskList = new List<(string, double)> { ("", maxPct) };
+            return (maxPct, diskList);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string Rfc3986Encode(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        var bytes = Encoding.UTF8.GetBytes(value);
+        var sb = new StringBuilder();
+        foreach (var b in bytes)
+        {
+            if ((b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9') || b == '-' || b == '_' || b == '.' || b == '~')
+                sb.Append((char)b);
+            else
+                sb.Append('%').Append(b.ToString("X2"));
+        }
+        return sb.ToString();
+    }
+
+    private static string ComputeHmacSha256Hex(string data, string key)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(key));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+        return string.Concat(hash.Select(b => b.ToString("x2")));
     }
 }

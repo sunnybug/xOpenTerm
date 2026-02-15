@@ -9,6 +9,8 @@ using TencentCloud.Tag.V20180813;
 using TencentCloud.Tag.V20180813.Models;
 using TencentCloud.Lighthouse.V20200324;
 using TencentCloud.Lighthouse.V20200324.Models;
+using TencentCloud.Monitor.V20180724;
+using TencentCloud.Monitor.V20180724.Models;
 
 namespace xOpenTerm.Services;
 
@@ -308,6 +310,56 @@ public static class TencentCloudService
                     dataList.Add((int)sizeVal);
             }
             return (systemGb, dataList);
+        }
+    }
+
+    /// <summary>通过云监控 API 查询 CVM 实例磁盘使用率（需实例已安装监控组件）。返回最大使用率及单条设备列表；轻量或失败返回 null。</summary>
+    public static (double MaxPercent, IReadOnlyList<(string Device, double Percent)>? ByDevice)? GetInstanceDiskUsageFromApi(
+        string secretId,
+        string secretKey,
+        string instanceId,
+        string region,
+        bool isLightweight,
+        CancellationToken cancellationToken = default)
+    {
+        if (isLightweight) return null;
+        try
+        {
+            var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
+            var client = new MonitorClient(cred, "ap-guangzhou");
+            var end = DateTimeOffset.UtcNow.AddMinutes(-2);
+            var start = end.AddMinutes(-5);
+            var req = new GetMonitorDataRequest
+            {
+                Namespace = "QCE/CVM",
+                MetricName = "DiskUsage",
+                Period = 60,
+                StartTime = start.ToString("yyyy-MM-ddTHH:mm:sszzz"),
+                EndTime = end.ToString("yyyy-MM-ddTHH:mm:sszzz"),
+                Instances = new[]
+                {
+                    new TencentCloud.Monitor.V20180724.Models.Instance
+                    {
+                        Dimensions = new[]
+                        {
+                            new TencentCloud.Monitor.V20180724.Models.Dimension { Name = "InstanceId", Value = instanceId }
+                        }
+                    }
+                }
+            };
+            var resp = client.GetMonitorDataSync(req);
+            var dataPoints = resp.DataPoints;
+            if (dataPoints == null || dataPoints.Count() == 0) return null;
+            var dp = dataPoints.First();
+            var vals = dp.Values;
+            if (vals == null || vals.Count() == 0) return null;
+            var maxVal = (double)(vals.Where(v => v.HasValue).Select(v => v!.Value).DefaultIfEmpty(0).Max());
+            var list = new List<(string, double)> { ("", maxVal) };
+            return (maxVal, list);
+        }
+        catch
+        {
+            return null;
         }
     }
 }

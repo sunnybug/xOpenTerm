@@ -44,6 +44,7 @@
     <PackageReference Include="SshNet.Agent" Version="2024.2.0.1" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+    <PackageReference Include="AlibabaCloud.SDK.Cms20190101" Version="3.0.0" />
     <PackageReference Include="AlibabaCloud.SDK.Ecs20140526" Version="7.6.0" />
     <PackageReference Include="TencentCloudSDK" Version="3.0.1374" />
     <PackageReference Include="YamlDotNet" Version="15.1.0" />
