@@ -79,7 +79,7 @@ public partial class SshWebViewHostControl : UserControl
         catch (Exception ex)
         {
             ExceptionLog.Write(ex, "SSH 连接失败", toCrashLog: false);
-            _bridge.Dispose();
+            _bridge?.Dispose();
             _bridge = null;
             throw;
         }
