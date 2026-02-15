@@ -151,7 +151,8 @@ public sealed class SshTerminalBridge : IDisposable
     public void Dispose()
     {
         _readCts?.Cancel();
-        try { _readTask?.GetAwaiter().GetResult(); } catch { }
+        // 不使用 GetAwaiter().GetResult() 避免阻塞 UI 线程，改为异步处理
+        // 直接释放资源，让 GC 处理未完成的任务
         _shell?.Dispose();
         _shell = null;
         _client?.Disconnect();

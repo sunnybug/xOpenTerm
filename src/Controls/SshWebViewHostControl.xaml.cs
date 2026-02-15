@@ -92,6 +92,8 @@ public partial class SshWebViewHostControl : UserControl
         try
         {
             WebView?.CoreWebView2?.Navigate("about:blank");
+            WebView?.Dispose();
+            _webView = null;
         }
         catch { }
     }

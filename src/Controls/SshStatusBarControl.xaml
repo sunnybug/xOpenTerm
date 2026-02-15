@@ -85,7 +85,7 @@
         <!-- 磁盘（按物理硬盘，每3分钟更新，无前缀以节省空间；独立右键菜单） -->
         <StackPanel Grid.Column="14" Orientation="Horizontal" VerticalAlignment="Center"
                     ContextMenu="{StaticResource SshStatusBarDiskContextMenu}">
-            <TextBlock x:Name="DiskText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="200"/>
+            <TextBlock x:Name="DiskText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
         </StackPanel>
     </Grid>
 </UserControl>
