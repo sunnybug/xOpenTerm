@@ -20,20 +20,14 @@ public partial class SshStatusBarControl : UserControl
     private static readonly SolidColorBrush RxBrush = new(Color.FromRgb(0x22, 0xC5, 0x5E));     // 绿
     private static readonly SolidColorBrush TxBrush = new(Color.FromRgb(0x3B, 0x82, 0xF6));     // 蓝
 
-    /// <summary>在流量区右键选择「查看进程流量」时触发，参数为要在 SSH 终端中执行的命令（含换行）。</summary>
-    public event EventHandler<string>? RequestSendCommand;
+    /// <summary>由 MainWindow 注入：每次触发时在远程执行检测并返回 (命令, 安装提示)。未设置时使用 RemoteOsInfoService.GetProcessTrafficCommand(null)。</summary>
+    public Func<System.Threading.Tasks.Task<(string command, string? installHint)>>? GetProcessTrafficCommandCallback { get; set; }
 
     public SshStatusBarControl()
     {
         InitializeComponent();
         Loaded += (_, _) => RedrawCharts();
         SizeChanged += (_, _) => RedrawCharts();
-    }
-
-    private void TrafficContextMenu_ViewProcessTraffic_Click(object sender, RoutedEventArgs e)
-    {
-        // 在终端中执行 nethogs -t：按流量排序显示进程网络占用（一次输出）；若无 nethogs 可改用手动安装
-        RequestSendCommand?.Invoke(this, "nethogs -t");
     }
 
     /// <summary>更新状态栏显示。null 表示暂无数据或未连接。</summary>
@@ -298,5 +292,36 @@ public partial class SshStatusBarControl : UserControl
         if (bps < 1024 * 1024) return $"{(bps / 1024):F1} KB/s";
         if (bps < 1024 * 1024 * 1024) return $"{(bps / (1024 * 1024)):F1} MB/s";
         return $"{(bps / (1024 * 1024 * 1024)):F1} GB/s";
+    }
+
+    private async void MenuItemProcessTraffic_Click(object sender, RoutedEventArgs e)
+    {
+        (string command, string? installHint) result;
+        try
+        {
+            if (GetProcessTrafficCommandCallback != null)
+                result = await GetProcessTrafficCommandCallback();
+            else
+                result = RemoteOsInfoService.GetProcessTrafficCommand(null);
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "获取进程流量命令（远程检测）");
+            MessageBox.Show("检测远程环境失败：" + ex.Message, "xOpenTerm");
+            return;
+        }
+        try
+        {
+            System.Windows.Clipboard.SetText(result.command);
+            if (!string.IsNullOrEmpty(result.installHint))
+                MessageBox.Show($"已复制到剪贴板。\n\n若远程未安装工具，可先安装：\n{result.installHint}", "查看进程流量");
+            else
+                MessageBox.Show("已复制到剪贴板，请在 SSH 终端中粘贴执行。", "查看进程流量");
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "复制进程流量命令到剪贴板");
+            MessageBox.Show("复制失败：" + ex.Message, "xOpenTerm");
+        }
     }
 }

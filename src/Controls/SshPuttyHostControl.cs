@@ -1,9 +1,7 @@
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Pipes;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using xOpenTerm.Native;
@@ -214,55 +212,6 @@ public sealed class SshPuttyHostControl : Panel
     {
         if (_puttyHandle != IntPtr.Zero)
             NativeMethods.SetForegroundWindow(_puttyHandle);
-    }
-
-    /// <summary>将文本发送到 PuTTY 终端（模拟按键，用于如「查看进程流量」等快捷命令）。</summary>
-    public void SendTextToTerminal(string text)
-    {
-        if (_puttyHandle == IntPtr.Zero || string.IsNullOrEmpty(text)) return;
-        FocusPutty();
-        Thread.Sleep(80);
-        var inputs = new List<NativeMethods.INPUT>();
-        foreach (var c in text)
-        {
-            var down = new NativeMethods.INPUT
-            {
-                type = NativeMethods.INPUT_KEYBOARD,
-                u = new NativeMethods.InputUnion
-                {
-                    ki = new NativeMethods.KEYBDINPUT
-                    {
-                        wVk = 0,
-                        wScan = (ushort)c,
-                        dwFlags = NativeMethods.KEYEVENTF_UNICODE,
-                        time = 0,
-                        dwExtraInfo = IntPtr.Zero
-                    }
-                }
-            };
-            var up = new NativeMethods.INPUT
-            {
-                type = NativeMethods.INPUT_KEYBOARD,
-                u = new NativeMethods.InputUnion
-                {
-                    ki = new NativeMethods.KEYBDINPUT
-                    {
-                        wVk = 0,
-                        wScan = (ushort)c,
-                        dwFlags = NativeMethods.KEYEVENTF_UNICODE | NativeMethods.KEYEVENTF_KEYUP,
-                        time = 0,
-                        dwExtraInfo = IntPtr.Zero
-                    }
-                }
-            };
-            inputs.Add(down);
-            inputs.Add(up);
-        }
-        if (inputs.Count > 0)
-        {
-            var arr = inputs.ToArray();
-            NativeMethods.SendInput((uint)arr.Length, arr, Marshal.SizeOf<NativeMethods.INPUT>());
-        }
     }
 
     private void ResizePuttyWindow()

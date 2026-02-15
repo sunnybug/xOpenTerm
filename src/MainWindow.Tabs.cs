@@ -83,6 +83,16 @@ public partial class MainWindow
         hostWpf.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
         var statusBar = new SshStatusBarControl();
         statusBar.UpdateStats(false, null, null, null, null, null, null);
+        statusBar.GetProcessTrafficCommandCallback = async () =>
+        {
+            if (!_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
+                return RemoteOsInfoService.GetProcessTrafficCommand(null);
+            var output = await SessionManager.RunSshCommandAsync(
+                p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent,
+                RemoteOsInfoService.DetectionCommand, CancellationToken.None);
+            var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
+            return RemoteOsInfoService.GetProcessTrafficCommand(osInfo);
+        };
         var dock = new DockPanel();
         DockPanel.SetDock(statusBar, Dock.Bottom);
         dock.Children.Add(statusBar);
@@ -101,7 +111,6 @@ public partial class MainWindow
         _tabIdToNodeId[tabId] = node.Id;
         _tabIdToSshStatusBar[tabId] = statusBar;
         _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent);
-        statusBar.RequestSendCommand += (_, cmd) => SendCommandToSshTab(tabId, cmd);
         puttyControl.Connected += (_, _) =>
         {
             Dispatcher.BeginInvoke(() =>
@@ -208,15 +217,6 @@ public partial class MainWindow
         return menu;
     }
 
-    /// <summary>在指定 SSH 标签页的终端中执行命令（由状态栏「查看进程流量」等触发）。</summary>
-    private void SendCommandToSshTab(string tabId, string command)
-    {
-        if (string.IsNullOrWhiteSpace(command)) return;
-        if (!_tabIdToPuttyControl.TryGetValue(tabId, out var putty)) return;
-        var line = command.TrimEnd() + "\n";
-        putty.SendTextToTerminal(line);
-    }
-
     private void DisconnectTab(string tabId)
     {
         if (_tabIdToRdpSession.TryGetValue(tabId, out var rdpSession))
@@ -303,6 +303,16 @@ public partial class MainWindow
             hostWpfReconnect.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
             var statusBarReconnect = new SshStatusBarControl();
             statusBarReconnect.UpdateStats(false, null, null, null, null, null, null);
+            statusBarReconnect.GetProcessTrafficCommandCallback = async () =>
+            {
+                if (!_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
+                    return RemoteOsInfoService.GetProcessTrafficCommand(null);
+                var output = await SessionManager.RunSshCommandAsync(
+                    p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent,
+                    RemoteOsInfoService.DetectionCommand, CancellationToken.None);
+                var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
+                return RemoteOsInfoService.GetProcessTrafficCommand(osInfo);
+            };
             var dockReconnect = new DockPanel();
             DockPanel.SetDock(statusBarReconnect, Dock.Bottom);
             dockReconnect.Children.Add(statusBarReconnect);
@@ -311,7 +321,6 @@ public partial class MainWindow
             _tabIdToPuttyControl[tabId] = puttyControl;
             _tabIdToSshStatusBar[tabId] = statusBarReconnect;
             _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent);
-            statusBarReconnect.RequestSendCommand += (_, cmd) => SendCommandToSshTab(tabId, cmd);
             puttyControl.Connected += (_, _) =>
             {
                 Dispatcher.BeginInvoke(() =>
