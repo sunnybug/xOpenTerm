@@ -148,4 +148,45 @@ public static class KingsoftCloudService
         progress?.Report(("拉取完成", totalRegions, totalRegions));
         return bag.ToList();
     }
+
+    /// <summary>查询单台 KEC 实例的磁盘信息（系统盘 + 数据盘容量，单位 GB）。用于云 RDP 节点磁盘空间统计。</summary>
+    public static (int? SystemDiskSizeGb, IReadOnlyList<int> DataDiskSizesGb) GetInstanceDiskInfo(
+        string accessKeyId,
+        string accessKeySecret,
+        string instanceId,
+        string regionId,
+        System.Threading.CancellationToken cancellationToken = default)
+    {
+        var client = new KsyunKecClient(regionId, "https", accessKeyId, accessKeySecret);
+        var query = new JObject
+        {
+            ["Action"] = "DescribeInstances",
+            ["Version"] = "2016-03-04",
+            ["InstanceId"] = instanceId
+        };
+        var resp = client.DescribeInstances(query);
+        var instancesSet = resp.data?["InstancesSet"] as JArray;
+        if (instancesSet == null || instancesSet.Count == 0)
+            return (null, Array.Empty<int>());
+        var ins = instancesSet[0] as JObject;
+        if (ins == null) return (null, Array.Empty<int>());
+        var blockSet = ins["BlockDeviceMapping"] as JArray ?? ins["BlockDeviceMappingSet"] as JArray;
+        if (blockSet == null) return (null, Array.Empty<int>());
+        int? systemGb = null;
+        var dataList = new List<int>();
+        var idx = 0;
+        foreach (var item in blockSet.OfType<JObject>())
+        {
+            var sizeToken = item["VolumeSize"];
+            if (sizeToken == null) continue;
+            var size = sizeToken.Type == JTokenType.Integer ? sizeToken.Value<int>() : 0;
+            if (size <= 0) continue;
+            if (idx == 0)
+                systemGb = size;
+            else
+                dataList.Add(size);
+            idx++;
+        }
+        return (systemGb, dataList);
+    }
 }

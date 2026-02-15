@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using xOpenTerm.Models;
+using xOpenTerm.Services;
 
 namespace xOpenTerm;
 
@@ -13,15 +14,17 @@ public partial class MainWindow
         List<Node> targetNodes;
         if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup ||
             node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingsoftCloudGroup)
-            targetNodes = GetLeafNodes(node.Id).Where(n => n.Type == NodeType.ssh).ToList();
+            targetNodes = GetLeafNodes(node.Id).Where(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)).ToList();
         else if (node.Type == NodeType.ssh)
+            targetNodes = new List<Node> { node };
+        else if (node.Type == NodeType.rdp && ConfigResolver.IsCloudRdpNode(node, _nodes))
             targetNodes = new List<Node> { node };
         else
             return;
 
         if (targetNodes.Count == 0)
         {
-            MessageBox.Show("没有可检查的 SSH 节点。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("没有可检查的 SSH 或云 RDP 节点。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 

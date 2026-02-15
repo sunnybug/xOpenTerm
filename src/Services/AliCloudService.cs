@@ -291,4 +291,41 @@ public static class AliCloudService
         progress?.Report(("拉取完成", totalEcs + totalSwas, totalEcs + totalSwas));
         return ecsList.Concat(swasList).ToList();
     }
+
+    /// <summary>查询单台 ECS 实例的磁盘信息（系统盘 + 数据盘容量，单位 GB）。用于云 RDP 节点磁盘空间统计。轻量实例暂不支持，返回空。</summary>
+    public static (int? SystemDiskSizeGb, IReadOnlyList<int> DataDiskSizesGb) GetInstanceDiskInfo(
+        string accessKeyId,
+        string accessKeySecret,
+        string instanceId,
+        string regionId,
+        bool isLightweight,
+        System.Threading.CancellationToken cancellationToken = default)
+    {
+        if (isLightweight)
+            return (null, Array.Empty<int>());
+        var regionEndpoint = $"ecs.{regionId}.aliyuncs.com";
+        var config = new Config
+        {
+            AccessKeyId = accessKeyId,
+            AccessKeySecret = accessKeySecret,
+            Endpoint = regionEndpoint,
+            RegionId = regionId
+        };
+        var client = new AlibabaCloud.SDK.Ecs20140526.Client(config);
+        var req = new DescribeDisksRequest { RegionId = regionId, InstanceId = instanceId };
+        var resp = client.DescribeDisks(req);
+        var disks = resp?.Body?.Disks?.Disk ?? new List<DescribeDisksResponseBody.DescribeDisksResponseBodyDisks.DescribeDisksResponseBodyDisksDisk>();
+        int? systemGb = null;
+        var dataList = new List<int>();
+        foreach (var d in disks)
+        {
+            var size = d.Size ?? 0;
+            if (size <= 0) continue;
+            if (string.Equals(d.Type, "system", StringComparison.OrdinalIgnoreCase))
+                systemGb = size;
+            else
+                dataList.Add(size);
+        }
+        return (systemGb, dataList);
+    }
 }

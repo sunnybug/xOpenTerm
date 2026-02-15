@@ -260,4 +260,54 @@ public static class TencentCloudService
         progress?.Report(("拉取完成", totalRegions, totalRegions));
         return bag.ToList();
     }
+
+    /// <summary>查询单台实例的磁盘信息（系统盘 + 数据盘容量，单位 GB）。用于云 RDP 节点磁盘空间统计。</summary>
+    public static (int? SystemDiskSizeGb, IReadOnlyList<int> DataDiskSizesGb) GetInstanceDiskInfo(
+        string secretId,
+        string secretKey,
+        string instanceId,
+        string region,
+        bool isLightweight,
+        System.Threading.CancellationToken cancellationToken = default)
+    {
+        if (isLightweight)
+        {
+            var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
+            var client = new LighthouseClient(cred, region);
+            var req = new TencentCloud.Lighthouse.V20200324.Models.DescribeInstancesRequest { InstanceIds = new[] { instanceId } };
+            var resp = client.DescribeInstancesSync(req);
+            if (resp.InstanceSet == null || resp.InstanceSet.Length == 0)
+                return (null, Array.Empty<int>());
+            var ins = resp.InstanceSet[0];
+            var sysSize = (ins as dynamic)?.SystemDiskSize;
+            int? systemGb = sysSize != null && sysSize > 0 ? Convert.ToInt32(sysSize) : null;
+            return (systemGb, Array.Empty<int>());
+        }
+        else
+        {
+            var cred = new Credential { SecretId = secretId, SecretKey = secretKey };
+            var client = new CvmClient(cred, region);
+            var req = new TencentCloud.Cvm.V20170312.Models.DescribeInstancesRequest { InstanceIds = new[] { instanceId } };
+            var resp = client.DescribeInstancesSync(req);
+            if (resp.InstanceSet == null || resp.InstanceSet.Count() == 0)
+                return (null, Array.Empty<int>());
+            var ins = resp.InstanceSet[0];
+            var sysDisk = ins.SystemDisk;
+            int? systemGb = null;
+            if (sysDisk != null)
+            {
+                var sizeProp = sysDisk.GetType().GetProperty("DiskSize");
+                if (sizeProp?.GetValue(sysDisk) is long sizeVal && sizeVal > 0)
+                    systemGb = (int)sizeVal;
+            }
+            var dataList = new List<int>();
+            foreach (var d in ins.DataDisks ?? Array.Empty<DataDisk>())
+            {
+                var sizeProp = d.GetType().GetProperty("DiskSize");
+                if (sizeProp?.GetValue(d) is long sizeVal && sizeVal > 0)
+                    dataList.Add((int)sizeVal);
+            }
+            return (systemGb, dataList);
+        }
+    }
 }

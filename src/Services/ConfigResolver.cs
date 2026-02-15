@@ -42,6 +42,30 @@ public static class ConfigResolver
         return (host, port, username, domain, password, options);
     }
 
+    /// <summary>从节点向上查找第一个云组节点（腾讯云/阿里云/金山云），用于解析云 API 凭据等。</summary>
+    public static Node? GetAncestorCloudGroupNode(Node? node, IList<Node> allNodes)
+    {
+        if (node == null) return null;
+        var byId = allNodes.ToDictionary(n => n.Id);
+        var id = node.Id;
+        while (!string.IsNullOrEmpty(id) && byId.TryGetValue(id, out var n))
+        {
+            if (n.Type == NodeType.tencentCloudGroup || n.Type == NodeType.aliCloudGroup || n.Type == NodeType.kingsoftCloudGroup)
+                return n;
+            id = n.ParentId;
+        }
+        return null;
+    }
+
+    /// <summary>是否为云类型 RDP 节点（RDP 且带 ResourceId/CloudRegionId 且祖先为云组），可用于磁盘占用等维护功能。</summary>
+    public static bool IsCloudRdpNode(Node node, IList<Node> allNodes)
+    {
+        return node.Type == NodeType.rdp
+            && !string.IsNullOrEmpty(node.Config?.ResourceId)
+            && !string.IsNullOrEmpty(node.Config.CloudRegionId)
+            && GetAncestorCloudGroupNode(node, allNodes) != null;
+    }
+
     /// <summary>从节点向上查找第一个带 Config 的分组或云组节点。</summary>
     private static Node? FindAncestorGroupWithConfig(string? parentId, IList<Node> allNodes)
     {

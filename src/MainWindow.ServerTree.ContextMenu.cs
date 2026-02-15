@@ -173,19 +173,7 @@ public partial class MainWindow
         return false;
     }
 
-    private NodeType? GetAncestorCloudGroupType(Node? node)
-    {
-        if (node == null) return null;
-        var byId = _nodes.ToDictionary(n => n.Id);
-        var id = node.Id;
-        while (!string.IsNullOrEmpty(id) && byId.TryGetValue(id, out var n))
-        {
-            if (n.Type == NodeType.tencentCloudGroup || n.Type == NodeType.aliCloudGroup || n.Type == NodeType.kingsoftCloudGroup)
-                return n.Type;
-            id = n.ParentId;
-        }
-        return null;
-    }
+    private NodeType? GetAncestorCloudGroupType(Node? node) => ConfigResolver.GetAncestorCloudGroupNode(node, _nodes)?.Type;
 
     /// <summary>腾讯云 CVM 实例 ID 格式：ins- 后跟小写字母/数字。</summary>
     private static readonly Regex TencentCvmInstanceIdRegex = new(@"^ins-[a-z0-9]+$", RegexOptions.Compiled);
@@ -272,7 +260,7 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
-            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh))
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
             {
                 menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
@@ -304,7 +292,7 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
-            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh))
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
             {
                 menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
@@ -336,7 +324,7 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
-            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh))
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
             {
                 menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
@@ -368,7 +356,7 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
-            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh))
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh || ConfigResolver.IsCloudRdpNode(n, _nodes)))
             {
                 menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
@@ -384,7 +372,7 @@ public partial class MainWindow
             if (TryGetCloudDetailUrl(node, out var cloudDetailUrl))
                 menu.Items.Add(CreateMenuItem("云详情(_V)", () => OpenCloudDetail(cloudDetailUrl!)));
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => EditNode(node)));
-            if (node.Type == NodeType.ssh)
+            if (node.Type == NodeType.ssh || (node.Type == NodeType.rdp && ConfigResolver.IsCloudRdpNode(node, _nodes)))
             {
                 menu.Items.Add(new Separator());
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
