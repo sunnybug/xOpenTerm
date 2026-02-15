@@ -154,3 +154,5 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 禁止
 - 不允许使用写死的本地路径（必须使用相对路径或从配置/环境变量获取）
 - 新增或修改功能时必须同步更新 README.md
+
+### 功能完成后自动执行./test.ps1
