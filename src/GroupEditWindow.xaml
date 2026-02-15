@@ -67,6 +67,7 @@
         </StackPanel>
         <StackPanel Grid.Row="6">
             <TextBlock Text="默认跳板" VerticalAlignment="Top" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6"/>
+            <CheckBox x:Name="TunnelUseParentCheckBox" Content="同父节点" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6" Checked="TunnelUseParentCheckBox_Changed" Unchecked="TunnelUseParentCheckBox_Changed"/>
             <ListBox x:Name="TunnelListBox" Height="120" Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}" SelectionMode="Multiple"/>
             <Button x:Name="TunnelManageBtn" Content="管理隧道…" Style="{StaticResource SecondaryButtonStyle}" Margin="0,6,0,0" Padding="6,2" Click="TunnelManageBtn_Click"/>
         </StackPanel>

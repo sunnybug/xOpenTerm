@@ -18,6 +18,7 @@ public partial class GroupEditWindow : Window
     private readonly int _initialRdpAuthIndex;
     private readonly string? _initialSshCredId;
     private readonly string? _initialRdpCredId;
+    private readonly bool _initialTunnelUseParent;
     private readonly List<string> _initialTunnelIds;
     private readonly string _initialTencentSecretId;
     private readonly string _initialTencentSecretKey;
@@ -77,7 +78,10 @@ public partial class GroupEditWindow : Window
                 RdpAuthCombo.SelectedIndex = 0;
                 RdpCredentialRow.Visibility = Visibility.Collapsed;
             }
-            RefreshTunnelList(_groupNode.Config.TunnelIds);
+            TunnelUseParentCheckBox.Visibility = string.IsNullOrEmpty(_groupNode.ParentId) ? Visibility.Collapsed : Visibility.Visible;
+            var useParentTunnel = _groupNode.Config.TunnelSource == AuthSource.parent;
+            TunnelUseParentCheckBox.IsChecked = useParentTunnel;
+            RefreshTunnelList(useParentTunnel ? null : _groupNode.Config.TunnelIds);
         }
         else
         {
@@ -85,8 +89,11 @@ public partial class GroupEditWindow : Window
             RdpAuthCombo.SelectedIndex = 0;
             SshCredentialRow.Visibility = Visibility.Collapsed;
             RdpCredentialRow.Visibility = Visibility.Collapsed;
+            TunnelUseParentCheckBox.Visibility = string.IsNullOrEmpty(_groupNode.ParentId) ? Visibility.Collapsed : Visibility.Visible;
+            TunnelUseParentCheckBox.IsChecked = false;
             RefreshTunnelList(null);
         }
+        UpdateTunnelListEnabled();
 
         // 腾讯云/阿里云父节点：显示云 API 密钥区域并加载已保存的密钥
         if (_groupNode.Type == NodeType.tencentCloudGroup)
@@ -124,6 +131,7 @@ public partial class GroupEditWindow : Window
         _initialRdpAuthIndex = RdpAuthCombo.SelectedIndex;
         _initialSshCredId = SshCredentialCombo.SelectedValue as string;
         _initialRdpCredId = RdpCredentialCombo.SelectedValue as string;
+        _initialTunnelUseParent = TunnelUseParentCheckBox.IsChecked == true;
         _initialTunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
         _initialTencentSecretId = TencentSecretIdBox.Text ?? "";
         _initialTencentSecretKey = TencentSecretKeyBox.Password ?? "";
@@ -153,6 +161,8 @@ public partial class GroupEditWindow : Window
         var sshNow = SshAuthCombo.SelectedIndex == 1 ? (SshCredentialCombo.SelectedValue as string) : null;
         var rdpNow = RdpAuthCombo.SelectedIndex == 1 ? (RdpCredentialCombo.SelectedValue as string) : null;
         if (!string.Equals(sshNow, _initialSshCredId, StringComparison.Ordinal) || !string.Equals(rdpNow, _initialRdpCredId, StringComparison.Ordinal))
+            return true;
+        if ((TunnelUseParentCheckBox.IsChecked == true) != _initialTunnelUseParent)
             return true;
         var tunnelIdsNow = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
         if (tunnelIdsNow.Count != _initialTunnelIds.Count || tunnelIdsNow.Except(_initialTunnelIds).Any())
@@ -184,6 +194,15 @@ public partial class GroupEditWindow : Window
             TunnelListBox.SelectedItems.Add(t);
     }
 
+    private void UpdateTunnelListEnabled()
+    {
+        var useParent = TunnelUseParentCheckBox.IsChecked == true;
+        TunnelListBox.IsEnabled = !useParent;
+        TunnelManageBtn.IsEnabled = !useParent;
+    }
+
+    private void TunnelUseParentCheckBox_Changed(object sender, RoutedEventArgs e) => UpdateTunnelListEnabled();
+
     private void TunnelManageBtn_Click(object sender, RoutedEventArgs e)
     {
         var currentSel = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
@@ -197,11 +216,13 @@ public partial class GroupEditWindow : Window
     {
         var sshCredId = SshAuthCombo.SelectedIndex == 1 ? (SshCredentialCombo.SelectedValue as string) : null;
         var rdpCredId = RdpAuthCombo.SelectedIndex == 1 ? (RdpCredentialCombo.SelectedValue as string) : null;
-        var tunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => t.AuthType).ThenBy(t => t.Name).Select(t => t.Id).ToList();
+        var useParentTunnel = TunnelUseParentCheckBox.IsChecked == true;
+        var tunnelIds = useParentTunnel ? null : TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => t.AuthType).ThenBy(t => t.Name).Select(t => t.Id).ToList();
 
         var hasCred = !string.IsNullOrEmpty(sshCredId) || !string.IsNullOrEmpty(rdpCredId);
+        var hasTunnel = useParentTunnel || (tunnelIds != null && tunnelIds.Count > 0);
         var isCloudGroup = _groupNode.Type == NodeType.tencentCloudGroup || _groupNode.Type == NodeType.aliCloudGroup || _groupNode.Type == NodeType.kingsoftCloudGroup;
-        if (!hasCred && (tunnelIds == null || tunnelIds.Count == 0) && !isCloudGroup)
+        if (!hasCred && !hasTunnel && !isCloudGroup)
         {
             _groupNode.Config = null;
         }
@@ -212,8 +233,8 @@ public partial class GroupEditWindow : Window
             _groupNode.Config.RdpCredentialId = string.IsNullOrEmpty(rdpCredId) ? null : rdpCredId;
             _groupNode.Config.CredentialId = _groupNode.Config.SshCredentialId ?? _groupNode.Config.RdpCredentialId;
             _groupNode.Config.AuthSource = hasCred ? AuthSource.credential : null;
+            _groupNode.Config.TunnelSource = useParentTunnel ? AuthSource.parent : null;
             _groupNode.Config.TunnelIds = (tunnelIds?.Count ?? 0) == 0 ? null : tunnelIds;
-            _groupNode.Config.TunnelSource = null;
             // 云组父节点：保存云 API 密钥（AccessKeyId/Secret 或 SecretId/SecretKey）
             if (_groupNode.Type == NodeType.tencentCloudGroup)
             {

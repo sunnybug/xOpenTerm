@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Text;
 using System.Windows.Forms;
+using Microsoft.Win32;
 using xOpenTerm.Native;
 using xOpenTerm.Services;
 using Task = System.Threading.Tasks.Task;
@@ -28,6 +29,9 @@ public sealed class SshPuttyHostControl : Panel
 
     /// <summary>默认 PuTTY 路径：优先使用当前工作目录下的 PuTTYNG.exe，否则为 PATH 中的 PuTTYNG.exe。</summary>
     public static string DefaultPuttyPath { get; set; } = GetDefaultPuttyPath();
+
+    /// <summary>用于 -load 的会话名，内置 keepalive 防止空闲断开。</summary>
+    private const string PuttyKeepaliveSessionName = "xOpenTerm";
 
     public event EventHandler? Closed;
 
@@ -68,10 +72,12 @@ public sealed class SshPuttyHostControl : Panel
         // 若为密钥文件登录且非 PuTTY 支持的 .ppk：优先使用同路径的 .ppk，否则用 puttygen 转换后使用
         keyPath = GetPuttyKeyPath(keyPath, puttyPath, keyPassphrase) ?? keyPath;
 
+        // 确保使用带 keepalive 的会话，防止空闲被防火墙/路由器断开
+        EnsurePuttyKeepaliveSession();
+
         var arguments = new List<string>();
-        // 与 mRemoteNG 一致：使用 Agent 时先 -load 已保存会话（如 Default Settings），使 PuTTY 使用该会话中的 Pageant 等认证设置，再以命令行覆盖 host/port/user
-        if (useAgent)
-            arguments.AddRange(["-load", "Default Settings"]);
+        // 始终加载 xOpenTerm 会话以应用 keepalive；与 mRemoteNG 一致：使用 Agent 时也可依赖会话中的 Pageant 等，再以命令行覆盖 host/port/user
+        arguments.AddRange(["-load", PuttyKeepaliveSessionName]);
         arguments.Add("-ssh");
         arguments.Add("-2");
         // 与 mRemoteNG 一致：从不传 -noagent 时 PuTTY 会使用 Pageant；仅在不使用 Agent 时显式禁用，避免多密钥导致 "Too many authentication failures"
@@ -368,6 +374,25 @@ public sealed class SshPuttyHostControl : Panel
         }
         // 2) 未找到则使用环境变量 PATH 中的 PuTTYNG.exe
         return "PuTTYNG.exe";
+    }
+
+    /// <summary>确保 PuTTY 注册表中存在带 keepalive 的会话（Seconds between keepalives），防止空闲被防火墙/路由器断开。</summary>
+    private static void EnsurePuttyKeepaliveSession()
+    {
+        const string sessionsPath = @"Software\SimonTatham\PuTTY\Sessions";
+        const int keepaliveSeconds = 30;
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(Path.Combine(sessionsPath, PuttyKeepaliveSessionName), writable: true);
+            if (key == null) return;
+            // PuTTY 注册表：Protocol=ssh 使会话有效，PingIntervalSecs 为“Seconds between keepalives”（0=关闭）
+            key.SetValue("Protocol", "ssh");
+            key.SetValue("PingIntervalSecs", keepaliveSeconds, RegistryValueKind.DWord);
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.WriteInfo($"[EnsurePuttyKeepaliveSession] 写入注册表失败: {ex.Message}");
+        }
     }
 
     /// <summary>获取与 PuTTY 同目录的 plink 路径，用于构建 -proxycmd 链。</summary>
