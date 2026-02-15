@@ -219,7 +219,7 @@ public partial class SshNodeEditWindow : NodeEditWindowBase
                 MessageBox.Show(this, "解析父节点凭证失败：\n" + ex.Message, "xOpenTerm");
                 return;
             }
-            if (string.IsNullOrEmpty(username)) { MessageBox.Show(this, "父节点未配置 SSH 默认凭证，请先在分组设置中配置。", "xOpenTerm"); return; }
+            if (string.IsNullOrEmpty(username)) { MessageBox.Show(this, "父节点未配置 SSH 认证，请先在分组设置中配置。", "xOpenTerm"); return; }
         }
         else
         {

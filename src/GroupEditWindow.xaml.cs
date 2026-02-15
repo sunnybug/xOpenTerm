@@ -9,17 +9,13 @@ namespace xOpenTerm;
 /// <summary>分组（父节点）编辑：默认认证凭证与默认跳板，仅保存于本节点；子节点在自身设置中选「同父节点」时生效。</summary>
 public partial class GroupEditWindow : Window
 {
-    /// <summary>默认凭证下拉项：用于「同父节点」与具体凭证。</summary>
-    private sealed class DefaultCredentialItem
-    {
-        public string? Id { get; init; }
-        public string Name { get; init; } = "";
-    }
     private readonly Node _groupNode;
     private readonly IList<Node> _nodes;
     private readonly IList<Credential> _credentials;
     private readonly IList<Tunnel> _tunnels;
     private readonly INodeEditContext _context;
+    private readonly int _initialSshAuthIndex;
+    private readonly int _initialRdpAuthIndex;
     private readonly string? _initialSshCredId;
     private readonly string? _initialRdpCredId;
     private readonly List<string> _initialTunnelIds;
@@ -42,28 +38,53 @@ public partial class GroupEditWindow : Window
 
         Title = $"分组默认设置 - {groupNode.Name}";
         var credList = _credentials.OrderBy(c => c.AuthType).ThenBy(c => c.Name).ToList();
-        var defaultCredItems = new List<DefaultCredentialItem>
-        {
-            new() { Id = null, Name = "同父节点" }
-        };
-        defaultCredItems.AddRange(credList.Select(c => new DefaultCredentialItem { Id = c.Id, Name = c.Name ?? c.Id ?? "" }));
+
+        SshAuthCombo.Items.Add("同父节点");
+        SshAuthCombo.Items.Add("登录凭证");
+        RdpAuthCombo.Items.Add("同父节点");
+        RdpAuthCombo.Items.Add("登录凭证");
+
         foreach (var combo in new[] { SshCredentialCombo, RdpCredentialCombo })
         {
             combo.DisplayMemberPath = "Name";
             combo.SelectedValuePath = "Id";
-            combo.ItemsSource = defaultCredItems;
+            combo.ItemsSource = credList;
         }
 
         if (_groupNode.Config != null)
         {
-            SshCredentialCombo.SelectedValue = _groupNode.Config.SshCredentialId ?? _groupNode.Config.CredentialId;
-            RdpCredentialCombo.SelectedValue = _groupNode.Config.RdpCredentialId ?? _groupNode.Config.CredentialId;
+            var sshCredId = _groupNode.Config.SshCredentialId ?? _groupNode.Config.CredentialId;
+            if (!string.IsNullOrEmpty(sshCredId))
+            {
+                SshAuthCombo.SelectedIndex = 1;
+                SshCredentialCombo.SelectedValue = sshCredId;
+                SshCredentialRow.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                SshAuthCombo.SelectedIndex = 0;
+                SshCredentialRow.Visibility = Visibility.Collapsed;
+            }
+            var rdpCredId = _groupNode.Config.RdpCredentialId ?? _groupNode.Config.CredentialId;
+            if (!string.IsNullOrEmpty(rdpCredId))
+            {
+                RdpAuthCombo.SelectedIndex = 1;
+                RdpCredentialCombo.SelectedValue = rdpCredId;
+                RdpCredentialRow.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                RdpAuthCombo.SelectedIndex = 0;
+                RdpCredentialRow.Visibility = Visibility.Collapsed;
+            }
             RefreshTunnelList(_groupNode.Config.TunnelIds);
         }
         else
         {
-            SshCredentialCombo.SelectedValue = null;
-            RdpCredentialCombo.SelectedValue = null;
+            SshAuthCombo.SelectedIndex = 0;
+            RdpAuthCombo.SelectedIndex = 0;
+            SshCredentialRow.Visibility = Visibility.Collapsed;
+            RdpCredentialRow.Visibility = Visibility.Collapsed;
             RefreshTunnelList(null);
         }
 
@@ -99,6 +120,8 @@ public partial class GroupEditWindow : Window
             Height = 440;
         }
 
+        _initialSshAuthIndex = SshAuthCombo.SelectedIndex;
+        _initialRdpAuthIndex = RdpAuthCombo.SelectedIndex;
         _initialSshCredId = SshCredentialCombo.SelectedValue as string;
         _initialRdpCredId = RdpCredentialCombo.SelectedValue as string;
         _initialTunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
@@ -111,10 +134,24 @@ public partial class GroupEditWindow : Window
         Closing += GroupEditWindow_Closing;
     }
 
+    private void SshAuthCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var useCred = SshAuthCombo.SelectedIndex == 1;
+        SshCredentialRow.Visibility = useCred ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RdpAuthCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var useCred = RdpAuthCombo.SelectedIndex == 1;
+        RdpCredentialRow.Visibility = useCred ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private bool IsDirty()
     {
-        var sshNow = SshCredentialCombo.SelectedValue as string;
-        var rdpNow = RdpCredentialCombo.SelectedValue as string;
+        if (SshAuthCombo.SelectedIndex != _initialSshAuthIndex || RdpAuthCombo.SelectedIndex != _initialRdpAuthIndex)
+            return true;
+        var sshNow = SshAuthCombo.SelectedIndex == 1 ? (SshCredentialCombo.SelectedValue as string) : null;
+        var rdpNow = RdpAuthCombo.SelectedIndex == 1 ? (RdpCredentialCombo.SelectedValue as string) : null;
         if (!string.Equals(sshNow, _initialSshCredId, StringComparison.Ordinal) || !string.Equals(rdpNow, _initialRdpCredId, StringComparison.Ordinal))
             return true;
         var tunnelIdsNow = TunnelListBox.SelectedItems.Cast<Tunnel>().Select(t => t.Id).ToList();
@@ -158,8 +195,8 @@ public partial class GroupEditWindow : Window
 
     private void SaveBtn_Click(object sender, RoutedEventArgs e)
     {
-        var sshCredId = SshCredentialCombo.SelectedValue as string;
-        var rdpCredId = RdpCredentialCombo.SelectedValue as string;
+        var sshCredId = SshAuthCombo.SelectedIndex == 1 ? (SshCredentialCombo.SelectedValue as string) : null;
+        var rdpCredId = RdpAuthCombo.SelectedIndex == 1 ? (RdpCredentialCombo.SelectedValue as string) : null;
         var tunnelIds = TunnelListBox.SelectedItems.Cast<Tunnel>().OrderBy(t => t.AuthType).ThenBy(t => t.Name).Select(t => t.Id).ToList();
 
         var hasCred = !string.IsNullOrEmpty(sshCredId) || !string.IsNullOrEmpty(rdpCredId);
