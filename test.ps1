@@ -55,8 +55,12 @@ if ($LASTEXITCODE -ne 0) {
 # --test-ssh-status：仅运行 SSH 状态获取单元测试，无交互，测试结束自动退出。日志在 .run\log
 if ($TestSshStatus) {
     # 与主流程一致：运行前先清理 .run/log，便于从干净状态检查结果
-    if (Test-Path -Path $LogDir -PathType Container) {
-        Get-ChildItem -Path $LogDir -File | Remove-Item -Force
+    try {
+        if (Test-Path -Path $LogDir -PathType Container) {
+            Get-ChildItem -Path $LogDir -File | Remove-Item -Force
+        }
+    } catch {
+        Write-Host "Error clearing logs: $_" -ForegroundColor Yellow
     }
     Write-Host "Running SSH status fetch unit tests..." -ForegroundColor Cyan
     $testsPath = Join-Path $Root "tests\xOpenTerm.Tests.csproj"
