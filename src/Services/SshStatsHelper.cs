@@ -196,4 +196,24 @@ public static class SshStatsHelper
         }
         return list;
     }
+
+    /// <summary>在 Linux 上列出根目录下一级子目录/文件占用（用于磁盘占用维护），输出每行：人类可读大小 + 路径（如 1.2G /var）。</summary>
+    public const string LargestDirsCommand = "du -h --max-depth=1 / 2>/dev/null | sort -hr | head -20";
+
+    /// <summary>解析 du 输出（每行 大小 路径），返回 (人类可读大小, 路径) 列表。跳过空行与无法解析的行。</summary>
+    public static IReadOnlyList<(string SizeText, string Path)> ParseLargestDirsOutput(string? output)
+    {
+        var list = new List<(string, string)>();
+        if (string.IsNullOrWhiteSpace(output)) return list;
+        foreach (var line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) continue;
+            var sizeText = parts[0].Trim();
+            var path = string.Join(" ", parts.Skip(1)).Trim();
+            if (string.IsNullOrEmpty(sizeText) || string.IsNullOrEmpty(path)) continue;
+            list.Add((sizeText, path));
+        }
+        return list;
+    }
 }

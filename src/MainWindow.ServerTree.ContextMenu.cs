@@ -272,6 +272,13 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh))
+            {
+                menu.Items.Add(new Separator());
+                var maintainSub = new MenuItem { Header = "维护(_M)" };
+                maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                menu.Items.Add(maintainSub);
+            }
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
@@ -297,6 +304,13 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh))
+            {
+                menu.Items.Add(new Separator());
+                var maintainSub = new MenuItem { Header = "维护(_M)" };
+                maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                menu.Items.Add(maintainSub);
+            }
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
@@ -322,6 +336,13 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh))
+            {
+                menu.Items.Add(new Separator());
+                var maintainSub = new MenuItem { Header = "维护(_M)" };
+                maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                menu.Items.Add(maintainSub);
+            }
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
@@ -347,6 +368,13 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => OpenGroupEdit(node)));
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("连接全部(_A)", () => ConnectAll(node.Id)));
+            if (GetLeafNodes(node.Id).Any(n => n.Type == NodeType.ssh))
+            {
+                menu.Items.Add(new Separator());
+                var maintainSub = new MenuItem { Header = "维护(_M)" };
+                maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                menu.Items.Add(maintainSub);
+            }
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除（含子节点）(_X)", () => DeleteNodeRecursive(node)));
         }
@@ -356,6 +384,13 @@ public partial class MainWindow
             if (TryGetCloudDetailUrl(node, out var cloudDetailUrl))
                 menu.Items.Add(CreateMenuItem("云详情(_V)", () => OpenCloudDetail(cloudDetailUrl!)));
             menu.Items.Add(CreateMenuItem("编辑(_E)", () => EditNode(node)));
+            if (node.Type == NodeType.ssh)
+            {
+                menu.Items.Add(new Separator());
+                var maintainSub = new MenuItem { Header = "维护(_M)" };
+                maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                menu.Items.Add(maintainSub);
+            }
             menu.Items.Add(new Separator());
             menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteNode(node)));
             menu.Items.Add(CreateMenuItem("克隆(_C)", () => DuplicateNode(node)));
