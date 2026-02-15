@@ -139,12 +139,20 @@ internal sealed class RdpEmbeddedFormMstsc : Form
     {
         if (disposing)
         {
-            _rdpControl.OnDisconnected -= Rdp_OnDisconnected;
-            _rdpControl.OnConnected -= Rdp_OnConnected;
-            _rdpControl.OnLoginComplete -= Rdp_OnLoginComplete;
-            _rdpControl.OnFatalError -= Rdp_OnFatalError;
-            DoDisconnect();
-            _rdpControl.Dispose();
+            try
+            {
+                _rdpControl.OnDisconnected -= Rdp_OnDisconnected;
+                _rdpControl.OnConnected -= Rdp_OnConnected;
+                _rdpControl.OnLoginComplete -= Rdp_OnLoginComplete;
+                _rdpControl.OnFatalError -= Rdp_OnFatalError;
+                DoDisconnect();
+                _rdpControl.Dispose();
+            }
+            catch { }
+            finally
+            {
+                GC.SuppressFinalize(this);
+            }
         }
         base.Dispose(disposing);
     }

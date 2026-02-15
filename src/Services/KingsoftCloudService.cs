@@ -116,10 +116,12 @@ public static class KingsoftCloudService
                         if (string.IsNullOrEmpty(publicIp))
                             publicIp = ins["PublicIpAddress"]?.ToString();
 
-                        var imageId = ins["ImageId"]?.ToString() ?? "";
-                        var osName = ins["OsName"]?.ToString() ?? imageId;
+                        var imageObj = ins["Image"] as JObject;
+                        var imageId = ins["ImageId"]?.ToString() ?? imageObj?["ImageId"]?.ToString() ?? "";
+                        var osName = ins["OsName"]?.ToString() ?? imageObj?["OsName"]?.ToString() ?? imageObj?["Name"]?.ToString() ?? imageId;
+                        var platform = ins["Platform"]?.ToString() ?? imageObj?["Platform"]?.ToString() ?? "";
                         var isWin = (osName.Contains("Windows", System.StringComparison.OrdinalIgnoreCase))
-                            || (ins["Platform"]?.ToString() ?? "").Equals("windows", System.StringComparison.OrdinalIgnoreCase);
+                            || platform.Contains("windows", System.StringComparison.OrdinalIgnoreCase);
 
                         bag.Add(new KsyunKecInstance(
                             regionId,

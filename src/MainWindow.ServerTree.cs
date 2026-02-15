@@ -610,7 +610,7 @@ public partial class MainWindow
         return result;
     }
 
-    /// <summary>根据金山云 KEC 实例列表构建 地域→服务器 节点树。</summary>
+    /// <summary>根据金山云 KEC 实例列表构建 地域→服务器 节点树。操作系统类型由 API 的 Image.Platform / OsName 判定（Windows 为 RDP，否则为 SSH）。</summary>
     private static List<Node> BuildKingsoftCloudSubtree(string rootId, List<KsyunKecInstance> instances)
     {
         var result = new List<Node>();
@@ -637,16 +637,18 @@ public partial class MainWindow
             var host = ins.PublicIp ?? ins.PrivateIp ?? "";
             if (string.IsNullOrEmpty(host)) continue;
 
+            bool useRdp = ins.IsWindows;
+
             var serverNode = new Node
             {
                 Id = Guid.NewGuid().ToString(),
                 ParentId = regionNode.Id,
-                Type = ins.IsWindows ? NodeType.rdp : NodeType.ssh,
+                Type = useRdp ? NodeType.rdp : NodeType.ssh,
                 Name = string.IsNullOrEmpty(ins.InstanceName) ? ins.InstanceId : ins.InstanceName,
                 Config = new ConnectionConfig
                 {
                     Host = host,
-                    Port = (ushort)(ins.IsWindows ? 3389 : 22),
+                    Port = (ushort)(useRdp ? 3389 : 22),
                     ResourceId = ins.InstanceId,
                     AuthSource = AuthSource.parent
                 }
