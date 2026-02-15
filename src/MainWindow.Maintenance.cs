@@ -25,8 +25,8 @@ public partial class MainWindow
             return;
         }
 
-        var win = new DiskUsageCheckWindow(targetNodes, _nodes, _credentials, _tunnels, FocusSshTabAndCopyCommand);
+        var win = new DiskUsageCheckWindow(targetNodes, _nodes, _credentials, _tunnels, OpenTab);
         win.Owner = this;
-        win.ShowDialog();
+        win.Show();
     }
 }
