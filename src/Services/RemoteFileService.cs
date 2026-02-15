@@ -4,364 +4,70 @@ using xOpenTerm.Models;
 
 namespace xOpenTerm.Services;
 
-/// <summary>远程文件列表与传输：用 SFTP 列目录，用 SCP 传输。</summary>
+/// <summary>远程文件列表与传输：用 SFTP 列目录与传输（按节点复用长连接）。</summary>
 public static class RemoteFileService
 {
-    /// <summary>列出远程目录内容。使用 SFTP 连接（与 SSH 会话相同的跳板链）。</summary>
+    /// <summary>列出远程目录内容。优先使用该节点的 SFTP 长连接，无连接或断线时自动建连并复用。</summary>
     public static List<RemoteFileItem> ListDirectory(Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels, string remotePath, out string? error)
     {
-        error = null;
-        try
+        var list = SftpSessionManager.ExecuteWithSftp(node.Id, node, allNodes, credentials, tunnels, sftp =>
         {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
-                ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
-
-            string connectHost = host;
-            ushort connectPort = port;
-            List<IDisposable>? chainDisposables = null;
-
-            if (jumpChain != null && jumpChain.Count > 0)
+            var entries = sftp.ListDirectory(remotePath);
+            var outList = new List<RemoteFileItem>();
+            foreach (var e in entries)
             {
-                chainDisposables = new List<IDisposable>();
-                connectHost = jumpChain[0].Host;
-                connectPort = (ushort)jumpChain[0].Port;
-
-                for (var i = 0; i < jumpChain.Count; i++)
+                if (e.Name == "." || e.Name == "..") continue;
+                outList.Add(new RemoteFileItem
                 {
-                    var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
-                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return new List<RemoteFileItem>(); }
-
-                    var client = new SshClient(conn);
-                    SessionManager.AcceptAnyHostKey(client);
-                    client.Connect();
-                    chainDisposables.Add(client);
-
-                    var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
-                    var nextPort = (ushort)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
-                    var fwd = new ForwardedPortLocal("127.0.0.1", 0, nextHost, nextPort);
-                    client.AddForwardedPort(fwd);
-                    fwd.Start();
-                    chainDisposables.Add(fwd);
-
-                    connectHost = "127.0.0.1";
-                    connectPort = (ushort)fwd.BoundPort;
-                }
+                    Name = e.Name,
+                    IsDirectory = e.IsDirectory,
+                    Length = e.Length,
+                    FullName = e.FullName,
+                    LastWriteTime = e.LastWriteTime
+                });
             }
-
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
-            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return new List<RemoteFileItem>(); }
-
-            try
-            {
-                using var sftp = new SftpClient(connectionInfo);
-                SessionManager.AcceptAnyHostKey(sftp);
-                sftp.Connect();
-                var entries = sftp.ListDirectory(remotePath);
-                var list = new List<RemoteFileItem>();
-                foreach (var e in entries)
-                {
-                    if (e.Name == "." || e.Name == "..") continue;
-                    list.Add(new RemoteFileItem
-                    {
-                        Name = e.Name,
-                        IsDirectory = e.IsDirectory,
-                        Length = e.Length,
-                        FullName = e.FullName,
-                        LastWriteTime = e.LastWriteTime
-                    });
-                }
-                return list.OrderBy(x => !x.IsDirectory).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
-            }
-            finally
-            {
-                if (chainDisposables != null)
-                {
-                    for (var i = chainDisposables.Count - 1; i >= 0; i--)
-                    {
-                        try { chainDisposables[i].Dispose(); } catch { }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return new List<RemoteFileItem>();
-        }
+            return outList.OrderBy(x => !x.IsDirectory).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        }, out error);
+        return list ?? new List<RemoteFileItem>();
     }
 
-    /// <summary>使用 SCP 下载远程文件到本地。</summary>
+    /// <summary>使用 SFTP 下载远程文件到本地（复用该节点长连接）。</summary>
     public static bool DownloadFile(Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels, string remotePath, string localPath, out string? error)
     {
-        error = null;
-        try
+        return SftpSessionManager.ExecuteWithSftp(node.Id, node, allNodes, credentials, tunnels, sftp =>
         {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
-                ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
-
-            string connectHost = host;
-            ushort connectPort = port;
-            List<IDisposable>? chainDisposables = null;
-
-            if (jumpChain != null && jumpChain.Count > 0)
-            {
-                chainDisposables = new List<IDisposable>();
-                connectHost = jumpChain[0].Host;
-                connectPort = (ushort)jumpChain[0].Port;
-                for (var i = 0; i < jumpChain.Count; i++)
-                {
-                    var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
-                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
-                    var client = new SshClient(conn);
-                    SessionManager.AcceptAnyHostKey(client);
-                    client.Connect();
-                    chainDisposables.Add(client);
-                    var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
-                    var nextPort = (ushort)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
-                    var fwd = new ForwardedPortLocal("127.0.0.1", 0, nextHost, nextPort);
-                    client.AddForwardedPort(fwd);
-                    fwd.Start();
-                    chainDisposables.Add(fwd);
-                    connectHost = "127.0.0.1";
-                    connectPort = (ushort)fwd.BoundPort;
-                }
-            }
-
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
-            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return false; }
-
-            try
-            {
-                using var scp = new ScpClient(connectionInfo);
-                SessionManager.AcceptAnyHostKey(scp);
-                scp.Connect();
-                using (var fs = File.OpenWrite(localPath))
-                    scp.Download(remotePath, fs);
-                return true;
-            }
-            finally
-            {
-                if (chainDisposables != null)
-                {
-                    for (var i = chainDisposables.Count - 1; i >= 0; i--)
-                    {
-                        try { chainDisposables[i].Dispose(); } catch { }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
+            using var fs = File.OpenWrite(localPath);
+            sftp.DownloadFile(remotePath, fs);
+        }, out error);
     }
 
-    /// <summary>使用 SCP 上传本地文件到远程。</summary>
+    /// <summary>使用 SFTP 上传本地文件到远程（复用该节点长连接）。</summary>
     public static bool UploadFile(Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels, string localPath, string remotePath, out string? error)
     {
-        error = null;
-        try
+        return SftpSessionManager.ExecuteWithSftp(node.Id, node, allNodes, credentials, tunnels, sftp =>
         {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
-                ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
-
-            string connectHost = host;
-            ushort connectPort = port;
-            List<IDisposable>? chainDisposables = null;
-
-            if (jumpChain != null && jumpChain.Count > 0)
-            {
-                chainDisposables = new List<IDisposable>();
-                connectHost = jumpChain[0].Host;
-                connectPort = (ushort)jumpChain[0].Port;
-                for (var i = 0; i < jumpChain.Count; i++)
-                {
-                    var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
-                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
-                    var client = new SshClient(conn);
-                    SessionManager.AcceptAnyHostKey(client);
-                    client.Connect();
-                    chainDisposables.Add(client);
-                    var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
-                    var nextPort = (ushort)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
-                    var fwd = new ForwardedPortLocal("127.0.0.1", 0, nextHost, nextPort);
-                    client.AddForwardedPort(fwd);
-                    fwd.Start();
-                    chainDisposables.Add(fwd);
-                    connectHost = "127.0.0.1";
-                    connectPort = (ushort)fwd.BoundPort;
-                }
-            }
-
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
-            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return false; }
-
-            try
-            {
-                using var scp = new ScpClient(connectionInfo);
-                SessionManager.AcceptAnyHostKey(scp);
-                scp.Connect();
-                using (var fs = File.OpenRead(localPath))
-                    scp.Upload(fs, remotePath);
-                return true;
-            }
-            finally
-            {
-                if (chainDisposables != null)
-                {
-                    for (var i = chainDisposables.Count - 1; i >= 0; i--)
-                    {
-                        try { chainDisposables[i].Dispose(); } catch { }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
+            using var fs = File.OpenRead(localPath);
+            sftp.UploadFile(fs, remotePath);
+        }, out error);
     }
 
-    /// <summary>使用 SFTP 删除远程文件或目录（目录会递归删除）。</summary>
+    /// <summary>使用 SFTP 删除远程文件或目录（目录会递归删除，复用该节点长连接）。</summary>
     public static bool DeletePath(Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels, string remotePath, bool isDirectory, out string? error)
     {
-        error = null;
-        try
+        return SftpSessionManager.ExecuteWithSftp(node.Id, node, allNodes, credentials, tunnels, sftp =>
         {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
-                ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
-
-            string connectHost = host;
-            ushort connectPort = port;
-            List<IDisposable>? chainDisposables = null;
-
-            if (jumpChain != null && jumpChain.Count > 0)
-            {
-                chainDisposables = new List<IDisposable>();
-                connectHost = jumpChain[0].Host;
-                connectPort = (ushort)jumpChain[0].Port;
-                for (var i = 0; i < jumpChain.Count; i++)
-                {
-                    var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
-                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
-                    var client = new SshClient(conn);
-                    SessionManager.AcceptAnyHostKey(client);
-                    client.Connect();
-                    chainDisposables.Add(client);
-                    var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
-                    var nextPort = (ushort)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
-                    var fwd = new ForwardedPortLocal("127.0.0.1", 0, nextHost, nextPort);
-                    client.AddForwardedPort(fwd);
-                    fwd.Start();
-                    chainDisposables.Add(fwd);
-                    connectHost = "127.0.0.1";
-                    connectPort = (ushort)fwd.BoundPort;
-                }
-            }
-
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
-            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return false; }
-
-            try
-            {
-                using var sftp = new SftpClient(connectionInfo);
-                SessionManager.AcceptAnyHostKey(sftp);
-                sftp.Connect();
-                if (isDirectory)
-                    DeleteDirectoryRecursive(sftp, remotePath);
-                else
-                    sftp.DeleteFile(remotePath);
-                return true;
-            }
-            finally
-            {
-                if (chainDisposables != null)
-                {
-                    for (var i = chainDisposables.Count - 1; i >= 0; i--)
-                    {
-                        try { chainDisposables[i].Dispose(); } catch { }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
+            if (isDirectory)
+                DeleteDirectoryRecursive(sftp, remotePath);
+            else
+                sftp.DeleteFile(remotePath);
+        }, out error);
     }
 
-    /// <summary>使用 SFTP 重命名远程文件或目录。</summary>
+    /// <summary>使用 SFTP 重命名远程文件或目录（复用该节点长连接）。</summary>
     public static bool RenamePath(Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels, string oldRemotePath, string newRemotePath, out string? error)
     {
-        error = null;
-        try
-        {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
-                ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
-
-            string connectHost = host;
-            ushort connectPort = port;
-            List<IDisposable>? chainDisposables = null;
-
-            if (jumpChain != null && jumpChain.Count > 0)
-            {
-                chainDisposables = new List<IDisposable>();
-                connectHost = jumpChain[0].Host;
-                connectPort = (ushort)jumpChain[0].Port;
-                for (var i = 0; i < jumpChain.Count; i++)
-                {
-                    var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
-                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
-                    var client = new SshClient(conn);
-                    SessionManager.AcceptAnyHostKey(client);
-                    client.Connect();
-                    chainDisposables.Add(client);
-                    var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
-                    var nextPort = (ushort)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
-                    var fwd = new ForwardedPortLocal("127.0.0.1", 0, nextHost, nextPort);
-                    client.AddForwardedPort(fwd);
-                    fwd.Start();
-                    chainDisposables.Add(fwd);
-                    connectHost = "127.0.0.1";
-                    connectPort = (ushort)fwd.BoundPort;
-                }
-            }
-
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
-            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return false; }
-
-            try
-            {
-                using var sftp = new SftpClient(connectionInfo);
-                SessionManager.AcceptAnyHostKey(sftp);
-                sftp.Connect();
-                sftp.RenameFile(oldRemotePath, newRemotePath);
-                return true;
-            }
-            finally
-            {
-                if (chainDisposables != null)
-                {
-                    for (var i = chainDisposables.Count - 1; i >= 0; i--)
-                    {
-                        try { chainDisposables[i].Dispose(); } catch { }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
+        return SftpSessionManager.ExecuteWithSftp(node.Id, node, allNodes, credentials, tunnels, sftp =>
+            sftp.RenameFile(oldRemotePath, newRemotePath), out error);
     }
 
     private static void DeleteDirectoryRecursive(SftpClient sftp, string path)
@@ -379,143 +85,31 @@ public static class RemoteFileService
         sftp.DeleteDirectory(path);
     }
 
-    /// <summary>获取远程文件/目录的 Unix 权限（低 9 位，如 644）。</summary>
+    /// <summary>获取远程文件/目录的 Unix 权限（低 9 位，如 644，复用该节点长连接）。</summary>
     public static bool GetFilePermissions(Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels, string remotePath, out int mode, out string? error)
     {
         mode = 0;
-        error = null;
-        try
+        var modeVal = SftpSessionManager.ExecuteWithSftp(node.Id, node, allNodes, credentials, tunnels, sftp =>
         {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
-                ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
-
-            string connectHost = host;
-            ushort connectPort = port;
-            List<IDisposable>? chainDisposables = null;
-
-            if (jumpChain != null && jumpChain.Count > 0)
-            {
-                chainDisposables = new List<IDisposable>();
-                connectHost = jumpChain[0].Host;
-                connectPort = (ushort)jumpChain[0].Port;
-                for (var i = 0; i < jumpChain.Count; i++)
-                {
-                    var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
-                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
-                    var client = new SshClient(conn);
-                    SessionManager.AcceptAnyHostKey(client);
-                    client.Connect();
-                    chainDisposables.Add(client);
-                    var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
-                    var nextPort = (ushort)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
-                    var fwd = new ForwardedPortLocal("127.0.0.1", 0, nextHost, nextPort);
-                    client.AddForwardedPort(fwd);
-                    fwd.Start();
-                    chainDisposables.Add(fwd);
-                    connectHost = "127.0.0.1";
-                    connectPort = (ushort)fwd.BoundPort;
-                }
-            }
-
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
-            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return false; }
-
-            try
-            {
-                using var sftp = new SftpClient(connectionInfo);
-                SessionManager.AcceptAnyHostKey(sftp);
-                sftp.Connect();
-                var a = sftp.GetAttributes(remotePath);
-                int owner = (a.OwnerCanRead ? 4 : 0) + (a.OwnerCanWrite ? 2 : 0) + (a.OwnerCanExecute ? 1 : 0);
-                int group = (a.GroupCanRead ? 4 : 0) + (a.GroupCanWrite ? 2 : 0) + (a.GroupCanExecute ? 1 : 0);
-                int other = (a.OthersCanRead ? 4 : 0) + (a.OthersCanWrite ? 2 : 0) + (a.OthersCanExecute ? 1 : 0);
-                mode = owner * 64 + group * 8 + other;
-                return true;
-            }
-            finally
-            {
-                if (chainDisposables != null)
-                {
-                    for (var i = chainDisposables.Count - 1; i >= 0; i--)
-                    {
-                        try { chainDisposables[i].Dispose(); } catch { }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
+            var a = sftp.GetAttributes(remotePath);
+            int owner = (a.OwnerCanRead ? 4 : 0) + (a.OwnerCanWrite ? 2 : 0) + (a.OwnerCanExecute ? 1 : 0);
+            int group = (a.GroupCanRead ? 4 : 0) + (a.GroupCanWrite ? 2 : 0) + (a.GroupCanExecute ? 1 : 0);
+            int other = (a.OthersCanRead ? 4 : 0) + (a.OthersCanWrite ? 2 : 0) + (a.OthersCanExecute ? 1 : 0);
+            return owner * 64 + group * 8 + other;
+        }, out error);
+        if (modeVal is { } m)
         {
-            error = ex.Message;
-            return false;
+            mode = m;
+            return true;
         }
+        return false;
     }
 
-    /// <summary>设置远程文件/目录的 Unix 权限（仅修改低 9 位 rwxrwxrwx）。</summary>
+    /// <summary>设置远程文件/目录的 Unix 权限（仅修改低 9 位 rwxrwxrwx，复用该节点长连接）。</summary>
     public static bool SetFilePermissions(Node node, List<Node> allNodes, List<Credential> credentials, List<Tunnel> tunnels, string remotePath, int mode, out string? error)
     {
-        error = null;
         mode &= 0x1FF;
-        try
-        {
-            var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
-                ConfigResolver.ResolveSsh(node, allNodes, credentials, tunnels);
-
-            string connectHost = host;
-            ushort connectPort = port;
-            List<IDisposable>? chainDisposables = null;
-
-            if (jumpChain != null && jumpChain.Count > 0)
-            {
-                chainDisposables = new List<IDisposable>();
-                connectHost = jumpChain[0].Host;
-                connectPort = (ushort)jumpChain[0].Port;
-                for (var i = 0; i < jumpChain.Count; i++)
-                {
-                    var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
-                    if (conn == null) { error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥"; return false; }
-                    var client = new SshClient(conn);
-                    SessionManager.AcceptAnyHostKey(client);
-                    client.Connect();
-                    chainDisposables.Add(client);
-                    var nextHost = i + 1 < jumpChain.Count ? jumpChain[i + 1].Host : host;
-                    var nextPort = (ushort)(i + 1 < jumpChain.Count ? jumpChain[i + 1].Port : port);
-                    var fwd = new ForwardedPortLocal("127.0.0.1", 0, nextHost, nextPort);
-                    client.AddForwardedPort(fwd);
-                    fwd.Start();
-                    chainDisposables.Add(fwd);
-                    connectHost = "127.0.0.1";
-                    connectPort = (ushort)fwd.BoundPort;
-                }
-            }
-
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
-            if (connectionInfo == null) { error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥"; return false; }
-
-            try
-            {
-                using var sftp = new SftpClient(connectionInfo);
-                SessionManager.AcceptAnyHostKey(sftp);
-                sftp.Connect();
-                sftp.ChangePermissions(remotePath, (short)mode);
-                return true;
-            }
-            finally
-            {
-                if (chainDisposables != null)
-                {
-                    for (var i = chainDisposables.Count - 1; i >= 0; i--)
-                    {
-                        try { chainDisposables[i].Dispose(); } catch { }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
+        return SftpSessionManager.ExecuteWithSftp(node.Id, node, allNodes, credentials, tunnels, sftp =>
+            sftp.ChangePermissions(remotePath, (short)mode), out error);
     }
 }

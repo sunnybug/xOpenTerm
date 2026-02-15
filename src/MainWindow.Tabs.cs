@@ -481,13 +481,14 @@ public partial class MainWindow
         }
     }
 
-    /// <summary>若已无任何连接 tab 对应该 node，则清除该 node 的远程文件缓存。</summary>
+    /// <summary>若已无任何连接 tab 对应该 node，则清除该 node 的远程文件缓存并关闭其 SFTP 长连接。</summary>
     private void ClearRemoteFileCacheIfNoTabsForNode(string? nodeId)
     {
         if (string.IsNullOrEmpty(nodeId)) return;
         if (_tabIdToNodeId.Values.Any(id => id == nodeId)) return;
         _remoteFileCacheByNodeId.Remove(nodeId);
         _remoteFileCurrentPathByNodeId.Remove(nodeId);
+        SftpSessionManager.ClearSession(nodeId);
     }
 
     /// <summary>关闭连接 tab 前提示用户，确认后再执行关闭。</summary>
