@@ -90,7 +90,7 @@ public static class InputHistoryBehavior
                 : full.Where(s => s.Contains(filter, StringComparison.OrdinalIgnoreCase)).Take(20).ToList();
             listBox.ItemsSource = filtered;
             listBox.SelectedIndex = filtered.Count > 0 ? 0 : -1;
-            if (filtered.Count > 0 && popup.IsOpen == false)
+            if (filtered.Count > 0 && popup.IsOpen == false && tb.IsFocused)
             {
                 UpdatePopupWidth();
                 popup.IsOpen = true;
@@ -129,9 +129,7 @@ public static class InputHistoryBehavior
         tb.TextChanged += (_, _) => RefreshFilter();
         tb.GotFocus += (_, _) =>
         {
-            if ((tb.Text ?? "").Length == 0)
-                RefreshFilter();
-            else
+            if (string.IsNullOrWhiteSpace(tb.Text))
                 RefreshFilter();
         };
         tb.LostFocus += (_, _) =>
