@@ -10,6 +10,10 @@
         <ContextMenu x:Key="SshStatusBarTrafficContextMenu">
             <MenuItem Header="查看进程流量(_P)" Click="MenuItemProcessTraffic_Click"/>
         </ContextMenu>
+        <!-- 磁盘区域右键菜单：查找占用空间最大的文件/目录 -->
+        <ContextMenu x:Key="SshStatusBarDiskContextMenu">
+            <MenuItem Header="查找占用空间最大的文件/目录(_F)" Click="MenuItemLargestFiles_Click"/>
+        </ContextMenu>
     </UserControl.Resources>
     <Grid ContextMenu="{StaticResource SshStatusBarEmptyContextMenu}">
         <Grid.ColumnDefinitions>
@@ -78,8 +82,9 @@
             <TextBlock Text="UDP:" Foreground="{StaticResource TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
             <TextBlock x:Name="UdpText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
         </StackPanel>
-        <!-- 磁盘（按物理硬盘，每3分钟更新，无前缀以节省空间） -->
-        <StackPanel Grid.Column="14" Orientation="Horizontal" VerticalAlignment="Center">
+        <!-- 磁盘（按物理硬盘，每3分钟更新，无前缀以节省空间；独立右键菜单） -->
+        <StackPanel Grid.Column="14" Orientation="Horizontal" VerticalAlignment="Center"
+                    ContextMenu="{StaticResource SshStatusBarDiskContextMenu}">
             <TextBlock x:Name="DiskText" Text="—" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="200"/>
         </StackPanel>
     </Grid>

@@ -5,9 +5,10 @@ public sealed class RemoteOsInfo
 {
     public OsFamily Family { get; init; }
     public bool NethogsInstalled { get; init; }
+    public bool NcduInstalled { get; init; }
 }
 
-/// <summary>常见 Linux 发行版族，用于生成对应包管理器安装命令。</summary>
+/// <summary>常见 Linux 发行版族与 macOS，用于生成对应包管理器安装命令。</summary>
 public enum OsFamily
 {
     Unknown,
@@ -15,32 +16,46 @@ public enum OsFamily
     RHEL,
     Fedora,
     Arch,
-    OpenSUSE
+    OpenSUSE,
+    MacOS
 }
 
 /// <summary>远程 OS 信息收集与判断：提供检测命令、解析输出、根据 OS 与工具安装情况返回单条可复制命令。不依赖 WPF，不执行 SSH。</summary>
 public static class RemoteOsInfoService
 {
-    private const string Delimiter = "---NETHOGS---";
+    private const string DelimiterNethogs = "---NETHOGS---";
+    private const string DelimiterUname = "---UNAME---";
+    private const string DelimiterNcdu = "---NCDU---";
 
-    /// <summary>在远程执行以收集 os-release 与 nethogs 是否在 PATH 中的单条命令。</summary>
+    /// <summary>在远程执行以收集 os-release、nethogs/ncdu 是否在 PATH、uname -s 的单条命令。</summary>
     public static readonly string DetectionCommand =
-        "cat /etc/os-release 2>/dev/null || true; echo '" + Delimiter + "'; command -v nethogs 2>/dev/null || true";
+        "cat /etc/os-release 2>/dev/null || true; echo '" + DelimiterNethogs + "'; command -v nethogs 2>/dev/null || true; echo '" + DelimiterUname + "'; uname -s 2>/dev/null || true; echo '" + DelimiterNcdu + "'; command -v ncdu 2>/dev/null || true";
 
-    /// <summary>解析检测命令输出，得到 OS 族与 nethogs 是否已安装。无法识别或非 Linux 时返回 Unknown + NethogsInstalled=false。</summary>
+    /// <summary>解析检测命令输出，得到 OS 族、nethogs/ncdu 是否已安装。无法识别或非 Linux 时返回 Unknown；uname 为 Darwin 时视为 MacOS。</summary>
     public static RemoteOsInfo? ParseDetectionOutput(string? output)
     {
         if (string.IsNullOrWhiteSpace(output))
-            return new RemoteOsInfo { Family = OsFamily.Unknown, NethogsInstalled = false };
+            return new RemoteOsInfo { Family = OsFamily.Unknown, NethogsInstalled = false, NcduInstalled = false };
 
-        var parts = output.Split(new[] { Delimiter }, 2, StringSplitOptions.None);
+        var parts = output.Split(new[] { DelimiterNethogs }, 2, StringSplitOptions.None);
         var osRelease = parts.Length > 0 ? parts[0].Trim() : "";
-        var nethogsLine = parts.Length > 1 ? parts[1].Trim() : "";
+        var afterNethogs = parts.Length > 1 ? parts[1] : "";
+
+        var parts2 = afterNethogs.Split(new[] { DelimiterUname }, 2, StringSplitOptions.None);
+        var nethogsLine = parts2.Length > 0 ? parts2[0].Trim() : "";
+        var afterUname = parts2.Length > 1 ? parts2[1] : "";
+
+        var parts3 = afterUname.Split(new[] { DelimiterNcdu }, 2, StringSplitOptions.None);
+        var unameLine = parts3.Length > 0 ? parts3[0].Trim() : "";
+        var ncduLine = parts3.Length > 1 ? parts3[1].Trim() : "";
 
         var family = ParseOsFamily(osRelease);
+        if (unameLine.Equals("Darwin", StringComparison.OrdinalIgnoreCase))
+            family = OsFamily.MacOS;
         var nethogsInstalled = !string.IsNullOrWhiteSpace(nethogsLine);
+        var ncduInstalled = !string.IsNullOrWhiteSpace(ncduLine);
 
-        return new RemoteOsInfo { Family = family, NethogsInstalled = nethogsInstalled };
+        return new RemoteOsInfo { Family = family, NethogsInstalled = nethogsInstalled, NcduInstalled = ncduInstalled };
     }
 
     private static OsFamily ParseOsFamily(string osRelease)
@@ -108,7 +123,46 @@ public static class RemoteOsInfoService
             OsFamily.Fedora => "sudo dnf install nethogs",
             OsFamily.Arch => "sudo pacman -S nethogs",
             OsFamily.OpenSUSE => "sudo zypper install nethogs",
+            OsFamily.MacOS => "brew install nethogs",
             _ => "sudo apt install nethogs"
+        };
+    }
+
+    /// <summary>根据远程 OS 信息返回“查找占用空间最大的文件/目录”的命令与可选安装提示。优先 ncdu；未安装时返回 du 命令并按系统给出 ncdu 安装提示。</summary>
+    public static (string commandToCopy, string? installHint) GetLargestFilesCommand(RemoteOsInfo? info)
+    {
+        if (info != null && info.NcduInstalled)
+            return ("ncdu .", null);
+
+        string duCommand;
+        string? installHint;
+        if (info != null && info.Family == OsFamily.MacOS)
+        {
+            duCommand = "du -h -d 1 / 2>/dev/null | sort -hr | head -20";
+            installHint = "可安装 ncdu 获得交互式查看：\nbrew install ncdu";
+        }
+        else
+        {
+            duCommand = "du -h --max-depth=1 / 2>/dev/null | sort -hr | head -20";
+            // 根据识别到的系统只给一条安装命令；未识别时给一条默认（apt），并提示其他系统可查包管理器
+            var family = info?.Family ?? OsFamily.Unknown;
+            installHint = "可安装 ncdu 获得交互式查看：\n" + GetNcduInstallCommandForFamily(family)
+                + (family == OsFamily.Unknown ? "\n(若为其他发行版，请用对应包管理器安装 ncdu)" : "");
+        }
+        return (duCommand, installHint);
+    }
+
+    private static string GetNcduInstallCommandForFamily(OsFamily family)
+    {
+        return family switch
+        {
+            OsFamily.Debian => "sudo apt install ncdu",
+            OsFamily.RHEL => "sudo yum install ncdu",
+            OsFamily.Fedora => "sudo dnf install ncdu",
+            OsFamily.Arch => "sudo pacman -S ncdu",
+            OsFamily.OpenSUSE => "sudo zypper install ncdu",
+            OsFamily.MacOS => "brew install ncdu",
+            _ => "sudo apt install ncdu"
         };
     }
 }

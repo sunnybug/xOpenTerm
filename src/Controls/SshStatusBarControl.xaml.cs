@@ -23,6 +23,9 @@ public partial class SshStatusBarControl : UserControl
     /// <summary>由 MainWindow 注入：每次触发时在远程执行检测并返回 (命令, 安装提示)。未设置时使用 RemoteOsInfoService.GetProcessTrafficCommand(null)。</summary>
     public Func<System.Threading.Tasks.Task<(string command, string? installHint)>>? GetProcessTrafficCommandCallback { get; set; }
 
+    /// <summary>由 MainWindow 注入：每次触发时在远程执行检测并返回查找大文件/目录的 (命令, 安装提示)。未设置时使用 RemoteOsInfoService.GetLargestFilesCommand(null)。</summary>
+    public Func<System.Threading.Tasks.Task<(string command, string? installHint)>>? GetLargestFilesCommandCallback { get; set; }
+
     public SshStatusBarControl()
     {
         InitializeComponent();
@@ -41,11 +44,23 @@ public partial class SshStatusBarControl : UserControl
             return;
         }
         var parts = new List<string>();
+        var anyOver90 = false;
         foreach (var x in diskList)
+        {
             parts.Add($"硬盘{x.DiskName} {x.UsePercent:F0}%");
+            if (x.UsePercent >= 90) anyOver90 = true;
+        }
         DiskText.Text = string.Join("  ", parts);
-        try { DiskText.Foreground = (SolidColorBrush)FindResource("TextPrimary"); }
-        catch { DiskText.Foreground = new SolidColorBrush(Color.FromRgb(0xf8, 0xfa, 0xfc)); }
+        if (anyOver90)
+        {
+            try { DiskText.Foreground = (SolidColorBrush)FindResource("TextDanger"); }
+            catch { DiskText.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44)); }
+        }
+        else
+        {
+            try { DiskText.Foreground = (SolidColorBrush)FindResource("TextPrimary"); }
+            catch { DiskText.Foreground = new SolidColorBrush(Color.FromRgb(0xf8, 0xfa, 0xfc)); }
+        }
     }
 
     /// <summary>更新状态栏显示。null 表示暂无数据或未连接。</summary>
@@ -347,6 +362,37 @@ public partial class SshStatusBarControl : UserControl
         catch (Exception ex)
         {
             ExceptionLog.Write(ex, "复制进程流量命令到剪贴板");
+            MessageBox.Show("复制失败：" + ex.Message, "xOpenTerm");
+        }
+    }
+
+    private async void MenuItemLargestFiles_Click(object sender, RoutedEventArgs e)
+    {
+        (string command, string? installHint) result;
+        try
+        {
+            if (GetLargestFilesCommandCallback != null)
+                result = await GetLargestFilesCommandCallback();
+            else
+                result = RemoteOsInfoService.GetLargestFilesCommand(null);
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "获取查找大文件命令（远程检测）");
+            MessageBox.Show("检测远程环境失败：" + ex.Message, "xOpenTerm");
+            return;
+        }
+        try
+        {
+            System.Windows.Clipboard.SetText(result.command);
+            if (!string.IsNullOrEmpty(result.installHint))
+                MessageBox.Show($"已复制到剪贴板。\n\n{result.installHint}", "查找占用空间最大的文件/目录");
+            else
+                MessageBox.Show("已复制到剪贴板，请在 SSH 终端中粘贴执行。可将路径改为目标目录（如 . 或 /）。", "查找占用空间最大的文件/目录");
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "复制查找大文件命令到剪贴板");
             MessageBox.Show("复制失败：" + ex.Message, "xOpenTerm");
         }
     }

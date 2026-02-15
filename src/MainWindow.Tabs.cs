@@ -93,6 +93,16 @@ public partial class MainWindow
             var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
             return RemoteOsInfoService.GetProcessTrafficCommand(osInfo);
         };
+        statusBar.GetLargestFilesCommandCallback = async () =>
+        {
+            if (!_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
+                return RemoteOsInfoService.GetLargestFilesCommand(null);
+            var output = await SessionManager.RunSshCommandAsync(
+                p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent,
+                RemoteOsInfoService.DetectionCommand, CancellationToken.None);
+            var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
+            return RemoteOsInfoService.GetLargestFilesCommand(osInfo);
+        };
         var dock = new DockPanel();
         DockPanel.SetDock(statusBar, Dock.Bottom);
         dock.Children.Add(statusBar);
@@ -312,6 +322,16 @@ public partial class MainWindow
                     RemoteOsInfoService.DetectionCommand, CancellationToken.None);
                 var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
                 return RemoteOsInfoService.GetProcessTrafficCommand(osInfo);
+            };
+            statusBarReconnect.GetLargestFilesCommandCallback = async () =>
+            {
+                if (!_tabIdToSshStatsParams.TryGetValue(tabId, out var p))
+                    return RemoteOsInfoService.GetLargestFilesCommand(null);
+                var output = await SessionManager.RunSshCommandAsync(
+                    p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent,
+                    RemoteOsInfoService.DetectionCommand, CancellationToken.None);
+                var osInfo = RemoteOsInfoService.ParseDetectionOutput(output);
+                return RemoteOsInfoService.GetLargestFilesCommand(osInfo);
             };
             var dockReconnect = new DockPanel();
             DockPanel.SetDock(statusBarReconnect, Dock.Bottom);
