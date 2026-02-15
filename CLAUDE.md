@@ -54,13 +54,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `SecretService.cs` — 密码加密服务，支持主密码（xot4）和固定密钥（xot2/xot3）
 - `MasterPasswordService.cs` — 主密码管理（DPAPI 存储派生密钥）
 - `ConfigBackupService.cs` — 配置自动备份（60 秒防抖，备份到 `%LocalAppData%\xOpenTerm\backup\`）
-- `SessionManager.cs` — SSH 会话管理
+- `SessionManager.cs` — SSH 会话管理；`SshTerminalBridge.cs` — SSH Shell 与 WebView2 桥接（直连与跳板、密码/私钥/Agent）
 - `TencentCloudService.cs`、`AliCloudService.cs`、`KingsoftCloudService.cs` — 云平台 API 同步服务
 - `SshTester.cs` — SSH 连接测试工具
 - `RdpLauncher.cs` — RDP 启动服务（生成 .rdp 文件、可选 cmdkey 写入凭据）
 
 **Controls/** — 自定义控件
-- `SshPuttyHostControl.cs` — SSH 连接托管控件（PuTTY 集成）
+- `SshWebViewHostControl.xaml(.cs)` — SSH 连接托管控件（WebView2 + xterm.js）
 - `RdpHostControl.cs` — RDP 连接托管控件
 - `SshStatusBarControl.xaml.cs` — SSH 状态栏（CPU/内存/网络）
 

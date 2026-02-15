@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSH 终端</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: #0c0c0c; }
+    #terminal-container { padding: 8px; height: 100%; }
+    #terminal { height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="terminal-container">
+    <div id="terminal"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+  <script>
+    (function() {
+      const term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: 'Consolas, "Courier New", monospace',
+        theme: { background: '#0c0c0c', foreground: '#cccccc' }
+      });
+      const fitAddon = new FitAddon.FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(document.getElementById('terminal'));
+      fitAddon.fit();
+
+      window.addEventListener('resize', function() { fitAddon.fit(); });
+
+      if (window.chrome && window.chrome.webview) {
+        term.onData(function(data) {
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'input', data: data }));
+        });
+        window.chrome.webview.addEventListener('message', function(event) {
+          try {
+            const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (msg && msg.type === 'output' && typeof msg.data === 'string')
+              term.write(msg.data);
+          } catch (e) {}
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

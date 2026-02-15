@@ -7,8 +7,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <!-- 界面字体与预览（同一方框） -->
         <Border Grid.Row="0" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="14,12" Margin="0,0,0,14" CornerRadius="{StaticResource RadiusMd}">
@@ -34,29 +32,7 @@
                 </Border>
             </StackPanel>
         </Border>
-        <!-- PuTTY 设置说明（分步 + 方框） -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button x:Name="PuttyFontBtn" Content="在 PuTTY 中设置字体…" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" Click="PuttyFontBtn_Click"
-                    ToolTip="打开 PuTTY 配置窗口"/>
-        </StackPanel>
-        <Border Grid.Row="2" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="14,12" Margin="0,0,0,14" CornerRadius="{StaticResource RadiusMd}">
-            <StackPanel>
-                <TextBlock Text="PuTTY 字体设置步骤：" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock Foreground="{StaticResource TextSecondary}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4">
-                    <Run Text="1. " FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
-                    <Run Text="点击上方「在 PuTTY 中设置字体…」按钮，打开 PuTTY 配置窗口。"/>
-                </TextBlock>
-                <TextBlock Foreground="{StaticResource TextSecondary}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4">
-                    <Run Text="2. " FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
-                    <Run Text="左侧选择 Window → Appearance，点击 Font settings 旁的 Change…，选择字体和字号。"/>
-                </TextBlock>
-                <TextBlock Foreground="{StaticResource TextSecondary}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,0">
-                    <Run Text="3. " FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
-                    <Run Text="若希望新建连接均生效：左侧选 Session，选中 Default Settings，点 Save。"/>
-                </TextBlock>
-            </StackPanel>
-        </Border>
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button x:Name="OkBtn" Content="确定" Style="{StaticResource PrimaryButtonStyle}" Width="84" Padding="10,6" Margin="0,0,10,0" Click="OkBtn_Click" IsDefault="True"/>
             <Button Content="取消" Style="{StaticResource SecondaryButtonStyle}" Width="84" Padding="10,6" IsCancel="True" Click="CancelBtn_Click"/>
         </StackPanel>

@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using xOpenTerm.Controls;
@@ -114,26 +112,4 @@ public partial class SettingsWindow : Window
         Close();
     }
 
-    private void PuttyFontBtn_Click(object sender, RoutedEventArgs e)
-    {
-        var puttyPath = SshPuttyHostControl.DefaultPuttyPath;
-        if (string.IsNullOrWhiteSpace(puttyPath) || !File.Exists(puttyPath))
-        {
-            MessageBox.Show("未找到 PuTTY 程序，请确保已安装 PuTTY 或 PuTTY NG。", "xOpenTerm");
-            return;
-        }
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = puttyPath,
-                Arguments = "",
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show("无法启动 PuTTY：" + ex.Message, "xOpenTerm");
-        }
-    }
 }

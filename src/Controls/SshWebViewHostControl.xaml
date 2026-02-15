@@ -1,0 +1,6 @@
+<UserControl x:Class="xOpenTerm.Controls.SshWebViewHostControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#0c0c0c">
+    <Grid x:Name="RootGrid"/>
+</UserControl>

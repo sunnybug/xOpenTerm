@@ -6,7 +6,7 @@
 
 - **节点树**：分组、SSH、RDP；支持拖拽节点到其他分组；分组节点显示其下可连接节点（SSH/RDP）数量
 - **连接管理**：双击或右键「连接」打开标签页，支持多标签
-- **SSH**：全部使用内嵌 PuTTY/PuTTY NG（直连与多级跳板一致）；认证下拉（密码/私钥/同父节点/SSH Agent/登录凭证）、跳板机多选、节点/凭证/隧道内「测试连接」；多级跳板通过 Plink 的 -proxycmd 链实现，需与 PuTTY 同目录的 plink.exe；私钥为非 .ppk 时会优先使用同路径的「原路径.ppk」，若无则进程内转换为 .ppk（支持 RSA/DSA/ECDSA/Ed25519，无交互），不支持的格式再尝试 puttygen；连接默认启用 keepalive（约 30 秒），减少空闲被防火墙/路由器断开
+- **SSH**：内嵌 **WebView2 + xterm.js** 终端，后端使用 **SSH.NET** 建立 Shell 连接（直连与多级跳板一致）；认证下拉（密码/私钥/同父节点/SSH Agent/登录凭证）、跳板机多选、节点/凭证/隧道内「测试连接」；多级跳板通过 SSH.NET 本地端口转发链实现，无需外置 PuTTY/Plink；私钥支持 OpenSSH 格式（PEM 等），无需 .ppk 转换
 - **SSH 状态栏**：标签页底部显示连接状态、CPU/内存占用率、网络流量、TCP/UDP 连接数；磁盘占用率按物理硬盘显示（格式：硬盘sda 45% 硬盘nvme0n1 78%，每 3 分钟远程拉取一次）；磁盘占用超过 90% 时以红色显示；磁盘区域右键「查找占用空间最大的文件/目录」可复制按远程系统生成的命令（优先 ncdu，否则 du），未安装时提示安装命令
 - **维护 - 磁盘占用**：节点（分组、SSH 或云类型 RDP）右键菜单 → 维护 → 磁盘占用；输入占用率阈值（默认 85%），仅展示**超过阈值**的节点。**SSH**：远程执行 df/du，超过阈值的列出并采集根目录下占用最大的文件/目录；**云类型 RDP**：**阿里云 ECS**、**腾讯云 CVM**、**金山云 KEC** 优先通过各云监控 API 获取磁盘使用率（需实例已安装监控组件，无需 SSH）；其他云或 API 无数据时通过 SSH(22) 执行 wmic 采集
 - **RDP**：内嵌 RDP 标签页使用系统 **MSTSCAX**（mstscax.dll），参考 mRemoteNG，不依赖 MsRdpEx；或通过 mstsc 启动；支持域、控制台会话、剪贴板重定向、智能缩放；临时 .rdp 与可选 cmdkey 凭据；默认端口 3389、用户名 administrator
@@ -27,7 +27,9 @@
 ## 技术栈
 
 - .NET 8 / WPF
-- [SSH.NET](https://github.com/sshnet/SSH.NET)（SSH）
+- [Microsoft WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)（SSH 终端内嵌浏览器）
+- [xterm.js](https://xtermjs.org/)（终端渲染，通过 WebView2 加载）
+- [SSH.NET](https://github.com/sshnet/SSH.NET)（SSH 连接与 Shell）
 - [YamlDotNet](https://github.com/aaubry/YamlDotNet)（YAML）
 
 ## 项目结构
@@ -64,6 +66,8 @@
 
 或使用 Visual Studio 打开 `xOpenTerm.sln` 后 F5 运行。
 
+SSH 终端依赖 **WebView2 Runtime**（Windows 10/11 多数已预装；若未安装会提示或可从 [Microsoft 官网](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) 安装）。
+
 ### 内嵌 RDP 互操作程序集（开发/打包用）
 
 内嵌 RDP 使用系统 mstscax.dll 的互操作（参考 mRemoteNG）。若从源码构建且 `src/References/` 下尚无 `AxInterop.MSTSCLib.dll`、`Interop.MSTSCLib.dll`，可运行（需已安装 Visual Studio 或 Windows SDK）：
@@ -99,8 +103,8 @@
 - RDP 支持内嵌标签页与 mstsc 两种方式；内嵌 RDP 在独立线程的 WinForms 消息循环中承载（通过 SetParent 嵌入），避免在 WPF 消息循环中触发 SEHException（参考 mRemoteNG）；节点可配置域、控制台会话、剪贴板重定向、智能缩放
 - 远程文件面板：按节点复用 SFTP 长连接，同一节点下切换目录只发 SFTP 请求不重复建连；异步加载与按路径缓存，已访问目录即时显示；该节点所有连接 tab 关闭时自动释放长连接
 - 无 `list_remote_dir` 等独立命令
-- 终端为自定义绘制 VT100 终端（ANSI 颜色/SGR、仅绘制可见行，无 xterm.js）
-- 隧道链配置与选择已支持，SSH 直连与多级跳板均走 PuTTY，多跳通过 Plink -proxycmd 链实现
+- SSH 终端为 WebView2 内嵌 xterm.js，与 SSH.NET ShellStream 桥接；直连与多级跳板均走 SSH.NET，无需 PuTTY/Plink
+- 隧道链配置与选择已支持
 - 腾讯云、阿里云、金山云同步功能
 
 ## 项目目录架构（my-project 技能）

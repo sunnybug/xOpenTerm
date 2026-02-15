@@ -35,7 +35,7 @@ public partial class MainWindow
             {
                 var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) =
                     ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
-                OpenSshPuttyTab(tabId, tabTitle, node, host, port, username, password, keyPath, keyPassphrase, useAgent, jumpChain);
+                OpenSshTab(tabId, tabTitle, node, host, port, username, password, keyPath, keyPassphrase, useAgent, jumpChain);
             }
             catch (Exception ex)
             {
@@ -64,23 +64,22 @@ public partial class MainWindow
         }
     }
 
-    private void OpenSshPuttyTab(string tabId, string tabTitle, Node node,
+    private void OpenSshTab(string tabId, string tabTitle, Node node,
         string host, int port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent = false,
         List<JumpHop>? jumpChain = null)
     {
-        var puttyControl = new SshPuttyHostControl();
-        puttyControl.Closed += (_, _) =>
+        var sshControl = new SshWebViewHostControl();
+        sshControl.Closed += (_, _) =>
         {
             Dispatcher.BeginInvoke(() =>
             {
-                if (_tabIdToPuttyControl.ContainsKey(tabId))
+                if (_tabIdToSshHostControl.ContainsKey(tabId))
                     CloseTab(tabId);
             });
         };
 
-        var hostWpf = new WindowsFormsHost { Child = puttyControl };
-        hostWpf.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
-        hostWpf.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+        sshControl.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+        sshControl.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
         var statusBar = new SshStatusBarControl();
         statusBar.UpdateStats(false, null, null, null, null, null, null);
         statusBar.GetProcessTrafficCommandCallback = async () =>
@@ -106,7 +105,7 @@ public partial class MainWindow
         var dock = new DockPanel();
         DockPanel.SetDock(statusBar, Dock.Bottom);
         dock.Children.Add(statusBar);
-        dock.Children.Add(hostWpf);
+        dock.Children.Add(sshControl);
         var tabItem = new TabItem
         {
             Header = CreateTabHeader(tabTitle, tabId, node),
@@ -117,11 +116,11 @@ public partial class MainWindow
         };
         TabsControl.Items.Add(tabItem);
         TabsControl.SelectedItem = tabItem;
-        _tabIdToPuttyControl[tabId] = puttyControl;
+        _tabIdToSshHostControl[tabId] = sshControl;
         _tabIdToNodeId[tabId] = node.Id;
         _tabIdToSshStatusBar[tabId] = statusBar;
         _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent);
-        puttyControl.Connected += (_, _) =>
+        sshControl.Connected += (_, _) =>
         {
             Dispatcher.BeginInvoke(() =>
             {
@@ -135,18 +134,16 @@ public partial class MainWindow
             });
         };
 
-        // 延迟到 WPF 布局完成后再连接，确保 WindowsFormsHost/Panel 已获得正确尺寸，
-        // 避免 PuTTY 以极小的窗口初始化导致终端列数过窄
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
         {
             try
             {
-                puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, keyPassphrase, useAgent, jumpChain);
+                sshControl.Connect(host, port, username ?? "", password, keyPath, keyPassphrase, useAgent, jumpChain);
             }
             catch (Exception ex)
             {
-                ExceptionLog.Write(ex, "PuTTY 启动失败", toCrashLog: false);
-                MessageBox.Show("PuTTY 启动失败：" + ex.Message, "xOpenTerm");
+                ExceptionLog.Write(ex, "SSH 连接失败", toCrashLog: false);
+                MessageBox.Show("SSH 连接失败：" + ex.Message, "xOpenTerm");
                 CloseTab(tabId);
             }
         }));
@@ -234,11 +231,11 @@ public partial class MainWindow
             rdpSession.Disconnect();
             return;
         }
-        if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
+        if (_tabIdToSshHostControl.TryGetValue(tabId, out var sshControl))
         {
             if (TryGetTabItem(tabId) is not TabItem tabItem)
                 return;
-            _tabIdToPuttyControl.Remove(tabId);
+            _tabIdToSshHostControl.Remove(tabId);
             StopSshStatusBarPolling(tabId);
             if (_tabIdToNodeId.TryGetValue(tabId, out var nid) && nid == _remoteFileNodeId)
             {
@@ -257,8 +254,8 @@ public partial class MainWindow
             }
             else
                 tabItem.Content = placeholder;
-            _disconnectedPuttyTabIds.Add(tabId);
-            putty.Close();
+            _disconnectedSshTabIds.Add(tabId);
+            sshControl.Close();
             return;
         }
         _sessionManager.CloseSession(tabId);
@@ -289,7 +286,7 @@ public partial class MainWindow
         return null;
     }
 
-    private void ReconnectPuttyTabInPlace(string tabId, Node node)
+    private void ReconnectSshTabInPlace(string tabId, Node node)
     {
         try
         {
@@ -299,18 +296,17 @@ public partial class MainWindow
             if (TryGetTabItem(tabId) is not TabItem tabItem)
                 return;
 
-            var puttyControl = new SshPuttyHostControl();
-            puttyControl.Closed += (_, _) =>
+            var sshControlReconnect = new SshWebViewHostControl();
+            sshControlReconnect.Closed += (_, _) =>
             {
                 Dispatcher.BeginInvoke(() =>
                 {
-                    if (_tabIdToPuttyControl.ContainsKey(tabId))
+                    if (_tabIdToSshHostControl.ContainsKey(tabId))
                         CloseTab(tabId);
                 });
             };
-            var hostWpfReconnect = new WindowsFormsHost { Child = puttyControl };
-            hostWpfReconnect.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
-            hostWpfReconnect.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+            sshControlReconnect.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            sshControlReconnect.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
             var statusBarReconnect = new SshStatusBarControl();
             statusBarReconnect.UpdateStats(false, null, null, null, null, null, null);
             statusBarReconnect.GetProcessTrafficCommandCallback = async () =>
@@ -336,12 +332,12 @@ public partial class MainWindow
             var dockReconnect = new DockPanel();
             DockPanel.SetDock(statusBarReconnect, Dock.Bottom);
             dockReconnect.Children.Add(statusBarReconnect);
-            dockReconnect.Children.Add(hostWpfReconnect);
+            dockReconnect.Children.Add(sshControlReconnect);
             tabItem.Content = dockReconnect;
-            _tabIdToPuttyControl[tabId] = puttyControl;
+            _tabIdToSshHostControl[tabId] = sshControlReconnect;
             _tabIdToSshStatusBar[tabId] = statusBarReconnect;
             _tabIdToSshStatsParams[tabId] = (host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent);
-            puttyControl.Connected += (_, _) =>
+            sshControlReconnect.Connected += (_, _) =>
             {
                 Dispatcher.BeginInvoke(() =>
                 {
@@ -354,19 +350,18 @@ public partial class MainWindow
                         StartSshStatusBarPolling(tabId, p.host, (ushort)p.port, p.username, p.password, p.keyPath, p.keyPassphrase, p.jumpChain, p.useAgent);
                 });
             };
-            _disconnectedPuttyTabIds.Remove(tabId);
+            _disconnectedSshTabIds.Remove(tabId);
             TabsControl.SelectedItem = tabItem;
 
-            // 延迟到布局完成后连接，确保 Panel 尺寸正确
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
             {
                 try
                 {
-                    puttyControl.Connect(host, port, username ?? "", password, keyPath, SshPuttyHostControl.DefaultPuttyPath, keyPassphrase, useAgent, jumpChain);
+                    sshControlReconnect.Connect(host, port, username ?? "", password, keyPath, keyPassphrase, useAgent, jumpChain);
                 }
                 catch (Exception ex)
                 {
-                    ExceptionLog.Write(ex, "PuTTY 重连失败", toCrashLog: false);
+                    ExceptionLog.Write(ex, "SSH 重连失败", toCrashLog: false);
                     MessageBox.Show("重连失败：" + ex.Message, "xOpenTerm");
                 }
             }));
@@ -399,12 +394,12 @@ public partial class MainWindow
             OpenTab(node!);
             return;
         }
-        if (_disconnectedPuttyTabIds.Contains(tabId))
+        if (_disconnectedSshTabIds.Contains(tabId))
         {
-            ReconnectPuttyTabInPlace(tabId, node);
+            ReconnectSshTabInPlace(tabId, node);
             return;
         }
-        if (_tabIdToPuttyControl.TryGetValue(tabId, out var _))
+        if (_tabIdToSshHostControl.TryGetValue(tabId, out var _))
         {
             CloseTab(tabId);
             OpenTab(node);
@@ -544,9 +539,9 @@ public partial class MainWindow
         _tabIdToRdpStatsParams.Remove(tabId);
         _tabIdToDisconnected.Remove(tabId);
 
-        if (_disconnectedPuttyTabIds.Contains(tabId))
+        if (_disconnectedSshTabIds.Contains(tabId))
         {
-            _disconnectedPuttyTabIds.Remove(tabId);
+            _disconnectedSshTabIds.Remove(tabId);
             var nodeId = _tabIdToNodeId.TryGetValue(tabId, out var nid) ? nid : null;
             _tabIdToNodeId.Remove(tabId);
             ClearRemoteFileCacheIfNoTabsForNode(nodeId);
@@ -565,10 +560,10 @@ public partial class MainWindow
             return;
         }
 
-        if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
+        if (_tabIdToSshHostControl.TryGetValue(tabId, out var sshControl))
         {
-            putty.Close();
-            _tabIdToPuttyControl.Remove(tabId);
+            sshControl.Close();
+            _tabIdToSshHostControl.Remove(tabId);
             var nodeId = _tabIdToNodeId.TryGetValue(tabId, out var nid) ? nid : null;
             if (nodeId != null && nodeId == _remoteFileNodeId)
             {

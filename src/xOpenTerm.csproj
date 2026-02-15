@@ -47,7 +47,14 @@
     <PackageReference Include="AlibabaCloud.SDK.Cms20190101" Version="3.0.0" />
     <PackageReference Include="AlibabaCloud.SDK.Ecs20140526" Version="7.6.0" />
     <PackageReference Include="TencentCloudSDK" Version="3.0.1374" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2651.64" />
     <PackageReference Include="YamlDotNet" Version="15.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="TerminalPage.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

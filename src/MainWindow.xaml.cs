@@ -29,11 +29,11 @@ public partial class MainWindow : Window
     private List<Credential> _credentials = new();
     private List<Tunnel> _tunnels = new();
     private string _searchTerm = "";
-    private readonly Dictionary<string, SshPuttyHostControl> _tabIdToPuttyControl = new();
+    private readonly Dictionary<string, SshWebViewHostControl> _tabIdToSshHostControl = new();
     private readonly Dictionary<string, string> _tabIdToNodeId = new();
     private readonly Dictionary<string, RdpEmbeddedSession> _tabIdToRdpSession = new();
-    /// <summary>仅断开（未关闭）的 PuTTY tab，用于右键重连。</summary>
-    private readonly HashSet<string> _disconnectedPuttyTabIds = new();
+    /// <summary>仅断开（未关闭）的 SSH tab，用于右键重连。</summary>
+    private readonly HashSet<string> _disconnectedSshTabIds = new();
     private ContextMenu? _treeContextMenu;
     private Node? _contextMenuNode;
     /// <summary>多选时选中的节点 ID 集合（Ctrl/Shift）</summary>
@@ -57,7 +57,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, SshStatusBarControl> _tabIdToRdpStatusBar = new();
     /// <summary>状态栏轮询取消用（关闭/断开 tab 时取消）。</summary>
     private readonly Dictionary<string, CancellationTokenSource> _tabIdToStatsCts = new();
-    /// <summary>PuTTY 类 SSH tab 的连接参数，用于状态栏远程采集（仅无跳板时存储）。</summary>
+    /// <summary>SSH tab 的连接参数，用于状态栏远程采集。</summary>
     private readonly Dictionary<string, (string host, int port, string username, string? password, string? keyPath, string? keyPassphrase, List<JumpHop>? jumpChain, bool useAgent)> _tabIdToSshStatsParams = new();
     /// <summary>RDP tab 的连接参数，用于状态栏远程采集。</summary>
     private readonly Dictionary<string, (string host, int port, string username, string? password)> _tabIdToRdpStatsParams = new();
@@ -454,16 +454,16 @@ public partial class MainWindow : Window
         }
         _tabIdToRdpSession.Clear();
         ExceptionLog.WriteInfo($"进程退出: RDP 已关闭 (共 {rdpCount} 个)");
-        var puttyCount = _tabIdToPuttyControl.Count;
-        foreach (var tabId in _tabIdToPuttyControl.Keys.ToList())
+        var sshCount = _tabIdToSshHostControl.Count;
+        foreach (var tabId in _tabIdToSshHostControl.Keys.ToList())
         {
-            if (_tabIdToPuttyControl.TryGetValue(tabId, out var putty))
+            if (_tabIdToSshHostControl.TryGetValue(tabId, out var sshControl))
             {
-                try { putty.Close(); } catch { }
+                try { sshControl.Close(); } catch { }
             }
         }
-        _tabIdToPuttyControl.Clear();
-        ExceptionLog.WriteInfo($"进程退出: PuTTY 已关闭 (共 {puttyCount} 个)");
+        _tabIdToSshHostControl.Clear();
+        ExceptionLog.WriteInfo($"进程退出: SSH 已关闭 (共 {sshCount} 个)");
         // 关闭所有 SessionManager 会话（含未在 tab 中的），避免子进程/SSH 连接导致进程无法退出
         _sessionManager.CloseAllSessions();
         ExceptionLog.WriteInfo("进程退出: 会话已关闭");
