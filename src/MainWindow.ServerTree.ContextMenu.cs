@@ -112,10 +112,10 @@ public partial class MainWindow
     {
         var menu = new ContextMenu();
         // 1. 连接/维护等操作
-        menu.Items.Add(CreateMenuItem("连接(_L)", () => ConnectSelected(selectedNodes)));
+        menu.Items.Add(CreateMenuItem("连接[_L]", () => ConnectSelected(selectedNodes)));
         menu.Items.Add(new Separator());
         // 3. 对选中项的编辑/删除
-        menu.Items.Add(CreateMenuItem("删除(_D)", () => DeleteSelected(selectedNodes)));
+        menu.Items.Add(CreateMenuItem("删除[_D]", () => DeleteSelected(selectedNodes)));
         return menu;
     }
 
@@ -222,7 +222,7 @@ public partial class MainWindow
         if (node == null)
         {
             // 空白处：仅 2. 新建/导入/导出
-            var newSub = new MenuItem { Header = "新建(_N)" };
+            var newSub = new MenuItem { Header = "新建[_N]" };
             newSub.Items.Add(CreateMenuItem("分组(_G)", () => AddNode(NodeType.group, null)));
             newSub.Items.Add(CreateMenuItem("分组 - 腾讯云(_T)", () => AddTencentCloudGroup(null)));
             newSub.Items.Add(CreateMenuItem("分组 - 阿里云(_A)", () => AddAliCloudGroup(null)));
@@ -404,7 +404,20 @@ public partial class MainWindow
 
     private static MenuItem CreateMenuItem(string header, Action action)
     {
-        var item = new MenuItem { Header = header };
+        var item = new MenuItem();
+
+        var match = System.Text.RegularExpressions.Regex.Match(header, @"^(.*?)\[_(\w)\]$");
+        if (match.Success)
+        {
+            var text = match.Groups[1].Value;
+            var accessKey = match.Groups[2].Value;
+            item.Header = $"{text} [_{accessKey}]";
+        }
+        else
+        {
+            item.Header = header;
+        }
+
         item.Click += (_, _) => action();
         return item;
     }

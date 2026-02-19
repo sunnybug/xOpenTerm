@@ -12,7 +12,7 @@ trap {
 
 $Root = Join-Path $PSScriptRoot ".."
 $ProjectPath = Join-Path $Root "src\xOpenTerm.csproj"
-$DistDir = Join-Path $Root "dist"
+$DistDir = Join-Path $Root ".dist"
 
 # 构建 Release
 & (Join-Path $PSScriptRoot "build.ps1") -Release
