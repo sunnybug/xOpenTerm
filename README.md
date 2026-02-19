@@ -35,7 +35,7 @@
 ## 项目结构
 
 - `src/` — 源码（编译生成物在仓库根下 `.temp/`，如 `.temp/bin/Debug`、`.temp/obj/`）
-- `test.ps1` — 构建并运行应用（支持 --release、--test-rdp、--test-ssh-status）
+- `run.ps1` — 构建并运行应用（支持 --release、--test-rdp、--test-ssh-status）
 - `script/` — 脚本：`build.ps1`、`publish.ps1`、`init_dev.ps1`
 - `bin/` — 工作目录：`config/` 配置、`log/` 日志、`var/` 临时覆盖配置
 - `dist/` — 发布目录（由 `script/publish.ps1` 或 GitHub Actions 生成）
@@ -45,17 +45,17 @@
 
 ```powershell
 # 编译并运行 Debug
-.\test.ps1
+.\run.ps1
 
 # 仅构建
 .\script\build.ps1           # Debug
 .\script\build.ps1 --release # Release
 
 # 构建并运行 Release
-.\test.ps1 --release
+.\run.ps1 --release
 
 # 仅运行 SSH 状态获取单元测试（root@192.168.1.192，SSH Agent，连接超时 3s，无 UI，测试结束自动退出）
-.\test.ps1 --test-ssh-status
+.\run.ps1 --test-ssh-status
 
 # 初始化开发环境（还原依赖、创建 bin/config 等）
 .\script\init_dev.ps1
@@ -130,11 +130,11 @@ src/ 源码目录，若只有一个工程，则将代码放到该目录而不是
 doc/ 文档目录
 aidoc/ ai生成文档放到该目录
 .temp/ 将编译过程所有中间文件和输出文件存放到该目录，同时修改编译相关脚本和工程
-.run/ 运行时工作路径（test.ps1 与 dotnet test 单元测试均使用），其下 log/、config/
-test.ps1
+.run/ 运行时工作路径（run.ps1 与 dotnet test 单元测试均使用），其下 log/、config/
+run.ps1
 ```
 
-### test.ps1运行流程
+### run.ps1运行流程
 1. 编译。调用build.ps1，默认是debug，若传参加上--release，则构建release
 2. 强杀目标程序
 3. 清除运行日志
@@ -173,7 +173,7 @@ test.ps1
 
 #### 若工程代码已存在
 
-- 将工程的工作目录设置为 .run（test.ps1）或项目根（或 launch 指定）
+- 将工程的工作目录设置为 .run（run.ps1）或项目根（或 launch 指定）
 - 将配置文件（含旧内容和相关代码处理）放到工作目录下的 config/
 - 项目根目录下的代码目录和工程文件都移到src/
 

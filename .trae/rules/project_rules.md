@@ -6,17 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```powershell
 # 编译并运行 Debug（常用）
-.\run.ps1
+.\test.ps1
 
 # 仅构建
 .\script\build.ps1           # Debug
 .\script\build.ps1 --release # Release
 
 # 编译并运行 Release
-.\run.ps1 --release
+.\test.ps1 --release
 
 # 仅运行 SSH 状态获取单元测试（无 UI，自动退出）
-.\run.ps1 --test-ssh-status
+.\test.ps1 --test-ssh-status
 
 # 运行所有单元测试
 dotnet test
@@ -29,9 +29,9 @@ dotnet test
 ```
 
 ### 工作目录说明
-- **run.ps1 运行时工作目录为 `.run/`**，配置文件从 `.run/config/` 读取，日志写入 `.run/log/`
+- **test.ps1 运行时工作目录为 `.run/`**，配置文件从 `.run/config/` 读取，日志写入 `.run/log/`
 - **单元测试**通过 `GlobalRunDirectorySetup.cs`（NUnit SetUpFixture）自动将工作目录设为 `.run/`
-- run.ps1 会自动强杀现有 xOpenTerm 进程、清除日志后再启动
+- test.ps1 会自动强杀现有 xOpenTerm 进程、清除日志后再启动
 
 ### 依赖说明
 - **WebView2 Runtime**：SSH 终端依赖，Windows 10/11 多数已预装，若未安装会提示或从 [Microsoft 官网](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) 安装
@@ -46,7 +46,7 @@ dotnet test
 - `src/` — 源码（WPF XAML + C#）
 - `script/` — 构建脚本（build.ps1, publish.ps1, init_dev.ps1）
 - `bin/` — 工作目录（配置、日志、临时覆盖配置）
-- `.run/` — run.ps1 运行时工作目录（.run\config、.run\log）
+- `.run/` — test.ps1 运行时工作目录（.run\config、.run\log）
 - `.temp/` — 编译输出目录
 - `.dist/` — 发布目录
 - `doc/`、`aidoc/` — 文档目录
@@ -154,7 +154,7 @@ dotnet test
 - 错误处理：使用 `$ErrorActionPreference = "Stop"` 和 `trap` 捕获异常
 
 ### 日志系统
-- 日志位置：`<当前工作目录>/log/`（run.ps1 下即 .run/log/）
+- 日志位置：`<当前工作目录>/log/`（test.ps1 下即 .run/log/）
 - 文件格式：`YYYY-MM-DD.log`（常规）、`YYYY-MM-DD_crash.log`（崩溃）
 - 日志级别：DEBUG/INFO/WARN/ERR/FATAL
 - 使用 `ExceptionLog.Write(ex, "上下文")` 记录异常
@@ -163,7 +163,7 @@ dotnet test
 - 测试框架：NUnit
 - 测试目录：`tests/`
 - 工作目录：通过 `GlobalRunDirectorySetup.cs` 自动设为 `.run/`
-- 运行方式：`dotnet test` 或 `./run.ps1 --test-ssh-status`
+- 运行方式：`dotnet test` 或 `.\test.ps1 --test-ssh-status`
 - 环境变量：`XOPENTERM_UNIT_TEST=1` 在测试时自动设置，可用于代码中判断是否在测试环境
 
 ### 版本管理
@@ -183,8 +183,8 @@ dotnet test
 - 不允许在 UI 线程执行耗时操作（使用 `await Task.Run()` 或后台线程）
 - 不允许在代码中硬编码密码、API 密钥等敏感信息
 
-### Agent 结束后自动执行 run.ps1
-Agent 执行结束后会自动运行 `./run.ps1` 进行构建和测试
+### Agent 结束后自动执行 test.ps1
+Agent 执行结束后会自动运行 `.\test.ps1` 进行构建和测试
 
 ## 常见开发任务
 
