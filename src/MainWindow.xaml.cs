@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -73,6 +75,10 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, TreeViewItem> _nodeIdToTvi = new();
     /// <summary>上次多选样式更新时的选中节点 ID 集合，用于只更新变化的项。</summary>
     private HashSet<string>? _prevSelectedNodeIds;
+    /// <summary>是否有新版本可用</summary>
+    private bool _hasNewVersion;
+    /// <summary>帮助菜单的更新菜单项</summary>
+    private MenuItem? _updateMenuItem;
 
     public MainWindow()
     {
@@ -118,6 +124,12 @@ public partial class MainWindow : Window
         RemotePathBox.Text = ".";
         Closing += MainWindow_Closing;
         Activated += MainWindow_Activated;
+
+        // 启动时检查新版本
+        Loaded += (_, _) =>
+        {
+            _ = CheckForUpdatesAsync();
+        };
 
         if (Program.IsTestRdpMode)
         {
@@ -586,5 +598,98 @@ public partial class MainWindow : Window
         _storage.SaveNodes(_nodes);
         _storage.SaveCredentials(_credentials);
         MessageBox.Show("主密码已清除。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>检查是否有新版本可用</summary>
+    private async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "xOpenTerm");
+            var resp = await client.GetAsync("https://api.github.com/repos/sunnybug/xOpenTerm/releases/latest");
+            if (resp.IsSuccessStatusCode)
+            {
+                var json = await resp.Content.ReadAsStringAsync();
+                var latestTagMatch = System.Text.RegularExpressions.Regex.Match(json, @"""tag_name""\s*:\s*""([^""]+)""");
+                if (latestTagMatch.Success)
+                {
+                    var latestTag = latestTagMatch.Groups[1].Value;
+                    var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                    var currentVersionStr = currentVersion != null ? $"{currentVersion.Major}.{currentVersion.Minor}.{currentVersion.Build}" : "0.0.0";
+                    
+                    if (IsNewerVersion(latestTag, currentVersionStr))
+                    {
+                        _hasNewVersion = true;
+                        UpdateHelpMenu();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // 忽略网络错误等异常，不影响主程序运行
+        }
+    }
+
+    /// <summary>判断是否为更新的版本</summary>
+    private bool IsNewerVersion(string latestTag, string currentVersion)
+    {
+        var cleanedLatest = latestTag.TrimStart('v', 'V').Split('-')[0];
+        var latestParts = cleanedLatest.Split('.').Select(p => int.TryParse(p, out var n) ? n : 0).ToArray();
+        var currentParts = currentVersion.Split('.').Select(p => int.TryParse(p, out var n) ? n : 0).ToArray();
+        
+        for (var i = 0; i < Math.Max(latestParts.Length, currentParts.Length); i++)
+        {
+            var latestNum = i < latestParts.Length ? latestParts[i] : 0;
+            var currentNum = i < currentParts.Length ? currentParts[i] : 0;
+            if (latestNum > currentNum) return true;
+            if (latestNum < currentNum) return false;
+        }
+        return false;
+    }
+
+    /// <summary>更新帮助菜单，根据是否有新版本显示或隐藏更新菜单项</summary>
+    private void UpdateHelpMenu()
+    {
+        // 找到帮助菜单
+        var helpMenu = MainMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header.ToString()?.Contains("帮助") ?? false);
+        if (helpMenu == null) return;
+        
+        // 清除现有的更新菜单项
+        var existingUpdateItem = helpMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header.ToString()?.Contains("更新") ?? false);
+        if (existingUpdateItem != null)
+        {
+            helpMenu.Items.Remove(existingUpdateItem);
+        }
+        
+        // 重新排序菜单项：如果有新版本，更新项在关于项之前；否则只保留关于项
+        var aboutItem = helpMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header.ToString()?.Contains("关于") ?? false);
+        if (aboutItem != null)
+        {
+            helpMenu.Items.Remove(aboutItem);
+        }
+        
+        // 如果有新版本，添加更新菜单项
+        if (_hasNewVersion)
+        {
+            _updateMenuItem = new MenuItem
+            {
+                Header = "更新(_U)"
+            };
+            _updateMenuItem.Click += MenuUpdate_Click;
+            helpMenu.Items.Add(_updateMenuItem);
+        }
+        
+        // 添加关于菜单项（始终在最后）
+        if (aboutItem == null)
+        {
+            aboutItem = new MenuItem
+            {
+                Header = "关于(_A)"
+            };
+            aboutItem.Click += MenuAbout_Click;
+        }
+        helpMenu.Items.Add(aboutItem);
     }
 }
