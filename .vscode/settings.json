@@ -3,5 +3,6 @@
     ".temp/": true,
     "obj/": true,
     ".dist/": true
-  }
+  },
+  "claudeCodeChat.permissions.yoloMode": true
 }

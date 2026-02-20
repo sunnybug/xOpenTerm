@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace xOpenTerm.Tests;
 
-/// <summary>单元测试全局设置：将进程工作目录设为仓库根下的 .run，与 run.ps1 一致。</summary>
+/// <summary>单元测试全局设置：将进程工作目录设为仓库根下的 .run，与 start.ps1 一致。</summary>
 [SetUpFixture]
 public class GlobalRunDirectorySetup
 {
