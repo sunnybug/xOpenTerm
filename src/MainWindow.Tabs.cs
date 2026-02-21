@@ -445,7 +445,11 @@ public partial class MainWindow
             var session = new RdpEmbeddedSession(host, port, username, domain, password, rdpOptions, panel, SynchronizationContext.Current!);
             session.ErrorOccurred += (_, msg) =>
             {
-                Dispatcher.Invoke(() => MessageBox.Show(msg, "xOpenTerm"));
+                Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show(msg, "xOpenTerm");
+                    BringMainWindowToFront();
+                });
             };
             session.Disconnected += (_, _) =>
             {
@@ -453,6 +457,7 @@ public partial class MainWindow
                 {
                     if (_tabIdToRdpSession.ContainsKey(tabId))
                         CloseTab(tabId);
+                    BringMainWindowToFront();
                 });
             };
             session.Connected += (_, _) =>

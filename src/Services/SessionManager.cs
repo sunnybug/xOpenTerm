@@ -46,8 +46,8 @@ public class SessionManager
                     cancellationToken.ThrowIfCancellationRequested();
 
                     var hop = jumpChain[i];
-                    var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent, connectionTimeout);
-                    if (conn == null) return (null, "跳板机连接失败：未配置认证方式（请配置密码、私钥或 SSH Agent）");
+                    var (conn, authFailure) = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent, connectionTimeout);
+                    if (conn == null) return (null, "跳板机连接失败：" + (authFailure ?? "未配置认证方式（请配置密码、私钥或 SSH Agent）"));
                     var client = new SshClient(conn);
                     AcceptAnyHostKey(client);
                     try
@@ -139,11 +139,11 @@ public class SessionManager
         ExceptionLog.WriteInfo($"[RunSshCommandDirect] 开始 host={host} port={port} connectionTimeout={timeoutSec}s command=[{commandOneLine}]");
         var totalSw = Stopwatch.StartNew();
 
-        var conn = CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent, connectionTimeout);
+        var (conn, authFailure) = CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent, connectionTimeout);
         if (conn == null)
         {
-            ExceptionLog.WriteInfo($"[RunSshCommandDirect] CreateConnectionInfo 返回 null host={host}");
-            return (null, "未配置认证方式（请配置密码、私钥或 SSH Agent）");
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] CreateConnectionInfo 返回 null host={host} reason={authFailure}");
+            return (null, authFailure ?? "未配置认证方式（请配置密码、私钥或 SSH Agent）");
         }
         using var client = new SshClient(conn);
         AcceptAnyHostKey(client);
@@ -221,25 +221,35 @@ public class SessionManager
         client.HostKeyReceived += (_, e) => e.CanTrust = true;
     }
 
-    /// <summary>供 RemoteFileService 等复用：创建 SSH/SFTP 连接信息。</summary>
+    /// <summary>供 RemoteFileService 等复用：创建 SSH/SFTP 连接信息。失败时 failureReason 为可展示给用户的原因。</summary>
     /// <param name="connectionTimeout">连接超时，null 表示使用库默认。</param>
-    internal static ConnectionInfo? CreateConnectionInfo(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent = false, TimeSpan? connectionTimeout = null)
+    internal static (ConnectionInfo? conn, string? failureReason) CreateConnectionInfo(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent = false, TimeSpan? connectionTimeout = null)
     {
         ConnectionInfo? conn;
+        string? failureReason = null;
         if (useAgent)
+        {
             conn = CreateConnectionInfoWithAgent(host, port, username, connectionTimeout);
+            if (conn == null)
+                failureReason = "已选择 SSH Agent，但 Agent 未运行或无可用的密钥";
+        }
         else if (!string.IsNullOrEmpty(keyPath))
         {
             var keyFile = new PrivateKeyFile(keyPath, keyPassphrase);
             conn = new ConnectionInfo(host, (int)port, username, new PrivateKeyAuthenticationMethod(username, keyFile));
         }
         else if (!string.IsNullOrEmpty(password))
+        {
             conn = new ConnectionInfo(host, (int)port, username, new PasswordAuthenticationMethod(username, password));
+        }
         else
+        {
             conn = null;
+            failureReason = "未配置认证方式（请配置密码、私钥或 SSH Agent）";
+        }
         if (conn != null && connectionTimeout.HasValue)
             conn.Timeout = connectionTimeout.Value;
-        return conn;
+        return (conn, conn == null ? failureReason : null);
     }
 
     /// <summary>使用 SSH Agent（OpenSSH 或 PuTTY Pageant）创建连接信息。</summary>

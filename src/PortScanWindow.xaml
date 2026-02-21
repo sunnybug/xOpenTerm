@@ -10,6 +10,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="150"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -104,20 +105,48 @@
             </Grid>
         </Border>
 
+        <!-- 目标服务器列表（未扫描时显示，可增删改） -->
+        <Border Grid.Row="3" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1" Padding="12" Margin="0,0,0,12" CornerRadius="{StaticResource RadiusSm}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*" MinHeight="80"/>
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="目标服务器：" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondary}" Margin="0,0,8,0"/>
+                    <Button x:Name="TargetAddBtn" Content="添加" Style="{StaticResource SecondaryButtonStyle}"
+                            Padding="8,4" Margin="0,0,4,0" Click="TargetAddBtn_Click"
+                            ToolTip="添加要扫描的目标服务器（可手动输入主机地址）"/>
+                    <Button x:Name="TargetEditBtn" Content="编辑" Style="{StaticResource SecondaryButtonStyle}"
+                            Padding="8,4" Margin="0,0,4,0" Click="TargetEditBtn_Click"
+                            ToolTip="编辑选中的目标"/>
+                    <Button x:Name="TargetRemoveBtn" Content="删除" Style="{StaticResource SecondaryButtonStyle}"
+                            Padding="8,4" Click="TargetRemoveBtn_Click"
+                            ToolTip="从列表中移除选中的目标"/>
+                </StackPanel>
+                <ListBox x:Name="TargetListBox" Grid.Row="1" MinHeight="60"
+                         Background="Transparent" BorderThickness="0"
+                         DisplayMemberPath="DisplayLine"
+                         SelectionChanged="TargetListBox_SelectionChanged"/>
+            </Grid>
+        </Border>
+
         <!-- 开始/停止按钮 -->
-        <Button x:Name="StartBtn" Grid.Row="3" Content="开始扫描"
+        <Button x:Name="StartBtn" Grid.Row="4" Content="开始扫描"
                 Style="{StaticResource PrimaryButtonStyle}"
                 HorizontalAlignment="Left" Padding="16,6" Click="StartBtn_Click"/>
 
         <!-- 进度 -->
-        <TextBlock x:Name="ProgressText" Grid.Row="4" Text=""
+        <TextBlock x:Name="ProgressText" Grid.Row="5" Text=""
                    Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,8,0,4"
                    Visibility="Collapsed"/>
-        <ProgressBar x:Name="ProgressBar" Grid.Row="4" Height="6" Margin="0,0,0,8"
+        <ProgressBar x:Name="ProgressBar" Grid.Row="5" Height="6" Margin="0,0,0,8"
                      Minimum="0" Maximum="100" Value="0" Visibility="Collapsed"/>
 
         <!-- 结果 -->
-        <Border Grid.Row="5" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+        <Border Grid.Row="6" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                 CornerRadius="4" Margin="0,0,0,12" Padding="0">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           Padding="8">
@@ -126,7 +155,7 @@
         </Border>
 
         <!-- 取消/关闭 -->
-        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="CancelBtn" Content="取消" Style="{StaticResource SecondaryButtonStyle}"
                     Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click"/>
         </StackPanel>

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows;
@@ -11,10 +12,39 @@ using static xOpenTerm.Services.ExceptionLog;
 
 namespace xOpenTerm;
 
+/// <summary>端口扫描目标项：用于列表显示，可来自树节点或手动添加。</summary>
+public class PortScanTargetItem
+{
+    /// <summary>显示名称（列表行）</summary>
+    public string DisplayLine => $"{Name} — {Host} ({TypeLabel})";
+
+    public string Name { get; set; } = "";
+    public string Host { get; set; } = "";
+    public NodeType Type { get; set; }
+    public string TypeLabel => Type == NodeType.ssh ? "SSH" : Type == NodeType.rdp ? "RDP" : "主机";
+
+    /// <summary>若来自服务器树则为对应 Node，否则为 null（手动添加）。</summary>
+    public Node? Node { get; set; }
+
+    /// <summary>转为扫描用的 Node（手动项会生成临时 Node）。</summary>
+    public Node ToScanNode()
+    {
+        if (Node != null)
+            return Node;
+        return new Node
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = Name,
+            Type = Type,
+            Config = new ConnectionConfig { Host = Host }
+        };
+    }
+}
+
 /// <summary>端口扫描窗口：对所有主机节点（SSH/RDP）进行端口扫描，检测常用服务端口的开放状态。</summary>
 public partial class PortScanWindow : Window
 {
-    private readonly List<Node> _targetNodes;
+    private readonly ObservableCollection<PortScanTargetItem> _targetItems;
     private readonly IList<Node> _nodes;
     private readonly IList<Credential> _credentials;
     private readonly IList<Tunnel> _tunnels;
@@ -38,13 +68,30 @@ public partial class PortScanWindow : Window
         AppSettings settings)
     {
         InitializeComponent();
-        _targetNodes = targetNodes;
+        _targetItems = new ObservableCollection<PortScanTargetItem>();
         _nodes = nodes;
         _credentials = credentials;
         _tunnels = tunnels;
         _settings = settings;
         _storage = new StorageService();
         _nodeResultExpanders = new Dictionary<string, Expander>();
+
+        // 从传入的节点初始化目标列表
+        foreach (var n in targetNodes)
+        {
+            var host = n.Config?.Host ?? "";
+            if (string.IsNullOrEmpty(host)) continue;
+            _targetItems.Add(new PortScanTargetItem
+            {
+                Name = string.IsNullOrEmpty(n.Name) ? host : n.Name,
+                Host = host,
+                Type = n.Type == NodeType.ssh || n.Type == NodeType.rdp ? n.Type : NodeType.ssh,
+                Node = n
+            });
+        }
+
+        TargetListBox.ItemsSource = _targetItems;
+        UpdateTargetButtonsState();
 
         LoadSettings();
         InitializePresetCombo();
@@ -220,6 +267,179 @@ public partial class PortScanWindow : Window
         manageWindow.ShowDialog();
     }
 
+    private void TargetListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateTargetButtonsState();
+    }
+
+    private void UpdateTargetButtonsState()
+    {
+        var hasSelection = TargetListBox?.SelectedItem != null;
+        TargetEditBtn.IsEnabled = hasSelection;
+        TargetRemoveBtn.IsEnabled = hasSelection;
+    }
+
+    /// <summary>添加目标：弹窗输入主机、显示名、类型</summary>
+    private void TargetAddBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (ShowTargetEditDialog(this, isAdd: true, name: "", host: "", type: NodeType.ssh, out var outName, out var outHost, out var outType))
+        {
+            _targetItems.Add(new PortScanTargetItem { Name = outName, Host = outHost, Type = outType, Node = null });
+        }
+    }
+
+    /// <summary>编辑目标：仅可改显示名与主机（手动项可改类型）</summary>
+    private void TargetEditBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (TargetListBox.SelectedItem is not PortScanTargetItem item) return;
+        if (!ShowTargetEditDialog(this, isAdd: false, item.Name, item.Host, item.Type, out var outName, out var outHost, out var outType))
+            return;
+        item.Name = outName;
+        item.Host = outHost;
+        item.Type = outType;
+        // 触发列表刷新（DisplayLine 依赖 Name/Host/Type，ObservableCollection 不检测项内部变更，故先移后加）
+        var idx = _targetItems.IndexOf(item);
+        _targetItems.RemoveAt(idx);
+        _targetItems.Insert(idx, item);
+    }
+
+    /// <summary>删除选中的目标</summary>
+    private void TargetRemoveBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (TargetListBox.SelectedItem is not PortScanTargetItem item) return;
+        _targetItems.Remove(item);
+        UpdateTargetButtonsState();
+    }
+
+    /// <summary>显示添加/编辑目标对话框，返回是否确认及输出名称、主机、类型。</summary>
+    private static bool ShowTargetEditDialog(Window owner, bool isAdd, string name, string host, NodeType type,
+        out string outName, out string outHost, out NodeType outType)
+    {
+        outName = name;
+        outHost = host;
+        outType = type;
+
+        var title = isAdd ? "添加目标服务器" : "编辑目标服务器";
+        var win = new Window
+        {
+            Owner = owner,
+            Title = title,
+            Width = 380,
+            Height = 220,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize,
+            Background = (Brush)Application.Current.FindResource("BgDark")
+        };
+
+        var grid = new Grid { Margin = new Thickness(16) };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var textSecondary = (Brush)Application.Current.FindResource("TextSecondary");
+        var textPrimary = (Brush)Application.Current.FindResource("TextPrimary");
+
+        var nameLabel = new TextBlock { Text = "显示名称：", Foreground = textSecondary, Margin = new Thickness(0, 0, 0, 4) };
+        var nameBox = new System.Windows.Controls.TextBox
+        {
+            Text = name,
+            Margin = new Thickness(0, 0, 0, 8),
+            Style = (Style)Application.Current.FindResource("DialogTextBoxStyle")
+        };
+        Grid.SetRow(nameLabel, 0);
+        Grid.SetRow(nameBox, 1);
+
+        var hostLabel = new TextBlock { Text = "主机地址：", Foreground = textSecondary, Margin = new Thickness(0, 0, 0, 4) };
+        var hostBox = new System.Windows.Controls.TextBox
+        {
+            Text = host,
+            Margin = new Thickness(0, 0, 0, 8),
+            Style = (Style)Application.Current.FindResource("DialogTextBoxStyle")
+        };
+        Grid.SetRow(hostLabel, 2);
+        Grid.SetRow(hostBox, 3);
+
+        var typeLabel = new TextBlock { Text = "类型：", Foreground = textSecondary, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        var typeCombo = new System.Windows.Controls.ComboBox
+        {
+            Margin = new Thickness(0, 0, 0, 8),
+            Background = (Brush)Application.Current.FindResource("BgInput"),
+            Foreground = textPrimary,
+            BorderBrush = (Brush)Application.Current.FindResource("BorderBrush"),
+            BorderThickness = new Thickness(1, 1, 1, 1),
+            Padding = new Thickness(6, 4, 6, 4),
+            MinWidth = 100
+        };
+        typeCombo.Items.Add("SSH");
+        typeCombo.Items.Add("RDP");
+        typeCombo.SelectedIndex = type == NodeType.rdp ? 1 : 0;
+        var typePanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+        typePanel.Children.Add(typeLabel);
+        typePanel.Children.Add(typeCombo);
+        Grid.SetRow(typePanel, 4);
+
+        grid.Children.Add(nameLabel);
+        grid.Children.Add(nameBox);
+        grid.Children.Add(hostLabel);
+        grid.Children.Add(hostBox);
+        grid.Children.Add(typePanel);
+
+        var ok = new Button
+        {
+            Content = "确定",
+            IsDefault = true,
+            Style = (Style)Application.Current.FindResource("PrimaryButtonStyle"),
+            Padding = new Thickness(16, 6, 16, 6),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        var cancel = new Button
+        {
+            Content = "取消",
+            IsCancel = true,
+            Style = (Style)Application.Current.FindResource("SecondaryButtonStyle"),
+            Padding = new Thickness(16, 6, 16, 6)
+        };
+        var btnPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
+        btnPanel.Children.Add(ok);
+        btnPanel.Children.Add(cancel);
+        Grid.SetRow(btnPanel, 5);
+        grid.Children.Add(btnPanel);
+
+        bool confirmed = false;
+        var resultName = outName;
+        var resultHost = outHost;
+        var resultType = outType;
+        ok.Click += (_, _) =>
+        {
+            var h = (hostBox.Text ?? "").Trim();
+            if (string.IsNullOrEmpty(h))
+            {
+                MessageBox.Show("请输入主机地址。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            resultName = (nameBox.Text ?? "").Trim();
+            if (string.IsNullOrEmpty(resultName)) resultName = h;
+            resultHost = h;
+            resultType = typeCombo.SelectedIndex == 1 ? NodeType.rdp : NodeType.ssh;
+            confirmed = true;
+            win.Close();
+        };
+        cancel.Click += (_, _) => win.Close();
+
+        win.Content = grid;
+        win.ShowDialog();
+
+        if (confirmed)
+        {
+            outName = resultName;
+            outHost = resultHost;
+            outType = resultType;
+        }
+        return confirmed;
+    }
+
     private void UpdateUi(Action action)
     {
         var dispatcher = Dispatcher ?? Application.Current?.Dispatcher;
@@ -259,6 +479,9 @@ public partial class PortScanWindow : Window
                 TimeoutBox.IsEnabled = true;
                 ConcurrencyBox.IsEnabled = true;
                 SaveConfigCheckBox.IsEnabled = true;
+                TargetAddBtn.IsEnabled = true;
+                TargetListBox.IsEnabled = true;
+                UpdateTargetButtonsState();
             });
             return;
         }
@@ -308,9 +531,9 @@ public partial class PortScanWindow : Window
                 SaveSettings();
             }
 
-            // 获取所有可扫描的主机节点（SSH 和 RDP）
-            var targetNodes = _targetNodes.Where(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp).ToList();
-            WriteInfo($"PortScanWindow.StartBtn_Click: 筛选主机节点: {_targetNodes.Count} 个总节点, {targetNodes.Count} 个主机节点");
+            // 从目标列表获取可扫描的主机节点（SSH 和 RDP）
+            var targetNodes = _targetItems.Select(t => t.ToScanNode()).Where(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp).ToList();
+            WriteInfo($"PortScanWindow.StartBtn_Click: 筛选主机节点: {_targetItems.Count} 个目标, {targetNodes.Count} 个主机节点");
             if (targetNodes.Count == 0)
             {
                 WriteInfo("PortScanWindow.StartBtn_Click: 没有主机节点可扫描");
@@ -327,6 +550,10 @@ public partial class PortScanWindow : Window
             TimeoutBox.IsEnabled = false;
             ConcurrencyBox.IsEnabled = false;
             SaveConfigCheckBox.IsEnabled = false;
+            TargetAddBtn.IsEnabled = false;
+            TargetEditBtn.IsEnabled = false;
+            TargetRemoveBtn.IsEnabled = false;
+            TargetListBox.IsEnabled = false;
             ProgressText.Visibility = Visibility.Visible;
             ProgressText.Text = "正在准备扫描…"; // 重置进度文本
             ProgressBar.Visibility = Visibility.Visible;
@@ -431,15 +658,18 @@ public partial class PortScanWindow : Window
                 _completed = true;
                 UpdateUi(() =>
                 {
-                    StartBtn.Content = "开始扫描";
-                    StartBtn.IsEnabled = true;
-                    PresetCombo.IsEnabled = true;
-                    PortsCombo.IsEnabled = true;
-                    TimeoutBox.IsEnabled = true;
-                    ConcurrencyBox.IsEnabled = true;
-                    SaveConfigCheckBox.IsEnabled = true;
-                    CancelBtn.Content = "关闭";
-                });
+                StartBtn.Content = "开始扫描";
+                StartBtn.IsEnabled = true;
+                PresetCombo.IsEnabled = true;
+                PortsCombo.IsEnabled = true;
+                TimeoutBox.IsEnabled = true;
+                ConcurrencyBox.IsEnabled = true;
+                SaveConfigCheckBox.IsEnabled = true;
+                TargetAddBtn.IsEnabled = true;
+                TargetListBox.IsEnabled = true;
+                CancelBtn.Content = "关闭";
+                UpdateTargetButtonsState();
+            });
             }
         }
         catch (Exception ex)
@@ -706,13 +936,13 @@ public partial class PortScanWindow : Window
             WriteInfo($"PortScanWindow.AutoStartScan: 准备扫描端口: {PortsCombo.Text}");
 
             // 检查是否有可扫描的节点
-            if (_targetNodes == null || _targetNodes.Count == 0)
+            if (_targetItems == null || _targetItems.Count == 0)
             {
                 WriteInfo("PortScanWindow.AutoStartScan: 没有可扫描的节点");
                 return;
             }
 
-            var targetNodes = _targetNodes.Where(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp).ToList();
+            var targetNodes = _targetItems.Select(t => t.ToScanNode()).Where(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp).ToList();
             WriteInfo($"PortScanWindow.AutoStartScan: 找到 {targetNodes.Count} 个主机节点");
 
             // 模拟点击开始按钮

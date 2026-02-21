@@ -24,6 +24,9 @@
                 <MenuItem Header="设置主密码(_S)" Click="MenuMasterPasswordSet_Click"/>
                 <MenuItem Header="清除主密码(_C)" Click="MenuMasterPasswordClear_Click"/>
             </MenuItem>
+            <MenuItem Header="工具(_T)">
+                <MenuItem Header="端口扫描(_P)" Click="MenuPortScan_Click"/>
+            </MenuItem>
             <MenuItem Header="帮助(_H)">
                 <MenuItem Header="关于(_A)" Click="MenuAbout_Click"/>
             </MenuItem>

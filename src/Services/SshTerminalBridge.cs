@@ -55,9 +55,9 @@ public sealed class SshTerminalBridge : IDisposable
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
+                    var (conn, authFailure) = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
                     if (conn == null)
-                        throw new InvalidOperationException("跳板机连接失败：未配置认证方式（请配置密码、私钥或 SSH Agent）");
+                        throw new InvalidOperationException("跳板机连接失败：" + (authFailure ?? "未配置认证方式（请配置密码、私钥或 SSH Agent）"));
                     var client = new SshClient(conn);
                     SessionManager.AcceptAnyHostKey(client);
                     client.Connect();
@@ -87,9 +87,9 @@ public sealed class SshTerminalBridge : IDisposable
 
     private void ConnectDirect(string host, ushort port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent)
     {
-        var conn = SessionManager.CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent);
+        var (conn, authFailure) = SessionManager.CreateConnectionInfo(host, port, username, password, keyPath, keyPassphrase, useAgent);
         if (conn == null)
-            throw new InvalidOperationException("未配置认证方式（请配置密码、私钥或 SSH Agent）");
+            throw new InvalidOperationException(authFailure ?? "未配置认证方式（请配置密码、私钥或 SSH Agent）");
         _client = new SshClient(conn);
         SessionManager.AcceptAnyHostKey(_client);
         _client.Connect();

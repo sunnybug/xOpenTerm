@@ -19,6 +19,14 @@ internal static class RemoteFileLoadingPlaceholder
 /// <summary>主窗口：远程文件列表（浏览、编辑、改名、权限、删除、上传下载）。</summary>
 public partial class MainWindow
 {
+    /// <summary>显示模态对话框，关闭后激活主窗口并返回 DialogResult。</summary>
+    private bool? ShowDialogAndActivate(Window dialog)
+    {
+        dialog.ShowDialog();
+        Activate();
+        return dialog.DialogResult;
+    }
+
     private void LoadRemoteFileList()
     {
         if (string.IsNullOrEmpty(_remoteFileNodeId))
@@ -287,7 +295,7 @@ public partial class MainWindow
         btnPanel.Children.Add(ok);
         btnPanel.Children.Add(cancel);
         panel.Children.Add(btnPanel);
-        win.ShowDialog();
+        ShowDialogAndActivate(win);
         return result;
     }
 
@@ -307,7 +315,7 @@ public partial class MainWindow
         {
             Owner = this
         };
-        if (dlg.ShowDialog() != true || !dlg.ResultMode.HasValue) return;
+        if (ShowDialogAndActivate(dlg) != true || !dlg.ResultMode.HasValue) return;
         if (!RemoteFileService.SetFilePermissions(node, _nodes, _credentials, _tunnels, remotePath, dlg.ResultMode.Value, out err))
         {
             MessageBox.Show("设置权限失败：" + err, "xOpenTerm");
@@ -350,7 +358,9 @@ public partial class MainWindow
             FileName = item.Name,
             Title = "保存到本地"
         };
-        if (dlg.ShowDialog() != true) return;
+        var saveOk = dlg.ShowDialog();
+        Activate();
+        if (saveOk != true) return;
         if (!RemoteFileService.DownloadFile(node, _nodes, _credentials, _tunnels, remotePath, dlg.FileName, out var err))
         {
             MessageBox.Show("下载失败：" + err, "xOpenTerm");
@@ -370,7 +380,9 @@ public partial class MainWindow
         var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "." : RemotePathBox.Text.Trim();
         var remoteDir = (path == "." || string.IsNullOrEmpty(path)) ? "" : path.TrimEnd('/');
         var dlg = new Microsoft.Win32.OpenFileDialog { Title = "选择要上传的文件" };
-        if (dlg.ShowDialog() != true) return;
+        var openOk = dlg.ShowDialog();
+        Activate();
+        if (openOk != true) return;
         var remotePath = string.IsNullOrEmpty(remoteDir) ? Path.GetFileName(dlg.FileName) : remoteDir + "/" + Path.GetFileName(dlg.FileName);
         if (!RemoteFileService.UploadFile(node, _nodes, _credentials, _tunnels, dlg.FileName, remotePath, out var err))
         {

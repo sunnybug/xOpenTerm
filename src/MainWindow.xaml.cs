@@ -449,6 +449,22 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>将主窗口带到前台（如 RDP 外部凭据框取消后本进程窗口被其他进程盖住时调用）。</summary>
+    internal void BringMainWindowToFront()
+    {
+        if (!IsLoaded || !IsVisible) return;
+        var wasTopmost = Topmost;
+        try
+        {
+            Topmost = true;
+            Activate();
+        }
+        finally
+        {
+            Topmost = wasTopmost;
+        }
+    }
+
     private void ApplyWindowAndLayout(AppSettings settings)
     {
         var w = Math.Max(MinWindowWidth, Math.Min(settings.WindowWidth, SystemParameters.VirtualScreenWidth));

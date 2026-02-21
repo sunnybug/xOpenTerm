@@ -87,4 +87,18 @@ public partial class MainWindow
         win.Owner = this;
         win.Show();
     }
+
+    /// <summary>顶栏菜单：工具 → 端口扫描（使用全部主机节点作为初始目标，无则空列表）</summary>
+    private void MenuPortScan_Click(object sender, RoutedEventArgs e)
+    {
+        var targetNodes = _nodes
+            .Where(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp)
+            .GroupBy(n => n.Config?.Host ?? "")
+            .Where(g => !string.IsNullOrEmpty(g.Key))
+            .Select(g => g.First())
+            .ToList();
+        var win = new PortScanWindow(targetNodes, _nodes, _credentials, _tunnels, _appSettings);
+        win.Owner = this;
+        win.Show();
+    }
 }

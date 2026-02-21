@@ -22,9 +22,12 @@ public static class SshTester
         try
         {
             ConnectionInfo? conn;
+            string? authFailure = null;
             if (useAgent)
             {
-                conn = SessionManager.CreateConnectionInfo(host, port, username, null, null, null, true);
+                var (c, reason) = SessionManager.CreateConnectionInfo(host, port, username, null, null, null, true);
+                conn = c;
+                authFailure = reason;
             }
             else if (!string.IsNullOrEmpty(keyPath))
             {
@@ -40,7 +43,7 @@ public static class SshTester
                 return new TestResult(false, "未配置认证方式（请填写密码或选择密钥/Agent）。");
             }
             if (conn == null)
-                return new TestResult(false, "无法创建连接（如使用 Agent 请确认已启动 Pageant 等）。");
+                return new TestResult(false, authFailure ?? "无法创建连接（如使用 Agent 请确认已启动 Pageant 等）。");
             using var client = new SshClient(conn);
             SessionManager.AcceptAnyHostKey(client);
             ExceptionLog.WriteInfo($"{prefix} 开始 Connect host={host} port={port}");

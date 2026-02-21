@@ -57,10 +57,10 @@ public static class SftpSessionManager
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
                     var hop = jumpChain[i];
-                    var conn = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
+                    var (conn, authFailure) = SessionManager.CreateConnectionInfo(connectHost, connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent);
                     if (conn == null)
                     {
-                        error = hop.UseAgent ? $"跳板机 {i + 1}：请启动 SSH Agent 并添加私钥" : $"跳板机 {i + 1} 请配置密码或私钥";
+                        error = "跳板机 " + (i + 1) + "：" + (authFailure ?? "未配置认证方式（请配置密码、私钥或 SSH Agent）");
                         DisposeChain(chainDisposables);
                         return (null, null);
                     }
@@ -82,10 +82,10 @@ public static class SftpSessionManager
                 }
             }
 
-            var connectionInfo = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
+            var (connectionInfo, directAuthFailure) = SessionManager.CreateConnectionInfo(connectHost, connectPort, username, password, keyPath, keyPassphrase, useAgent);
             if (connectionInfo == null)
             {
-                error = useAgent ? "请启动 SSH Agent（OpenSSH 或 PuTTY Pageant）并添加私钥" : "请配置密码或私钥";
+                error = directAuthFailure ?? "未配置认证方式（请配置密码、私钥或 SSH Agent）";
                 DisposeChain(chainDisposables);
                 return (null, null);
             }
