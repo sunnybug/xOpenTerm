@@ -369,6 +369,7 @@ public partial class MainWindow : Window
                     settings.MasterPasswordSkipped = true;
                     _storage.SaveAppSettings(settings);
                 }
+                BringMainWindowToFront();
                 return true; // 用户取消设置或不再提醒，仍继续运行（使用原有固定密钥加解密）
             }
             var password = dlg.ResultPassword;
@@ -424,6 +425,7 @@ public partial class MainWindow : Window
         if (IsLoaded) enterDlg.Owner = this; else { enterDlg.WindowStartupLocation = WindowStartupLocation.CenterScreen; enterDlg.Topmost = true; }
         if (enterDlg.ShowDialog() != true)
         {
+            BringMainWindowToFront();
             // 取消或不再提醒均视为放弃输入，无法解密配置则退出
             return false;
         }
@@ -497,6 +499,7 @@ public partial class MainWindow : Window
             MessageBox.Show("当前有连接未关闭，确定要退出吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
         {
             e.Cancel = true;
+            BringMainWindowToFront();
             return;
         }
         var s = _storage.LoadAppSettings();
@@ -595,6 +598,7 @@ public partial class MainWindow : Window
     {
         var win = new CredentialsWindow(this);
         win.ShowDialog();
+        BringMainWindowToFront();
         LoadData();
         BuildTree();
     }
@@ -604,24 +608,16 @@ public partial class MainWindow : Window
         var win = new SettingsWindow(this);
         if (win.ShowDialog() == true)
             ApplyAppSettings(_storage.LoadAppSettings());
+        BringMainWindowToFront();
     }
 
     private void MenuTunnels_Click(object sender, RoutedEventArgs e)
     {
         var win = new TunnelManagerWindow(this);
         win.ShowDialog();
+        BringMainWindowToFront();
         LoadData();
         BuildTree();
-    }
-
-    private void MenuPortPresetManage_Click(object sender, RoutedEventArgs e)
-    {
-        var win = new PortPresetManageWindow(_appSettings, _storage, () =>
-        {
-            // 刷新回调：重新加载设置以获取最新的端口预设
-            _appSettings = _storage.LoadAppSettings();
-        });
-        win.ShowDialog();
     }
 
     private void MenuRestoreConfig_Click(object sender, RoutedEventArgs e)
@@ -633,16 +629,19 @@ public partial class MainWindow : Window
             BuildTree();
             ApplyAppSettings(_storage.LoadAppSettings());
         }
+        BringMainWindowToFront();
     }
 
     private void MenuAbout_Click(object sender, RoutedEventArgs e)
     {
         new AboutWindow(this).ShowDialog();
+        BringMainWindowToFront();
     }
 
     private void MenuUpdate_Click(object sender, RoutedEventArgs e)
     {
         new UpdateWindow(this).ShowDialog();
+        BringMainWindowToFront();
     }
 
     private void MenuMasterPasswordSet_Click(object sender, RoutedEventArgs e)
@@ -653,12 +652,16 @@ public partial class MainWindow : Window
             && !string.IsNullOrEmpty(settings.MasterPasswordSalt) && !string.IsNullOrEmpty(settings.MasterPasswordVerifier))
         {
             MessageBox.Show("您已设置主密码。若要修改请先使用「清除主密码」，再重新设置。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            BringMainWindowToFront();
             return;
         }
         var dlg = new MasterPasswordWindow(isSetMode: true, salt: null, verifier: null);
         dlg.Owner = this;
         if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.ResultPassword))
+        {
+            BringMainWindowToFront();
             return;
+        }
         var password = dlg.ResultPassword;
         var salt = MasterPasswordService.GenerateSalt();
         var key = MasterPasswordService.DeriveKey(password, salt);
@@ -674,6 +677,7 @@ public partial class MainWindow : Window
         _storage.SaveNodes(_nodes);
         _storage.SaveCredentials(_credentials);
         MessageBox.Show("主密码已设置。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+        BringMainWindowToFront();
     }
 
     private void MenuMasterPasswordClear_Click(object sender, RoutedEventArgs e)
@@ -684,6 +688,7 @@ public partial class MainWindow : Window
         if (!hasMasterPassword)
         {
             MessageBox.Show("当前未使用主密码。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            BringMainWindowToFront();
             return;
         }
         // 清除前要求输入当前主密码以确认身份
@@ -696,14 +701,21 @@ public partial class MainWindow : Window
         if (saltBytes == null || verifierBytes == null || verifierBytes.Length != 32)
         {
             MessageBox.Show("主密码配置异常，无法执行清除。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            BringMainWindowToFront();
             return;
         }
         var verifyDlg = new MasterPasswordWindow(isSetMode: false, saltBytes, verifierBytes, verifyOnly: true);
         if (verifyDlg.ShowDialog() != true)
+        {
+            BringMainWindowToFront();
             return;
+        }
         if (MessageBox.Show("清除后，下次启动将不再使用主密码；本地保存的密钥文件也会删除。配置中的密码将改用固定密钥重新保存。是否继续？",
                 "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         SecretService.SetSessionMasterKey(null);
         settings.MasterPasswordAsked = false;
         settings.MasterPasswordSalt = null;
@@ -715,6 +727,7 @@ public partial class MainWindow : Window
         _storage.SaveNodes(_nodes);
         _storage.SaveCredentials(_credentials);
         MessageBox.Show("主密码已清除。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+        BringMainWindowToFront();
     }
 
     /// <summary>检查是否有新版本可用</summary>
@@ -734,7 +747,7 @@ public partial class MainWindow : Window
                     var latestTag = latestTagMatch.Groups[1].Value;
                     var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
                     var currentVersionStr = currentVersion != null ? $"{currentVersion.Major}.{currentVersion.Minor}.{currentVersion.Build}" : "0.0.0";
-                    
+
                     if (IsNewerVersion(latestTag, currentVersionStr))
                     {
                         _hasNewVersion = true;
@@ -755,7 +768,7 @@ public partial class MainWindow : Window
         var cleanedLatest = latestTag.TrimStart('v', 'V').Split('-')[0];
         var latestParts = cleanedLatest.Split('.').Select(p => int.TryParse(p, out var n) ? n : 0).ToArray();
         var currentParts = currentVersion.Split('.').Select(p => int.TryParse(p, out var n) ? n : 0).ToArray();
-        
+
         for (var i = 0; i < Math.Max(latestParts.Length, currentParts.Length); i++)
         {
             var latestNum = i < latestParts.Length ? latestParts[i] : 0;
@@ -772,21 +785,21 @@ public partial class MainWindow : Window
         // 找到帮助菜单
         var helpMenu = MainMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header.ToString()?.Contains("帮助") ?? false);
         if (helpMenu == null) return;
-        
+
         // 清除现有的更新菜单项
         var existingUpdateItem = helpMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header.ToString()?.Contains("更新") ?? false);
         if (existingUpdateItem != null)
         {
             helpMenu.Items.Remove(existingUpdateItem);
         }
-        
+
         // 重新排序菜单项：如果有新版本，更新项在关于项之前；否则只保留关于项
         var aboutItem = helpMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header.ToString()?.Contains("关于") ?? false);
         if (aboutItem != null)
         {
             helpMenu.Items.Remove(aboutItem);
         }
-        
+
         // 如果有新版本，添加更新菜单项
         if (_hasNewVersion)
         {
@@ -797,7 +810,7 @@ public partial class MainWindow : Window
             _updateMenuItem.Click += MenuUpdate_Click;
             helpMenu.Items.Add(_updateMenuItem);
         }
-        
+
         // 添加关于菜单项（始终在最后）
         if (aboutItem == null)
         {

@@ -23,7 +23,7 @@ public partial class MainWindow
     private bool? ShowDialogAndActivate(Window dialog)
     {
         dialog.ShowDialog();
-        Activate();
+        BringMainWindowToFront();
         return dialog.DialogResult;
     }
 
@@ -182,6 +182,7 @@ public partial class MainWindow
         if (!RemoteFileService.DownloadFile(node, _nodes, _credentials, _tunnels, remotePath, tempPath, out var err))
         {
             MessageBox.Show("下载失败：" + err, "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         var originalBytes = File.ReadAllBytes(tempPath);
@@ -197,6 +198,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             MessageBox.Show("无法用默认程序打开：" + ex.Message, "xOpenTerm");
+            BringMainWindowToFront();
             try { File.Delete(tempPath); } catch { }
             return;
         }
@@ -232,8 +234,13 @@ public partial class MainWindow
                             if (RemoteFileService.UploadFile(nodeCopy, nodesCopy, credentialsCopy, tunnelsCopy, tempPath, remotePath, out var uploadErr))
                                 LoadRemoteFileList();
                             else
+                            {
                                 MessageBox.Show("上传失败：" + uploadErr, "xOpenTerm");
+                                BringMainWindowToFront();
+                            }
                         }
+                        else if (changed)
+                            BringMainWindowToFront();
                         try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
                     });
                     return;
@@ -254,12 +261,14 @@ public partial class MainWindow
         if (newName.IndexOfAny(new[] { '/', '\\', '\0' }) >= 0)
         {
             MessageBox.Show("新名称不能包含 / 或 \\。", "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         var newRemotePath = (path == "." || string.IsNullOrEmpty(path)) ? newName : path.TrimEnd('/') + "/" + newName;
         if (!RemoteFileService.RenamePath(node, _nodes, _credentials, _tunnels, remotePath, newRemotePath, out var err))
         {
             MessageBox.Show("改名失败：" + err, "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         LoadRemoteFileList();
@@ -309,6 +318,7 @@ public partial class MainWindow
         if (!RemoteFileService.GetFilePermissions(node, _nodes, _credentials, _tunnels, remotePath, out var mode, out var err))
         {
             MessageBox.Show("获取权限失败：" + err, "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         var dlg = new PermissionsWindow(item.Name, mode)
@@ -319,6 +329,7 @@ public partial class MainWindow
         if (!RemoteFileService.SetFilePermissions(node, _nodes, _credentials, _tunnels, remotePath, dlg.ResultMode.Value, out err))
         {
             MessageBox.Show("设置权限失败：" + err, "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         LoadRemoteFileList();
@@ -332,10 +343,15 @@ public partial class MainWindow
         var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "." : RemotePathBox.Text.Trim();
         var remotePath = (path == "." || string.IsNullOrEmpty(path)) ? item.Name : path.TrimEnd('/') + "/" + item.Name;
         var tip = item.IsDirectory ? "确定要删除该目录及其内容吗？" : "确定要删除该文件吗？";
-        if (MessageBox.Show(tip, "xOpenTerm", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (MessageBox.Show(tip, "xOpenTerm", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
+            return;
+        }
         if (!RemoteFileService.DeletePath(node, _nodes, _credentials, _tunnels, remotePath, item.IsDirectory, out var err))
         {
             MessageBox.Show("删除失败：" + err, "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         LoadRemoteFileList();
@@ -347,6 +363,7 @@ public partial class MainWindow
         if (item.IsDirectory)
         {
             MessageBox.Show("暂不支持下载整个目录，请选择文件后下载。", "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         var node = _nodes.FirstOrDefault(n => n.Id == _remoteFileNodeId);
@@ -359,14 +376,16 @@ public partial class MainWindow
             Title = "保存到本地"
         };
         var saveOk = dlg.ShowDialog();
-        Activate();
+        BringMainWindowToFront();
         if (saveOk != true) return;
         if (!RemoteFileService.DownloadFile(node, _nodes, _credentials, _tunnels, remotePath, dlg.FileName, out var err))
         {
             MessageBox.Show("下载失败：" + err, "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         MessageBox.Show("下载完成。", "xOpenTerm");
+        BringMainWindowToFront();
     }
 
     private void RemoteFileList_Upload_Click(object sender, RoutedEventArgs e)
@@ -375,18 +394,20 @@ public partial class MainWindow
         if (node == null)
         {
             MessageBox.Show("请先连接一台 SSH 服务器以使用远程文件。", "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "." : RemotePathBox.Text.Trim();
         var remoteDir = (path == "." || string.IsNullOrEmpty(path)) ? "" : path.TrimEnd('/');
         var dlg = new Microsoft.Win32.OpenFileDialog { Title = "选择要上传的文件" };
         var openOk = dlg.ShowDialog();
-        Activate();
+        BringMainWindowToFront();
         if (openOk != true) return;
         var remotePath = string.IsNullOrEmpty(remoteDir) ? Path.GetFileName(dlg.FileName) : remoteDir + "/" + Path.GetFileName(dlg.FileName);
         if (!RemoteFileService.UploadFile(node, _nodes, _credentials, _tunnels, dlg.FileName, remotePath, out var err))
         {
             MessageBox.Show("上传失败：" + err, "xOpenTerm");
+            BringMainWindowToFront();
             return;
         }
         LoadRemoteFileList();

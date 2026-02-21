@@ -17,7 +17,6 @@
                 <MenuItem Header="字体(_F)" Click="MenuFontSettings_Click"/>
                 <MenuItem Header="登录凭证(_P)" Click="MenuCredentials_Click"/>
                 <MenuItem Header="隧道管理(_T)" Click="MenuTunnels_Click"/>
-                <MenuItem Header="端口扫描预设(_O)" Click="MenuPortPresetManage_Click"/>
                 <MenuItem Header="恢复配置(_R)" Click="MenuRestoreConfig_Click"/>
             </MenuItem>
             <MenuItem Header="主密码(_M)">
@@ -26,6 +25,7 @@
             </MenuItem>
             <MenuItem Header="工具(_T)">
                 <MenuItem Header="端口扫描(_P)" Click="MenuPortScan_Click"/>
+                <MenuItem Header="同步所有云节点(_Y)" Click="MenuSyncAllCloudNodes_Click"/>
             </MenuItem>
             <MenuItem Header="帮助(_H)">
                 <MenuItem Header="关于(_A)" Click="MenuAbout_Click"/>
@@ -55,6 +55,7 @@
                                          Foreground="{StaticResource TextPrimary}" Background="{StaticResource BgInput}"
                                          BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                                          TextChanged="ServerSearchBox_TextChanged"
+                                         PreviewKeyDown="ServerSearchBox_PreviewKeyDown"
                                          ToolTip="按节点名称、主机地址、用户名快速过滤"/>
                                 <TextBlock x:Name="ServerSearchBoxPlaceholder" Text="Ctrl+Q"
                                            Margin="10,8,8,8" VerticalAlignment="Center"

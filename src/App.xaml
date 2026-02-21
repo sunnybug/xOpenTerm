@@ -53,6 +53,15 @@
                     </Trigger>
                 </Style.Triggers>
             </Style>
+            <!-- 单选选中态使用 Accent 色，与 BgInput 背景区分 -->
+            <Style TargetType="RadioButton" BasedOn="{StaticResource {x:Type RadioButton}}">
+                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                <Style.Triggers>
+                    <Trigger Property="IsChecked" Value="True">
+                        <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
             <!-- 可编辑输入框激活时显示并闪烁光标：全局设置 CaretBrush，非只读时可见 -->
             <Style TargetType="TextBox">
                 <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}"/>

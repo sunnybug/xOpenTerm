@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using xOpenTerm.Controls;
@@ -211,6 +212,15 @@ public partial class MainWindow
         if (node.Config?.Host?.ToLowerInvariant().Contains(term) == true) return true;
         if (node.Config?.Username?.ToLowerInvariant().Contains(term) == true) return true;
         return _nodes.Where(n => n.ParentId == node.Id).Any(MatchesSearch);
+    }
+
+    private void ServerSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        if (ServerSearchBox == null) return;
+        ServerSearchBox.Text = "";
+        ServerSearchBox.Focus();
+        e.Handled = true;
     }
 
     private void ServerSearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)

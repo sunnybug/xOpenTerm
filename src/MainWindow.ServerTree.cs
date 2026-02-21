@@ -40,12 +40,16 @@ public partial class MainWindow
         if (leaves.Count == 0)
         {
             MessageBox.Show("该分组下没有可连接的主机。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            BringMainWindowToFront();
             return;
         }
         var groupNode = _nodes.FirstOrDefault(n => n.Id == groupId);
         var groupName = groupNode != null ? (GetNodeDisplayName(groupNode) ?? groupNode.Name ?? "未命名分组") : "分组";
         if (MessageBox.Show($"确定要连接分组「{groupName}」下的全部 {leaves.Count} 台主机吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         foreach (var node in leaves)
             OpenTab(node);
     }
@@ -68,7 +72,10 @@ public partial class MainWindow
         var name = string.IsNullOrEmpty(node.Name) ? "未命名分组" : (GetNodeDisplayName(node) ?? node.Name);
         if (string.IsNullOrWhiteSpace(name)) name = "未命名分组";
         if (MessageBox.Show($"确定删除分组「{name}」及全部子节点？此操作不可恢复。", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         RemoveNodeRecursive(node.Id);
         _storage.SaveNodes(_nodes);
         BuildTree();
@@ -95,7 +102,10 @@ public partial class MainWindow
         var name = string.IsNullOrEmpty(node.Name) && node.Config?.Host != null ? node.Config.Host : (GetNodeDisplayName(node) ?? node.Name ?? "未命名节点");
         if (string.IsNullOrWhiteSpace(name)) name = "未命名节点";
         if (MessageBox.Show($"确定删除节点「{name}」？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         _nodes.RemoveAll(n => n.Id == node.Id);
         _storage.SaveNodes(_nodes);
         BuildTree();
@@ -155,6 +165,7 @@ public partial class MainWindow
             // 局部更新节点，避免重刷整个树
             UpdateTreeItem(node);
         }
+        BringMainWindowToFront();
     }
 
     /// <summary>局部更新树中指定节点的显示，避免重刷整个树。</summary>
@@ -226,13 +237,18 @@ public partial class MainWindow
             // 局部更新节点，避免重刷整个树
             UpdateTreeItem(groupNode);
         }
+        BringMainWindowToFront();
     }
 
     private void ImportMobaXterm(Node? parentNode)
     {
         var settings = _storage.LoadAppSettings();
         var dlg = new ImportMobaXtermWindow(this, settings.LastMobaXtermIniPath, settings.LastMobaXtermPasswordPath);
-        if (dlg.ShowDialog() != true || dlg.SelectedSessions.Count == 0) return;
+        if (dlg.ShowDialog() != true || dlg.SelectedSessions.Count == 0)
+        {
+            BringMainWindowToFront();
+            return;
+        }
         settings.LastMobaXtermIniPath = string.IsNullOrWhiteSpace(dlg.LastUsedIniPath) ? null : dlg.LastUsedIniPath;
         settings.LastMobaXtermPasswordPath = string.IsNullOrWhiteSpace(dlg.LastUsedPasswordPath) ? null : dlg.LastUsedPasswordPath;
         _storage.SaveAppSettings(settings);
@@ -341,16 +357,22 @@ public partial class MainWindow
             DefaultExt = "yaml",
             FileName = $"nodes-export-{DateTime.Now:MMyy-HHmm}.yaml"
         };
-        if (dlg.ShowDialog() != true) return;
+        if (dlg.ShowDialog() != true)
+        {
+            BringMainWindowToFront();
+            return;
+        }
         try
         {
             var yaml = _storage.SerializeExport(data);
             File.WriteAllText(dlg.FileName, yaml);
             MessageBox.Show($"已导出 {_nodes.Count} 个节点、{credentials.Count} 个凭证。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            BringMainWindowToFront();
         }
         catch (Exception ex)
         {
             MessageBox.Show($"导出失败：{ex.Message}", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Error);
+            BringMainWindowToFront();
         }
     }
 
@@ -361,7 +383,11 @@ public partial class MainWindow
             Title = "导入 YAML",
             Filter = "YAML 文件 (*.yaml)|*.yaml|所有文件 (*.*)|*.*"
         };
-        if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.FileName)) return;
+        if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.FileName))
+        {
+            BringMainWindowToFront();
+            return;
+        }
         try
         {
             var yaml = File.ReadAllText(dlg.FileName);
@@ -369,6 +395,7 @@ public partial class MainWindow
             if (data?.Nodes == null || data.Nodes.Count == 0)
             {
                 MessageBox.Show("文件中没有节点数据。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+                BringMainWindowToFront();
                 return;
             }
             var importedCreds = data.Credentials ?? new List<Credential>();
@@ -419,10 +446,12 @@ public partial class MainWindow
             BuildTree(expandNodes: false);
             var skipMsg = removedCloudGroupIds.Count > 0 ? $"，已跳过 {removedCloudGroupIds.Count} 个云组节点（云组下不允许嵌套云组）" : "";
             MessageBox.Show($"已导入 {nodesToAdd.Count} 个节点{skipMsg}；凭证：相同已忽略，不同已新增。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            BringMainWindowToFront();
         }
         catch (Exception ex)
         {
             MessageBox.Show($"导入失败：{ex.Message}", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Error);
+            BringMainWindowToFront();
         }
     }
 
@@ -474,11 +503,16 @@ public partial class MainWindow
             if (parent != null && HasAncestorOrSelfCloudGroup(parent))
             {
                 MessageBox.Show("云组下不允许再嵌套云组，请在其他分组下新建。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                BringMainWindowToFront();
                 return;
             }
         }
         var dlg = new TencentCloudGroupAddWindow { Owner = this };
-        if (dlg.ShowDialog() != true) return;
+        if (dlg.ShowDialog() != true)
+        {
+            BringMainWindowToFront();
+            return;
+        }
 
         var groupNode = new Node
         {
@@ -508,11 +542,16 @@ public partial class MainWindow
             if (parent != null && HasAncestorOrSelfCloudGroup(parent))
             {
                 MessageBox.Show("云组下不允许再嵌套云组，请在其他分组下新建。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                BringMainWindowToFront();
                 return;
             }
         }
         var dlg = new AliCloudGroupAddWindow { Owner = this };
-        if (dlg.ShowDialog() != true) return;
+        if (dlg.ShowDialog() != true)
+        {
+            BringMainWindowToFront();
+            return;
+        }
 
         var groupNode = new Node
         {
@@ -540,11 +579,16 @@ public partial class MainWindow
             if (parent != null && HasAncestorOrSelfCloudGroup(parent))
             {
                 MessageBox.Show("云组下不允许再嵌套云组，请在其他分组下新建。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                BringMainWindowToFront();
                 return;
             }
         }
         var dlg = new KingsoftCloudGroupAddWindow { Owner = this };
-        if (dlg.ShowDialog() != true) return;
+        if (dlg.ShowDialog() != true)
+        {
+            BringMainWindowToFront();
+            return;
+        }
 
         var groupNode = new Node
         {
@@ -663,6 +707,7 @@ public partial class MainWindow
         if (groupNode.Config?.AliAccessKeyId == null || groupNode.Config?.AliAccessKeySecret == null)
         {
             MessageBox.Show("该阿里云组未配置密钥，请先在「设置」中保存 AccessKeyId/AccessKeySecret。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            BringMainWindowToFront();
             return;
         }
 
@@ -741,7 +786,10 @@ public partial class MainWindow
                 }
             }
             else
+            {
                 toRemove = new List<Node>();
+                BringMainWindowToFront();
+            }
         }
 
         var instanceMap = instances.Where(i => !string.IsNullOrEmpty(i.InstanceId)).ToDictionary(i => i.InstanceId!, StringComparer.OrdinalIgnoreCase);
@@ -834,6 +882,7 @@ public partial class MainWindow
         if (groupNode.Config?.KsyunAccessKeyId == null || groupNode.Config?.KsyunAccessKeySecret == null)
         {
             MessageBox.Show("该金山云组未配置密钥，请先在「设置」中保存 AccessKeyId/AccessKeySecret。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            BringMainWindowToFront();
             return;
         }
 
@@ -912,7 +961,10 @@ public partial class MainWindow
                 }
             }
             else
+            {
                 toRemove = new List<Node>();
+                BringMainWindowToFront();
+            }
         }
 
         var instanceMap = instances.Where(i => !string.IsNullOrEmpty(i.InstanceId)).ToDictionary(i => i.InstanceId!, StringComparer.OrdinalIgnoreCase);
@@ -1079,7 +1131,10 @@ public partial class MainWindow
     private void RebuildTencentCloudGroup(Node groupNode)
     {
         if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         RemoveChildrenOfNode(groupNode);
         SetGroupCredentialDefaultsToParent(groupNode);
         SyncTencentCloudGroup(groupNode);
@@ -1088,7 +1143,10 @@ public partial class MainWindow
     private void RebuildAliCloudGroup(Node groupNode)
     {
         if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         RemoveChildrenOfNode(groupNode);
         SetGroupCredentialDefaultsToParent(groupNode);
         SyncAliCloudGroup(groupNode);
@@ -1097,7 +1155,10 @@ public partial class MainWindow
     private void RebuildKingsoftCloudGroup(Node groupNode)
     {
         if (MessageBox.Show("重建将删除该云组下所有节点后再从云端同步，是否继续？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         RemoveChildrenOfNode(groupNode);
         SetGroupCredentialDefaultsToParent(groupNode);
         SyncKingsoftCloudGroup(groupNode);
@@ -1108,6 +1169,7 @@ public partial class MainWindow
         if (groupNode.Config?.TencentSecretId == null || groupNode.Config?.TencentSecretKey == null)
         {
             MessageBox.Show("该腾讯云组未配置密钥，请先在「设置」中保存 SecretId/SecretKey。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            BringMainWindowToFront();
             return;
         }
 
@@ -1220,7 +1282,10 @@ public partial class MainWindow
                 }
             }
             else
+            {
                 toRemove = new List<Node>();
+                BringMainWindowToFront();
+            }
         }
 
         // 现有实例 ID -> 实例信息（用于更新 IP 或新增）

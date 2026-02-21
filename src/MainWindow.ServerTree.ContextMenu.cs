@@ -142,7 +142,10 @@ public partial class MainWindow
     {
         if (selectedNodes.Count == 0) return;
         if (MessageBox.Show($"确定删除选中的 {selectedNodes.Count} 个节点？此操作不可恢复。", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         var byDepth = selectedNodes.OrderByDescending(n => NodeDepth(n.Id)).ToList();
         foreach (var n in byDepth)
         {
@@ -419,6 +422,7 @@ public partial class MainWindow
         {
             ExceptionLog.Write(ex, "打开云详情链接失败");
             MessageBox.Show($"无法打开链接：{ex.Message}", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            (Application.Current?.MainWindow as MainWindow)?.BringMainWindowToFront();
         }
     }
 

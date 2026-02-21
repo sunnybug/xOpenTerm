@@ -144,6 +144,7 @@ public partial class MainWindow
             {
                 ExceptionLog.Write(ex, "SSH 连接失败", toCrashLog: false);
                 MessageBox.Show("SSH 连接失败：" + ex.Message, "xOpenTerm");
+                BringMainWindowToFront();
                 CloseTab(tabId);
             }
         }));
@@ -363,6 +364,7 @@ public partial class MainWindow
                 {
                     ExceptionLog.Write(ex, "SSH 重连失败", toCrashLog: false);
                     MessageBox.Show("重连失败：" + ex.Message, "xOpenTerm");
+                    BringMainWindowToFront();
                 }
             }));
         }
@@ -370,6 +372,7 @@ public partial class MainWindow
         {
             ExceptionLog.Write(ex, "重连失败", toCrashLog: false);
             MessageBox.Show("重连失败：" + ex.Message, "xOpenTerm");
+            BringMainWindowToFront();
         }
     }
 
@@ -428,11 +431,13 @@ public partial class MainWindow
             if (string.IsNullOrWhiteSpace(host))
             {
                 MessageBox.Show("请填写 RDP 主机地址。", "xOpenTerm");
+                BringMainWindowToFront();
                 return;
             }
             if (string.IsNullOrEmpty(password))
             {
                 MessageBox.Show("未填写密码或未选择登录凭证，内嵌 RDP 无法自动登录。请填写密码或选择凭证后再连接，或使用右键菜单「使用 mstsc 打开」在外部连接并手动输入密码。", "xOpenTerm");
+                BringMainWindowToFront();
                 return;
             }
 
@@ -498,6 +503,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "xOpenTerm");
+            BringMainWindowToFront();
         }
     }
 
@@ -515,7 +521,10 @@ public partial class MainWindow
     private void CloseTabWithConfirm(string tabId)
     {
         if (MessageBox.Show("确定要关闭此连接吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         CloseTab(tabId);
     }
 
@@ -524,7 +533,10 @@ public partial class MainWindow
     {
         if (TabsControl.Items.Count == 0) return;
         if (MessageBox.Show("确定要关闭所有连接吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            BringMainWindowToFront();
             return;
+        }
         var tabIds = new List<string>();
         foreach (var item in TabsControl.Items)
         {
@@ -725,7 +737,11 @@ public partial class MainWindow
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex) when (ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
                 {
-                    Dispatcher.Invoke(() => MessageBox.Show("SSH 状态栏采集失败：认证尝试次数过多，服务器已断开。已停止重试。\n\n" + ex.Message, "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning));
+                    Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show("SSH 状态栏采集失败：认证尝试次数过多，服务器已断开。已停止重试。\n\n" + ex.Message, "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        BringMainWindowToFront();
+                    });
                     break;
                 }
                 catch
@@ -837,7 +853,11 @@ public partial class MainWindow
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex) when (ex.Message.Contains("Too many authentication failures", StringComparison.OrdinalIgnoreCase))
                 {
-                    Dispatcher.Invoke(() => MessageBox.Show("SSH 状态栏采集失败：认证尝试次数过多，服务器已断开。已停止重试。\n\n" + ex.Message, "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning));
+                    Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show("SSH 状态栏采集失败：认证尝试次数过多，服务器已断开。已停止重试。\n\n" + ex.Message, "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        BringMainWindowToFront();
+                    });
                     break;
                 }
                 catch

@@ -15,8 +15,8 @@ namespace xOpenTerm;
 /// <summary>端口扫描目标项：用于列表显示，可来自树节点或手动添加。</summary>
 public class PortScanTargetItem
 {
-    /// <summary>显示名称（列表行）</summary>
-    public string DisplayLine => $"{Name} — {Host} ({TypeLabel})";
+    /// <summary>显示名称（列表行）；名称为空时仅显示主机与类型</summary>
+    public string DisplayLine => string.IsNullOrEmpty(Name) ? $"{Host} ({TypeLabel})" : $"{Name} — {Host} ({TypeLabel})";
 
     public string Name { get; set; } = "";
     public string Host { get; set; } = "";
@@ -52,7 +52,9 @@ public partial class PortScanWindow : Window
     private readonly IStorageService _storage;
     private CancellationTokenSource? _cts;
     private bool _completed;
-    private readonly Dictionary<string, Expander> _nodeResultExpanders; // 节点ID对应的Expander
+    /// <summary>每个目标对应一个 Expander，顺序与 _targetItems 一致，用于合并目标列表与扫描结果。</summary>
+    private readonly List<Expander> _targetExpanders;
+    private int _selectedTargetIndex = -1;
 
     /// <summary>扫描完成事件（成功）</summary>
     public event EventHandler? ScanCompleted;
@@ -74,7 +76,7 @@ public partial class PortScanWindow : Window
         _tunnels = tunnels;
         _settings = settings;
         _storage = new StorageService();
-        _nodeResultExpanders = new Dictionary<string, Expander>();
+        _targetExpanders = new List<Expander>();
 
         // 从传入的节点初始化目标列表
         foreach (var n in targetNodes)
@@ -90,7 +92,7 @@ public partial class PortScanWindow : Window
             });
         }
 
-        TargetListBox.ItemsSource = _targetItems;
+        RefreshMergedPanel();
         UpdateTargetButtonsState();
 
         LoadSettings();
@@ -267,14 +269,40 @@ public partial class PortScanWindow : Window
         manageWindow.ShowDialog();
     }
 
-    private void TargetListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    /// <summary>根据 _targetItems 刷新“目标与扫描结果”合并列表，每个目标一个 Expander。</summary>
+    private void RefreshMergedPanel()
     {
-        UpdateTargetButtonsState();
+        MergedPanel.Children.Clear();
+        _targetExpanders.Clear();
+        for (var i = 0; i < _targetItems.Count; i++)
+        {
+            var item = _targetItems[i];
+            var index = i;
+            var contentPanel = new StackPanel { Margin = new Thickness(12, 0, 0, 8) };
+            var expander = new Expander
+            {
+                Header = item.DisplayLine,
+                Content = contentPanel,
+                IsExpanded = false,
+                Foreground = (Brush)FindResource("TextPrimary"),
+                Margin = new Thickness(0, 4, 0, 0),
+                Padding = new Thickness(0, 4, 0, 4),
+                Tag = index
+            };
+            // 展开时视为选中该目标
+            expander.Expanded += (_, _) =>
+            {
+                _selectedTargetIndex = index;
+                UpdateTargetButtonsState();
+            };
+            _targetExpanders.Add(expander);
+            MergedPanel.Children.Add(expander);
+        }
     }
 
     private void UpdateTargetButtonsState()
     {
-        var hasSelection = TargetListBox?.SelectedItem != null;
+        var hasSelection = _selectedTargetIndex >= 0 && _selectedTargetIndex < _targetItems.Count;
         TargetEditBtn.IsEnabled = hasSelection;
         TargetRemoveBtn.IsEnabled = hasSelection;
     }
@@ -285,29 +313,34 @@ public partial class PortScanWindow : Window
         if (ShowTargetEditDialog(this, isAdd: true, name: "", host: "", type: NodeType.ssh, out var outName, out var outHost, out var outType))
         {
             _targetItems.Add(new PortScanTargetItem { Name = outName, Host = outHost, Type = outType, Node = null });
+            RefreshMergedPanel();
         }
     }
 
     /// <summary>编辑目标：仅可改显示名与主机（手动项可改类型）</summary>
     private void TargetEditBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (TargetListBox.SelectedItem is not PortScanTargetItem item) return;
+        if (_selectedTargetIndex < 0 || _selectedTargetIndex >= _targetItems.Count) return;
+        var item = _targetItems[_selectedTargetIndex];
         if (!ShowTargetEditDialog(this, isAdd: false, item.Name, item.Host, item.Type, out var outName, out var outHost, out var outType))
             return;
         item.Name = outName;
         item.Host = outHost;
         item.Type = outType;
-        // 触发列表刷新（DisplayLine 依赖 Name/Host/Type，ObservableCollection 不检测项内部变更，故先移后加）
-        var idx = _targetItems.IndexOf(item);
-        _targetItems.RemoveAt(idx);
-        _targetItems.Insert(idx, item);
+        // 更新对应 Expander 标题
+        if (_selectedTargetIndex < _targetExpanders.Count)
+        {
+            _targetExpanders[_selectedTargetIndex].Header = item.DisplayLine;
+        }
     }
 
     /// <summary>删除选中的目标</summary>
     private void TargetRemoveBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (TargetListBox.SelectedItem is not PortScanTargetItem item) return;
-        _targetItems.Remove(item);
+        if (_selectedTargetIndex < 0 || _selectedTargetIndex >= _targetItems.Count) return;
+        _targetItems.RemoveAt(_selectedTargetIndex);
+        _selectedTargetIndex = -1;
+        RefreshMergedPanel();
         UpdateTargetButtonsState();
     }
 
@@ -341,7 +374,7 @@ public partial class PortScanWindow : Window
         var textSecondary = (Brush)Application.Current.FindResource("TextSecondary");
         var textPrimary = (Brush)Application.Current.FindResource("TextPrimary");
 
-        var nameLabel = new TextBlock { Text = "显示名称：", Foreground = textSecondary, Margin = new Thickness(0, 0, 0, 4) };
+        var nameLabel = new TextBlock { Text = "显示名称（可选）：", Foreground = textSecondary, Margin = new Thickness(0, 0, 0, 4) };
         var nameBox = new System.Windows.Controls.TextBox
         {
             Text = name,
@@ -420,7 +453,6 @@ public partial class PortScanWindow : Window
                 return;
             }
             resultName = (nameBox.Text ?? "").Trim();
-            if (string.IsNullOrEmpty(resultName)) resultName = h;
             resultHost = h;
             resultType = typeCombo.SelectedIndex == 1 ? NodeType.rdp : NodeType.ssh;
             confirmed = true;
@@ -480,7 +512,6 @@ public partial class PortScanWindow : Window
                 ConcurrencyBox.IsEnabled = true;
                 SaveConfigCheckBox.IsEnabled = true;
                 TargetAddBtn.IsEnabled = true;
-                TargetListBox.IsEnabled = true;
                 UpdateTargetButtonsState();
             });
             return;
@@ -553,14 +584,18 @@ public partial class PortScanWindow : Window
             TargetAddBtn.IsEnabled = false;
             TargetEditBtn.IsEnabled = false;
             TargetRemoveBtn.IsEnabled = false;
-            TargetListBox.IsEnabled = false;
             ProgressText.Visibility = Visibility.Visible;
             ProgressText.Text = "正在准备扫描…"; // 重置进度文本
             ProgressBar.Visibility = Visibility.Visible;
             ProgressBar.Maximum = targetNodes.Count;
             ProgressBar.Value = 0;
-            ResultPanel.Children.Clear();
-            _nodeResultExpanders.Clear();
+            // 可扫描目标在 _targetItems 中的下标，与 targetNodes 一一对应
+            var targetIndices = new List<int>();
+            for (var i = 0; i < _targetItems.Count; i++)
+            {
+                if (_targetItems[i].Type == NodeType.ssh || _targetItems[i].Type == NodeType.rdp)
+                    targetIndices.Add(i);
+            }
             _completed = false;
             _cts = new CancellationTokenSource();
             var token = _cts.Token;
@@ -591,28 +626,26 @@ public partial class PortScanWindow : Window
                 var actuallyScannedPorts = 0;
 
                 // 按节点顺序扫描，每个节点的端口并发扫描
-                foreach (var node in targetNodes)
+                for (var j = 0; j < targetNodes.Count; j++)
                 {
                     token.ThrowIfCancellationRequested();
+                    var node = targetNodes[j];
+                    var targetIndex = targetIndices[j];
 
                     // 统一使用本地端口扫描（从本机发起 TCP 连接）
-                    // SSH 和 RDP 节点都使用相同的方式扫描
-                    var result = await ScanLocalNodeAsync(node, ports, timeout, token, concurrency,
-                        (node, portResult) =>
+                    var result = await ScanLocalNodeAsync(node, ports, timeout, token, concurrency, targetIndex,
+                        (idx, n, portResult) =>
                         {
-                            // 实时更新UI回调
-                            UpdateUi(() => AddPortResultToNodeExpander(node, portResult));
+                            UpdateUi(() => AddPortResultToNodeExpander(idx, n, portResult));
                         });
 
                     if (result != null)
                     {
                         results.Add(result);
                         actuallyScannedPorts += result.Ports.Count;
-                        // 扫描完成后更新Expander头部
-                        UpdateUi(() => UpdateNodeExpanderCompleted(result.Node, result.Ports, result.Duration));
+                        UpdateUi(() => UpdateNodeExpanderCompleted(targetIndex, result.Node, result.Ports, result.Duration));
                     }
 
-                    // 更新进度
                     completed++;
                     UpdateUi(() =>
                     {
@@ -623,10 +656,10 @@ public partial class PortScanWindow : Window
 
                 totalSw.Stop();
 
-                // 显示结果统计
+                // 显示结果统计（插入到合并面板顶部）
                 UpdateUi(() =>
                 {
-                    AddResultSummary(results.ToList(), actuallyScannedPorts, plannedTotalPorts, totalSw.Elapsed);
+                    AddResultSummary(MergedPanel, results.ToList(), actuallyScannedPorts, plannedTotalPorts, totalSw.Elapsed);
                     ProgressText.Text = $"扫描完成，共扫描 {targetNodes.Count} 个节点，{actuallyScannedPorts}/{plannedTotalPorts} 端口，耗时 {totalSw.Elapsed.TotalSeconds:F1} 秒";
                     ProgressBar.Value = targetNodes.Count;
                 });
@@ -666,7 +699,6 @@ public partial class PortScanWindow : Window
                 ConcurrencyBox.IsEnabled = true;
                 SaveConfigCheckBox.IsEnabled = true;
                 TargetAddBtn.IsEnabled = true;
-                TargetListBox.IsEnabled = true;
                 CancelBtn.Content = "关闭";
                 UpdateTargetButtonsState();
             });
@@ -685,17 +717,17 @@ public partial class PortScanWindow : Window
         int timeout,
         CancellationToken token,
         int portConcurrency,
-        Action<Node, PortResult>? onPortScanned = null)
+        int targetIndex,
+        Action<int, Node, PortResult>? onPortScanned = null)
     {
         var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
         try
         {
             WriteInfo($"PortScanWindow.ScanLocalNodeAsync: 开始扫描节点 {nodeName}");
 
-            // 在开始扫描前创建Expander（如果需要实时更新）
             if (onPortScanned != null)
             {
-                UpdateUi(() => GetOrCreateNodeExpander(node, ports.Count));
+                UpdateUi(() => PrepareNodeExpanderForScan(targetIndex, node, ports.Count));
             }
 
             var host = node.Config?.Host ?? "";
@@ -707,11 +739,9 @@ public partial class PortScanWindow : Window
             var sw = Stopwatch.StartNew();
             var timeoutMillis = timeout * 1000;
 
-            // 使用本地端口扫描器
             var progress = new Progress<(int Port, PortResult Result)>(p =>
             {
-                // 实时回调更新UI
-                onPortScanned?.Invoke(node, p.Result);
+                onPortScanned?.Invoke(targetIndex, node, p.Result);
             });
             var portResults = await LocalPortScanner.ScanPortsAsync(
                 host, ports, timeoutMillis, portConcurrency, progress, token);
@@ -738,16 +768,14 @@ public partial class PortScanWindow : Window
         }
     }
 
-    /// <summary>添加结果统计信息到结果面板顶部</summary>
-    private void AddResultSummary(List<NodeScanResult> results, int actuallyScannedPorts, int plannedTotalPorts, TimeSpan totalDuration)
+    /// <summary>在合并面板顶部添加结果统计信息</summary>
+    private void AddResultSummary(StackPanel mergedPanel, List<NodeScanResult> results, int actuallyScannedPorts, int plannedTotalPorts, TimeSpan totalDuration)
     {
-        // 如果已经添加过统计信息，先移除
-        if (ResultPanel.Children.Count > 0 && ResultPanel.Children[0] is TextBlock firstChild && firstChild.Text.StartsWith("扫描统计"))
+        if (mergedPanel.Children.Count > 0 && mergedPanel.Children[0] is TextBlock firstChild && firstChild.Text.StartsWith("扫描统计"))
         {
-            ResultPanel.Children.RemoveAt(0);
+            mergedPanel.Children.RemoveAt(0);
         }
 
-        // 统计信息
         var openPorts = results.Sum(r => r.Ports.Count(p => p.IsOpen));
         var statsText = new TextBlock
         {
@@ -756,66 +784,38 @@ public partial class PortScanWindow : Window
             Margin = new Thickness(0, 0, 0, 8),
             FontWeight = System.Windows.FontWeights.SemiBold
         };
-        ResultPanel.Children.Insert(0, statsText);
+        mergedPanel.Children.Insert(0, statsText);
     }
 
-    /// <summary>获取或创建节点的Expander（用于实时更新）</summary>
-    private Expander GetOrCreateNodeExpander(Node node, int totalPorts)
+    /// <summary>开始扫描前准备目标对应的 Expander（清空内容、显示“正在扫描”）</summary>
+    private void PrepareNodeExpanderForScan(int targetIndex, Node node, int totalPorts)
     {
-        var nodeId = node.Id ?? Guid.NewGuid().ToString();
-
-        if (_nodeResultExpanders.TryGetValue(nodeId, out var existingExpander))
-        {
-            return existingExpander;
-        }
+        if (targetIndex < 0 || targetIndex >= _targetExpanders.Count) return;
 
         var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
         var host = node.Config?.Host ?? "";
-        var headerText = $"{nodeName} ({host}) — 正在扫描...";
-
         var contentPanel = new StackPanel { Margin = new Thickness(12, 0, 0, 8) };
-
-        var expander = new Expander
-        {
-            Header = headerText,
-            Content = contentPanel,
-            IsExpanded = false, // 默认折叠
-            Foreground = (Brush)FindResource("TextPrimary"),
-            Margin = new Thickness(0, 8, 0, 0),
-            Padding = new Thickness(0, 4, 0, 4),
-            Tag = new NodeExpanderData { NodeId = nodeId, TotalPorts = totalPorts, ScannedCount = 0, OpenCount = 0 }
-        };
-
-        // 右键菜单：连接功能
-        var menu = new ContextMenu();
-        var connectItem = new MenuItem { Header = "连接(_L)" };
-        connectItem.Click += (_, _) =>
-        {
-            // 在主窗口中打开连接（需要传入主窗口的引用）
-            // 这里暂时留空，因为当前没有主窗口引用
-        };
-        menu.Items.Add(connectItem);
-        expander.ContextMenu = menu;
-
-        _nodeResultExpanders[nodeId] = expander;
-        ResultPanel.Children.Add(expander);
-
-        return expander;
+        var expander = _targetExpanders[targetIndex];
+        expander.Header = $"{nodeName} ({host}) — 正在扫描...";
+        expander.Content = contentPanel;
+        expander.Foreground = (Brush)FindResource("TextPrimary");
+        expander.Tag = new NodeExpanderData { NodeId = node.Id ?? "", TotalPorts = totalPorts, ScannedCount = 0, OpenCount = 0 };
     }
 
-    /// <summary>实时添加端口扫描结果到节点Expander</summary>
-    private void AddPortResultToNodeExpander(Node node, PortResult portResult)
+    /// <summary>实时添加端口扫描结果到对应目标的 Expander</summary>
+    private void AddPortResultToNodeExpander(int targetIndex, Node node, PortResult portResult)
     {
-        var expander = GetOrCreateNodeExpander(node, 0);
-        var data = (NodeExpanderData)expander.Tag;
-        var contentPanel = (StackPanel)expander.Content;
+        if (targetIndex < 0 || targetIndex >= _targetExpanders.Count) return;
+        var expander = _targetExpanders[targetIndex];
+        if (expander.Tag is not NodeExpanderData data) return;
+        var contentPanel = expander.Content as StackPanel;
+        if (contentPanel == null) return;
 
         // 更新统计数据
         data.ScannedCount++;
         if (portResult.IsOpen)
             data.OpenCount++;
 
-        // 更新Expander头部
         var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
         var host = node.Config?.Host ?? "";
         expander.Header = $"{nodeName} ({host}) — 扫描中 {data.ScannedCount}/{data.TotalPorts}，开放 {data.OpenCount}";
@@ -862,31 +862,23 @@ public partial class PortScanWindow : Window
         contentPanel.Children.Add(portText);
     }
 
-    /// <summary>节点扫描完成后更新Expander头部</summary>
-    private void UpdateNodeExpanderCompleted(Node node, List<PortResult> ports, TimeSpan duration)
+    /// <summary>节点扫描完成后更新对应 Expander 头部与颜色</summary>
+    private void UpdateNodeExpanderCompleted(int targetIndex, Node node, List<PortResult> ports, TimeSpan duration)
     {
-        var nodeId = node.Id ?? Guid.NewGuid().ToString();
-        if (!_nodeResultExpanders.TryGetValue(nodeId, out var expander))
-            return;
+        if (targetIndex < 0 || targetIndex >= _targetExpanders.Count) return;
+        var expander = _targetExpanders[targetIndex];
 
-        var data = (NodeExpanderData)expander.Tag;
         var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
         var host = node.Config?.Host ?? "";
         var openCount = ports.Count(p => p.IsOpen);
 
         expander.Header = $"{nodeName} ({host}) — {openCount}/{ports.Count} 端口开放 ({duration.TotalSeconds:F1}s)";
-        expander.IsExpanded = false; // 默认保持折叠
+        expander.IsExpanded = false;
 
-        // 根据是否有开放端口设置颜色
-        // 有开放端口：红色；无开放端口：绿色
         if (openCount > 0)
-        {
-            expander.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38)); // 红色
-        }
+            expander.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
         else
-        {
-            expander.Foreground = new SolidColorBrush(Color.FromRgb(34, 197, 94)); // 绿色
-        }
+            expander.Foreground = new SolidColorBrush(Color.FromRgb(34, 197, 94));
     }
 
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
