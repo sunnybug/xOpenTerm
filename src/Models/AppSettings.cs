@@ -60,4 +60,52 @@ public class AppSettings
     /// <summary>MobaXterm 导入界面上次使用的密码文件路径</summary>
     [YamlMember(Alias = "lastMobaXtermPasswordPath")]
     public string? LastMobaXtermPasswordPath { get; set; }
+
+    /// <summary>端口扫描配置</summary>
+    [YamlMember(Alias = "portScanSettings")]
+    public PortScanSettings PortScanSettings { get; set; } = new();
+}
+
+/// <summary>端口扫描设置</summary>
+public class PortScanSettings
+{
+    /// <summary>默认并发节点数（1-1000，默认50）</summary>
+    [YamlMember(Alias = "defaultConcurrency")]
+    public int DefaultConcurrency { get; set; } = 50;
+
+    /// <summary>默认超时时间（秒，1-10，默认2）</summary>
+    [YamlMember(Alias = "defaultTimeoutSeconds")]
+    public int DefaultTimeoutSeconds { get; set; } = 2;
+
+    /// <summary>默认扫描模式（true=深度，false=快速）</summary>
+    [YamlMember(Alias = "defaultUseDeepScan")]
+    public bool DefaultUseDeepScan { get; set; } = true;
+
+    /// <summary>端口范围历史记录（最多保存20条）</summary>
+    [YamlMember(Alias = "portHistory")]
+    public List<string> PortHistory { get; set; } = new()
+    {
+        "22,80,443,3306,3389,8080",  // 默认历史
+        "21,22,23,25,53,80,110,143,443,445,3306,3389,5432,6379,7001,8080,8443,9200,27017"
+    };
+
+    /// <summary>端口预设方案列表</summary>
+    [YamlMember(Alias = "portPresets")]
+    public List<PortPreset> PortPresets { get; set; } = new();
+
+    /// <summary>上次选择的端口预设名称（用于恢复上次选择）</summary>
+    [YamlMember(Alias = "lastSelectedPreset")]
+    public string? LastSelectedPreset { get; set; }
+}
+
+/// <summary>端口预设方案</summary>
+public class PortPreset
+{
+    /// <summary>预设名称（显示在下拉框中）</summary>
+    [YamlMember(Alias = "name")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>端口列表（逗号分隔的字符串）</summary>
+    [YamlMember(Alias = "ports")]
+    public string Ports { get; set; } = string.Empty;
 }

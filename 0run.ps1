@@ -1,18 +1,21 @@
-# Function: Build and run xOpenTerm project, default Debug, use --release for Release
+﻿# Function: Build and run xOpenTerm project, default Debug, use --release for Release
 # Runtime working directory is .run（config 与 log 在 .run 下）
 # --test-ssh-status：仅构建并运行 SSH 状态获取单元测试（root@192.168.1.192 agent，连接超时 3s），无 UI，测试结束自动退出。
+# --test-scan-port：打开 UI 并自动执行端口扫描，扫描完成后延迟 3 秒自动退出。
 
 param(
     [switch]$Release,
     [switch]$TestRdp,
-    [switch]$TestSshStatus
+    [switch]$TestSshStatus,
+    [switch]$TestScanPort
 )
 
 if ($args -contains "--release") { $Release = $true }
 if ($args -contains "--test-rdp") { $TestRdp = $true }
 if ($args -contains "--test-ssh-status") { $TestSshStatus = $true }
+if ($args -contains "--test-scan-port") { $TestScanPort = $true }
 
-$AllowedArgs = @("--release", "--test-rdp", "--test-ssh-status")
+$AllowedArgs = @("--release", "--test-rdp", "--test-ssh-status", "--test-scan-port")
 foreach ($a in $args) {
     if ($a -notin $AllowedArgs) {
         Write-Host "不支持的参数: $a" -ForegroundColor Red
@@ -89,6 +92,84 @@ if ($TestSshStatus) {
     exit $LASTEXITCODE
 }
 
+# --test-scan-port：打开 UI 并自动执行端口扫描，扫描完成后延迟 3 秒自动退出。日志在 .run\log
+if ($TestScanPort) {
+    # 与主流程一致：运行前先清理 .run/log，便于从干净状态检查结果
+    try {
+        if (Test-Path -Path $LogDir -PathType Container) {
+            Get-ChildItem -Path $LogDir -File | ForEach-Object {
+                try { Remove-Item -Path $_.FullName -Force -ErrorAction Stop }
+                catch { Write-Host "  Skipping locked file: $($_.Name)" -ForegroundColor DarkYellow }
+            }
+        }
+    } catch {
+        Write-Host "Error clearing logs: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "Starting application with port scan test mode..." -ForegroundColor Cyan
+    Write-Host "The UI will open and automatically start port scanning on all SSH nodes." -ForegroundColor Cyan
+    Write-Host "After scanning completes, the application will wait 3 seconds then exit automatically." -ForegroundColor Cyan
+
+    # 杀死现有进程（与主流程一致）
+    Write-Host "Killing existing xOpenTerm process..." -ForegroundColor Yellow
+    try {
+        $processes = Get-Process -Name "xOpenTerm" -ErrorAction SilentlyContinue
+        foreach ($process in $processes) {
+            Write-Host "Killing process: $($process.Id)" -ForegroundColor Yellow
+            $process.Kill()
+            $process.WaitForExit(2000)
+        }
+    } catch {
+        Write-Host "Error killing process: $_" -ForegroundColor Yellow
+    }
+
+    # 运行应用（传递 --test-scan-port 参数）
+    $errorLogPath = Join-Path $LogDir "error.log"
+    try {
+        $projectPath = Join-Path $Root "src\xOpenTerm.csproj"
+        $config = if ($Release) { "Release" } else { "Debug" }
+        $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config", "--", "--test-scan-port" -WorkingDirectory $RunDir -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
+
+        # 等待应用退出
+        $process.WaitForExit()
+
+        # 检查退出码
+        if ($null -eq $process.ExitCode) {
+            Write-Host "Application process ended without exit code." -ForegroundColor Yellow
+        } elseif ($process.ExitCode -ne 0) {
+            Write-Host "Port scan test failed, exit code: $($process.ExitCode)" -ForegroundColor Red
+        } else {
+            Write-Host "Port scan test completed successfully." -ForegroundColor Green
+        }
+
+        # 检查日志中的错误
+        if (Test-Path -Path $LogDir -PathType Container) {
+            $pathsToShow = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+            $crashErrorFiles = Get-ChildItem -Path $LogDir -File | Where-Object { $_.Name -match "error|crash|exception" }
+            foreach ($file in $crashErrorFiles) {
+                $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                if ($content -and $content.Trim().Length -gt 0) {
+                    [void]$pathsToShow.Add($file.FullName)
+                }
+            }
+            $allLogFiles = Get-ChildItem -Path $LogDir -File
+            foreach ($file in $allLogFiles) {
+                $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                if ($content -and $content -match '\b(error|err|crash|fatal)\b') {
+                    [void]$pathsToShow.Add($file.FullName)
+                }
+            }
+            foreach ($path in $pathsToShow) {
+                Write-Host "Log: $path" -ForegroundColor Red
+            }
+        }
+
+        exit $process.ExitCode
+    } finally {
+        # 清理
+    }
+}
+
 Write-Host "Build successful, starting application..." -ForegroundColor Green
 
 # Kill existing xOpenTerm process
@@ -119,11 +200,19 @@ if (-not $TestRdp) {
 
 # Run application and capture error output（工作路径为 .run，config 与 log 在 .run 下）
 $errorLogPath = Join-Path $LogDir "error.log"
-$appArgs = if ($TestRdp) { "--test-rdp" } else { "" }
+$appArgs = if ($TestRdp) { "--test-rdp" } elseif ($TestScanPort) { "--test-scan-port" } else { "" }
 try {
     $projectPath = Join-Path $Root "src\xOpenTerm.csproj"
     $config = if ($Release) { "Release" } else { "Debug" }
-    $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config", "--", $appArgs.Trim() -WorkingDirectory $RunDir -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
+
+    # 构建参数列表：只在有参数时才添加 "--" 和参数值
+    $argList = @("run", "--project", "$projectPath", "--configuration", "$config")
+    if ($appArgs -ne "") {
+        $argList += "--"
+        $argList += $appArgs
+    }
+
+    $process = Start-Process -FilePath "dotnet" -ArgumentList $argList -WorkingDirectory $RunDir -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
 
     # Wait for application to exit
     $process.WaitForExit()

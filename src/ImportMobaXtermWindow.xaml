@@ -41,7 +41,7 @@
         </TreeView>
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button x:Name="OkBtn" Content="确定" Style="{StaticResource PrimaryButtonStyle}" Width="80" Padding="8,4" Margin="0,0,8,0" IsDefault="True" Click="OkBtn_Click" IsEnabled="False"/>
-            <Button Content="取消" Style="{StaticResource SecondaryButtonStyle}" Width="80" Padding="8,4" IsCancel="True"/>
+            <Button Content="取消" Style="{StaticResource SecondaryButtonStyle}" Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click"/>
         </StackPanel>
     </Grid>
 </Window>

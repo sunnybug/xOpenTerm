@@ -41,7 +41,7 @@
         <!-- 取消/关闭 -->
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="CancelBtn" Content="取消" Style="{StaticResource SecondaryButtonStyle}"
-                    Width="80" Padding="8,4" Click="CancelBtn_Click"/>
+                    Width="80" Padding="8,4" IsCancel="True" Click="CancelBtn_Click"/>
         </StackPanel>
     </Grid>
 </Window>

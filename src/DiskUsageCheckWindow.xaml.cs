@@ -383,8 +383,17 @@ public partial class DiskUsageCheckWindow : Window
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
         if (_completed)
+        {
             Close();
+        }
         else
+        {
+            // 取消操作：请求取消任务
             _cts?.Cancel();
+            // 更新 UI 状态，让用户知道正在取消
+            CancelBtn.IsEnabled = false;
+            CancelBtn.Content = "正在取消...";
+            ProgressText.Text = "正在取消检查...";
+        }
     }
 }

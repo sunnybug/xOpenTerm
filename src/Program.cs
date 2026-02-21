@@ -8,6 +8,7 @@ namespace xOpenTerm;
 internal static class Program
 {
     public static bool IsTestRdpMode { get; private set; }
+    public static bool IsTestScanPortMode { get; private set; }
 
     [STAThread]
     public static void Main(string[] args)
@@ -15,6 +16,10 @@ internal static class Program
         if (args.Length > 0 && args[0] == "--test-rdp")
         {
             IsTestRdpMode = true;
+        }
+        else if (args.Length > 0 && args[0] == "--test-scan-port")
+        {
+            IsTestScanPortMode = true;
         }
 
         var app = new App();
@@ -26,7 +31,7 @@ internal static class Program
         catch (SEHException ex)
         {
             ExceptionLog.Write(ex, "SEHException in message loop (likely from native component e.g. PuTTY/RDP)");
-            if (!IsTestRdpMode)
+            if (!IsTestRdpMode && !IsTestScanPortMode)
             {
                 try
                 {
@@ -48,7 +53,7 @@ internal static class Program
         catch (Exception ex)
         {
             ExceptionLog.Write(ex, "Unhandled exception in Main");
-            if (!IsTestRdpMode)
+            if (!IsTestRdpMode && !IsTestScanPortMode)
             {
                 try
                 {

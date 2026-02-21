@@ -1,0 +1,108 @@
+<Window x:Class="xOpenTerm.PortPresetManageWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="端口预设管理" Height="500" Width="700"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource BgDark}" ResizeMode="CanResizeWithGrip"
+        MinHeight="400" MinWidth="600">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 主内容区域：左侧列表，右侧编辑 -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="300"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧：预设列表 -->
+            <Border Grid.Column="0" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 标题和添加按钮 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="预设列表" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextSecondary}" FontWeight="SemiBold"/>
+                        <Button Content="添加" ToolTip="添加新预设"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Padding="8,4" Margin="8,0,0,0" Click="AddBtn_Click"/>
+                    </StackPanel>
+
+                    <!-- DataGrid -->
+                    <DataGrid Grid.Row="1" x:Name="PresetDataGrid"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserReorderColumns="False"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="False"
+                              SelectionMode="Single"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              Background="Transparent"
+                              Foreground="{StaticResource TextPrimary}"
+                              BorderThickness="0"
+                              SelectionChanged="PresetDataGrid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="端口列表" Binding="{Binding Ports}" Width="2*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!-- 右侧：编辑区域 -->
+            <Border Grid.Column="2" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="12" Background="{StaticResource BgInput}">
+                <StackPanel>
+                    <TextBlock Text="编辑预设" Foreground="{StaticResource TextSecondary}"
+                               FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+                    <!-- 预设名称 -->
+                    <StackPanel Margin="0,0,0,12">
+                        <TextBlock Text="预设名称：" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                        <TextBox x:Name="NameBox" Padding="6"
+                                 Background="{StaticResource BgDark}" Foreground="{StaticResource TextPrimary}"
+                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                    </StackPanel>
+
+                    <!-- 端口列表 -->
+                    <StackPanel Margin="0,0,0,12">
+                        <TextBlock Text="端口列表：" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                        <TextBox x:Name="PortsBox" Padding="6" Height="80" TextWrapping="Wrap" AcceptsReturn="True"
+                                 Background="{StaticResource BgDark}" Foreground="{StaticResource TextPrimary}"
+                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                 ToolTip="支持格式：22 或 22,80,443 或 1-1024，可混合使用"/>
+                        <TextBlock Text="支持格式：22、22,80,443、1-1024 或混合输入"
+                                   Foreground="{StaticResource TextSecondary}" FontSize="11" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- 操作按钮 -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="删除" ToolTip="删除选中预设"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Padding="12,4" Margin="0,0,8,0" Click="DeleteBtn_Click"/>
+                        <Button Content="保存" ToolTip="保存当前预设"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Padding="12,4" Click="SaveBtn_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 底部：关闭按钮 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="关闭" Style="{StaticResource SecondaryButtonStyle}"
+                    Width="80" Padding="8,4" IsCancel="True" Click="CloseBtn_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

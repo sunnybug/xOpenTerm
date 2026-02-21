@@ -6,7 +6,7 @@ using xOpenTerm.Services;
 
 namespace xOpenTerm;
 
-/// <summary>主窗口：维护相关（如磁盘占用检查）。</summary>
+/// <summary>主窗口：维护相关（如磁盘占用检查、端口扫描）。</summary>
 public partial class MainWindow
 {
     private void OpenDiskUsageCheck(Node node)
@@ -29,6 +29,61 @@ public partial class MainWindow
         }
 
         var win = new DiskUsageCheckWindow(targetNodes, _nodes, _credentials, _tunnels, OpenTab);
+        win.Owner = this;
+        win.Show();
+    }
+
+    /// <summary>打开端口扫描窗口</summary>
+    private void OpenPortScan(Node node)
+    {
+        List<Node> targetNodes;
+        if (node.Type == NodeType.group || node.Type == NodeType.tencentCloudGroup ||
+            node.Type == NodeType.aliCloudGroup || node.Type == NodeType.kingsoftCloudGroup)
+            // 支持所有主机类型：SSH 和 RDP
+            targetNodes = GetLeafNodes(node.Id).Where(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp).ToList();
+        else if (node.Type == NodeType.ssh || node.Type == NodeType.rdp)
+            targetNodes = new List<Node> { node };
+        else
+            return;
+
+        if (targetNodes.Count == 0)
+        {
+            MessageBox.Show("没有可扫描的主机节点（SSH/RDP）。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        // 根据主机地址去重（同一服务器可能有多个节点配置）
+        var uniqueNodes = targetNodes
+            .GroupBy(n => n.Config?.Host ?? "")
+            .Select(g => g.First())
+            .ToList();
+
+        // 传入 AppSettings 以便加载/保存配置
+        var win = new PortScanWindow(uniqueNodes, _nodes, _credentials, _tunnels, _appSettings);
+        win.Owner = this;
+        win.Show();
+    }
+
+    /// <summary>打开端口扫描窗口（多选模式）</summary>
+    private void OpenPortScanMulti(List<Node> selectedNodes)
+    {
+        // 筛选出所有主机节点（SSH 和 RDP）
+        var targetNodes = selectedNodes.Where(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp).ToList();
+
+        if (targetNodes.Count == 0)
+        {
+            MessageBox.Show("选中的节点中没有可扫描的主机节点（SSH/RDP）。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        // 根据主机地址去重（同一服务器可能有多个节点配置）
+        var uniqueNodes = targetNodes
+            .GroupBy(n => n.Config?.Host ?? "")
+            .Select(g => g.First())
+            .ToList();
+
+        // 传入 AppSettings 以便加载/保存配置
+        var win = new PortScanWindow(uniqueNodes, _nodes, _credentials, _tunnels, _appSettings);
         win.Owner = this;
         win.Show();
     }

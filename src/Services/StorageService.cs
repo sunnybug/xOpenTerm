@@ -4,6 +4,7 @@ using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using xOpenTerm.Models;
 using xOpenTerm.Services;
+using static xOpenTerm.Services.PortScanHelper;
 
 namespace xOpenTerm.Services;
 
@@ -329,12 +330,25 @@ public class StorageService : IStorageService
 
     public AppSettings LoadAppSettings()
     {
-        if (!File.Exists(_settingsPath)) return new AppSettings();
+        if (!File.Exists(_settingsPath))
+        {
+            var newSettings = new AppSettings();
+            EnsurePortPresetsInitialized(newSettings);
+            return newSettings;
+        }
         try
         {
             var yaml = File.ReadAllText(_settingsPath);
             var settings = _deserializer.Deserialize<AppSettings>(yaml);
-            return settings ?? new AppSettings();
+            if (settings == null)
+            {
+                var newSettings = new AppSettings();
+                EnsurePortPresetsInitialized(newSettings);
+                return newSettings;
+            }
+            // 确保端口预设已初始化（向后兼容）
+            EnsurePortPresetsInitialized(settings);
+            return settings;
         }
         catch (Exception ex)
         {
@@ -346,7 +360,28 @@ public class StorageService : IStorageService
                 "xOpenTerm",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
-            return new AppSettings();
+            var fallbackSettings = new AppSettings();
+            EnsurePortPresetsInitialized(fallbackSettings);
+            return fallbackSettings;
+        }
+    }
+
+    /// <summary>确保端口预设已初始化（用于向后兼容）</summary>
+    private static void EnsurePortPresetsInitialized(AppSettings settings)
+    {
+        if (settings.PortScanSettings.PortPresets == null ||
+            settings.PortScanSettings.PortPresets.Count == 0)
+        {
+            ExceptionLog.WriteInfo("StorageService.EnsurePortPresetsInitialized: 初始化默认端口预设");
+
+            settings.PortScanSettings.PortPresets = new List<PortPreset>
+            {
+                new() { Name = "Top 20 常用端口", Ports = string.Join(",", PortScanHelper.Top20Ports) },
+                new() { Name = "Web 服务端口", Ports = string.Join(",", PortScanHelper.WebServicePorts) },
+                new() { Name = "数据库端口", Ports = string.Join(",", PortScanHelper.DatabasePorts) },
+                new() { Name = "SSH 常见端口", Ports = "22,2222" },
+                new() { Name = "所有端口", Ports = "1-65535" }
+            };
         }
     }
 

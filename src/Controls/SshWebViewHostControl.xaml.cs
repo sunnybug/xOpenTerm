@@ -79,9 +79,22 @@ public partial class SshWebViewHostControl : UserControl
         catch (Exception ex)
         {
             ExceptionLog.Write(ex, "SSH 连接失败", toCrashLog: false);
+            var message = ex.Message;
+            if (WebView?.CoreWebView2 != null)
+            {
+                try
+                {
+                    var errText = "连接失败：" + message + "\r\n";
+                    var payload = JsonSerializer.Serialize(new { type = "output", data = errText });
+                    WebView.CoreWebView2.PostWebMessageAsString(payload);
+                }
+                catch { }
+            }
+            _bridge?.OnClosed(message);
             _bridge?.Dispose();
             _bridge = null;
-            throw;
+            Closed?.Invoke(this, EventArgs.Empty);
+            MessageBox.Show(message, "SSH 连接失败", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

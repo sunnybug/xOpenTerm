@@ -54,7 +54,7 @@ public partial class App : Application
         ExceptionLog.Write(e.Exception, isSeh ? "DispatcherUnhandledException (SEH, native component)" : "DispatcherUnhandledException");
         e.Handled = true;
 
-        if (!Program.IsTestRdpMode)
+        if (!Program.IsTestRdpMode && !Program.IsTestScanPortMode)
         {
             try
             {

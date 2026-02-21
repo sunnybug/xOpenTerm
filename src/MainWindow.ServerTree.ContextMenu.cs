@@ -113,6 +113,16 @@ public partial class MainWindow
         var menu = new ContextMenu();
         // 1. 连接/维护等操作
         menu.Items.Add(CreateMenuItem("连接[_L]", () => ConnectSelected(selectedNodes)));
+
+        // 如果有 SSH 或 RDP 节点，添加维护子菜单
+        var hasSshOrRdp = selectedNodes.Any(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp);
+        if (hasSshOrRdp)
+        {
+            var maintainSub = new MenuItem { Header = "维护[_M]" };
+            maintainSub.Items.Add(CreateMenuItem("端口扫描[_P]", () => OpenPortScanMulti(selectedNodes)));
+            menu.Items.Add(maintainSub);
+        }
+
         menu.Items.Add(new Separator());
         // 3. 对选中项的编辑/删除
         menu.Items.Add(CreateMenuItem("删除[_D]", () => DeleteSelected(selectedNodes)));
@@ -247,6 +257,7 @@ public partial class MainWindow
             {
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
                 maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                maintainSub.Items.Add(CreateMenuItem("端口扫描(_P)", () => OpenPortScan(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());
@@ -281,6 +292,7 @@ public partial class MainWindow
             {
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
                 maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                maintainSub.Items.Add(CreateMenuItem("端口扫描(_P)", () => OpenPortScan(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());
@@ -313,6 +325,7 @@ public partial class MainWindow
             {
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
                 maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                maintainSub.Items.Add(CreateMenuItem("端口扫描(_P)", () => OpenPortScan(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());
@@ -345,6 +358,7 @@ public partial class MainWindow
             {
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
                 maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                maintainSub.Items.Add(CreateMenuItem("端口扫描(_P)", () => OpenPortScan(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());
@@ -375,10 +389,16 @@ public partial class MainWindow
             menu.Items.Add(CreateMenuItem("连接(_L)", () => OpenTab(node)));
             if (TryGetCloudDetailUrl(node, out var cloudDetailUrl))
                 menu.Items.Add(CreateMenuItem("云详情(_V)", () => OpenCloudDetail(cloudDetailUrl!)));
-            if (node.Type == NodeType.ssh || (node.Type == NodeType.rdp && ConfigResolver.IsCloudRdpNode(node, _nodes)))
+            if (node.Type == NodeType.ssh || node.Type == NodeType.rdp)
             {
                 var maintainSub = new MenuItem { Header = "维护(_M)" };
-                maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                // 磁盘占用检查仅支持 SSH 和云 RDP
+                if (node.Type == NodeType.ssh || (node.Type == NodeType.rdp && ConfigResolver.IsCloudRdpNode(node, _nodes)))
+                {
+                    maintainSub.Items.Add(CreateMenuItem("磁盘占用(_D)", () => OpenDiskUsageCheck(node)));
+                }
+                // 端口扫描支持所有 SSH 和 RDP 节点
+                maintainSub.Items.Add(CreateMenuItem("端口扫描(_P)", () => OpenPortScan(node)));
                 menu.Items.Add(maintainSub);
             }
             menu.Items.Add(new Separator());

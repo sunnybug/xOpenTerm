@@ -100,6 +100,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (Program.IsTestScanPortMode)
+        {
+            Loaded += (_, _) =>
+            {
+                LoadData();
+                BuildTree(expandNodes: true, initialExpandedIds: null);
+                UpdateServerSearchPlaceholder();
+                RunTestScanPort();
+            };
+            return;
+        }
+
         // 启动时检查是否已询问过主密码：未询问则弹窗设置，已设置则弹窗输入；取消输入则退出
         if (!EnsureMasterPasswordThenContinue(settings))
         {
@@ -256,6 +268,85 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ExceptionLog.Write(ex, "TestRDP: Exception");
+            Application.Current.Shutdown(1);
+        }
+    }
+
+    /// <summary>端口扫描测试模式：打开扫描窗口，自动开始扫描，完成后延迟 3 秒自动退出。</summary>
+    private async void RunTestScanPort()
+    {
+        try
+        {
+            // 获取所有 SSH 节点
+            var sshNodes = _nodes.Where(n => n.Type == NodeType.ssh).ToList();
+            if (sshNodes.Count == 0)
+            {
+                ExceptionLog.WriteInfo("TestScanPort: No SSH node found");
+                Application.Current.Shutdown(1);
+                return;
+            }
+
+            ExceptionLog.WriteInfo($"TestScanPort: Found {sshNodes.Count} SSH node(s)");
+
+            // 创建扫描窗口
+            var scanWindow = new PortScanWindow(sshNodes, _nodes, _credentials, _tunnels, _appSettings)
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            // 订阅扫描完成事件
+            scanWindow.ScanCompleted += (_, _) =>
+            {
+                ExceptionLog.WriteInfo("TestScanPort: Scan completed successfully");
+                // 延迟 3 秒后自动退出（让用户查看结果）
+                Task.Delay(3000).ContinueWith(_ =>
+                {
+                    Application.Current?.Dispatcher?.Invoke(() =>
+                    {
+                        Application.Current.Shutdown(0);
+                    });
+                });
+            };
+
+            scanWindow.ScanError += (_, error) =>
+            {
+                ExceptionLog.WriteInfo($"TestScanPort: Scan failed - {error}");
+                // 延迟 3 秒后自动退出（让用户查看错误信息）
+                Task.Delay(3000).ContinueWith(_ =>
+                {
+                    Application.Current?.Dispatcher?.Invoke(() =>
+                    {
+                        Application.Current.Shutdown(1);
+                    });
+                });
+            };
+
+            // 显示窗口
+            scanWindow.Show();
+
+            // 等待窗口完全加载后自动开始扫描
+            // 使用 Dispatcher.BeginInvoke 在窗口加载后执行
+            ExceptionLog.WriteInfo("TestScanPort: Scheduling auto-start");
+            _ = scanWindow.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ExceptionLog.WriteInfo("TestScanPort: Window loaded, starting scan in 1 second");
+                var timer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(1000)
+                };
+                timer.Tick += (s, e) =>
+                {
+                    timer.Stop();
+                    ExceptionLog.WriteInfo("TestScanPort: Auto-starting scan now");
+                    scanWindow.AutoStartScan();
+                };
+                timer.Start();
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "TestScanPort: Exception");
             Application.Current.Shutdown(1);
         }
     }
@@ -505,6 +596,16 @@ public partial class MainWindow : Window
         win.ShowDialog();
         LoadData();
         BuildTree();
+    }
+
+    private void MenuPortPresetManage_Click(object sender, RoutedEventArgs e)
+    {
+        var win = new PortPresetManageWindow(_appSettings, _storage, () =>
+        {
+            // 刷新回调：重新加载设置以获取最新的端口预设
+            _appSettings = _storage.LoadAppSettings();
+        });
+        win.ShowDialog();
     }
 
     private void MenuRestoreConfig_Click(object sender, RoutedEventArgs e)

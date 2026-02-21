@@ -127,4 +127,10 @@ public partial class ImportMobaXtermWindow : Window
         if (!string.IsNullOrWhiteSpace(IniPathBox.Text))
             LoadSessions();
     }
+
+    private void CancelBtn_Click(object sender, RoutedEventArgs e)
+    {
+        DialogResult = false;
+        Close();
+    }
 }

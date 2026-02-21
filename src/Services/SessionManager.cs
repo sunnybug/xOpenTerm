@@ -23,12 +23,18 @@ public class SessionManager
         string command, CancellationToken cancellationToken = default,
         TimeSpan? connectionTimeout = null)
     {
+        // 在开始操作前检查取消
+        cancellationToken.ThrowIfCancellationRequested();
+
         return await Task.Run(() =>
         {
+            // 在后台线程开始时再次检查取消
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
                 if (jumpChain == null || jumpChain.Count == 0)
-                    return RunSshCommandDirect(host, port, username, password, keyPath, keyPassphrase, useAgent, command, connectionTimeout);
+                    return RunSshCommandDirect(host, port, username, password, keyPath, keyPassphrase, useAgent, command, connectionTimeout, cancellationToken);
 
                 string connectHost = jumpChain[0].Host;
                 var connectPort = (uint)jumpChain[0].Port;
@@ -36,6 +42,9 @@ public class SessionManager
 
                 for (var i = 0; i < jumpChain.Count; i++)
                 {
+                    // 每个跳板机连接前检查取消
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     var hop = jumpChain[i];
                     var conn = CreateConnectionInfo(connectHost, (ushort)connectPort, hop.Username, hop.Password, hop.KeyPath, hop.KeyPassphrase, hop.UseAgent, connectionTimeout);
                     if (conn == null) return (null, "跳板机连接失败：未配置认证方式（请配置密码、私钥或 SSH Agent）");
@@ -64,7 +73,7 @@ public class SessionManager
 
                 try
                 {
-                    return RunSshCommandDirect(connectHost, (ushort)connectPort, username, password, keyPath, keyPassphrase, useAgent, command, connectionTimeout);
+                    return RunSshCommandDirect(connectHost, (ushort)connectPort, username, password, keyPath, keyPassphrase, useAgent, command, connectionTimeout, cancellationToken);
                 }
                 finally
                 {
@@ -73,6 +82,10 @@ public class SessionManager
                         try { chainDisposables[i]?.Dispose(); } catch { }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // 重新抛出取消异常
             }
             catch (Exception ex)
             {
@@ -116,8 +129,11 @@ public class SessionManager
 
     private static (string? output, string? failureReason) RunSshCommandDirect(string host, ushort port, string username,
         string? password, string? keyPath, string? keyPassphrase, bool useAgent, string command,
-        TimeSpan? connectionTimeout = null)
+        TimeSpan? connectionTimeout = null, CancellationToken cancellationToken = default)
     {
+        // 连接前检查取消
+        cancellationToken.ThrowIfCancellationRequested();
+
         var timeoutSec = connectionTimeout?.TotalSeconds.ToString("0") ?? "null";
         var commandOneLine = string.IsNullOrEmpty(command) ? "" : command.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
         ExceptionLog.WriteInfo($"[RunSshCommandDirect] 开始 host={host} port={port} connectionTimeout={timeoutSec}s command=[{commandOneLine}]");
@@ -134,9 +150,18 @@ public class SessionManager
         var connectSw = Stopwatch.StartNew();
         try
         {
+            // 连接前再次检查取消
+            cancellationToken.ThrowIfCancellationRequested();
+
             client.Connect();
             connectSw.Stop();
             ExceptionLog.WriteInfo($"[RunSshCommandDirect] Connect 完成 host={host} 耗时={connectSw.ElapsedMilliseconds}ms");
+        }
+        catch (OperationCanceledException)
+        {
+            connectSw.Stop();
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] Connect 被取消 host={host} 耗时={connectSw.ElapsedMilliseconds}ms");
+            throw;
         }
         catch (Exception ex)
         {
@@ -154,6 +179,9 @@ public class SessionManager
         }
         try
         {
+            // 命令执行前检查取消
+            cancellationToken.ThrowIfCancellationRequested();
+
             var cmdSw = Stopwatch.StartNew();
             ExceptionLog.WriteInfo($"[RunSshCommandDirect] RunCommand 开始 host={host} command=[{commandOneLine}]");
             using var cmd = client.RunCommand(command);
@@ -162,6 +190,12 @@ public class SessionManager
             totalSw.Stop();
             ExceptionLog.WriteInfo($"[RunSshCommandDirect] RunCommand 完成 host={host} 命令耗时={cmdSw.ElapsedMilliseconds}ms 总耗时={totalSw.ElapsedMilliseconds}ms 输出长度={result?.Length ?? 0}");
             return (result, null);
+        }
+        catch (OperationCanceledException)
+        {
+            totalSw.Stop();
+            ExceptionLog.WriteInfo($"[RunSshCommandDirect] RunCommand 被取消 host={host} 总耗时={totalSw.ElapsedMilliseconds}ms");
+            throw;
         }
         catch (Exception ex)
         {

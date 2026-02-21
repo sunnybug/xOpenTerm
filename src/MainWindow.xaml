@@ -17,6 +17,7 @@
                 <MenuItem Header="字体(_F)" Click="MenuFontSettings_Click"/>
                 <MenuItem Header="登录凭证(_P)" Click="MenuCredentials_Click"/>
                 <MenuItem Header="隧道管理(_T)" Click="MenuTunnels_Click"/>
+                <MenuItem Header="端口扫描预设(_O)" Click="MenuPortPresetManage_Click"/>
                 <MenuItem Header="恢复配置(_R)" Click="MenuRestoreConfig_Click"/>
             </MenuItem>
             <MenuItem Header="主密码(_M)">
