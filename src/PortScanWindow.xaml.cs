@@ -50,8 +50,11 @@ public partial class PortScanWindow : Window
     private readonly IList<Tunnel> _tunnels;
     private readonly AppSettings _settings;
     private readonly IStorageService _storage;
-    /// <summary>为 true 时不弹出确认框（如端口范围过大时的深度扫描提示），用于自动化测试。</summary>
+    /// <summary>为 true 时不弹出确认框且仅扫描常用端口，用于自动化测试。</summary>
     private readonly bool _noPrompts;
+
+    /// <summary>测试模式下的常用端口（仅扫描这些，保证测试快速无交互）。</summary>
+    private const string TestModePorts = "22,80,443,3389,8080";
     private CancellationTokenSource? _cts;
     private bool _completed;
     /// <summary>每个目标对应一个 Expander，顺序与 _targetItems 一致，用于合并目标列表与扫描结果。</summary>
@@ -101,6 +104,8 @@ public partial class PortScanWindow : Window
 
         LoadSettings();
         InitializePresetCombo();
+        if (_noPrompts)
+            PortsCombo.Text = TestModePorts;
 
         Closed += (_, _) => (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
     }
@@ -114,9 +119,11 @@ public partial class PortScanWindow : Window
         DeepScanRadio.IsChecked = _settings.PortScanSettings.DefaultUseDeepScan;
         QuickScanRadio.IsChecked = !_settings.PortScanSettings.DefaultUseDeepScan;
 
-        // 加载端口历史记录
+        // 加载端口历史记录（测试模式固定为常用端口）
         PortsCombo.ItemsSource = _settings.PortScanSettings.PortHistory;
-        if (_settings.PortScanSettings.PortHistory.Count > 0)
+        if (_noPrompts)
+            PortsCombo.Text = TestModePorts;
+        else if (_settings.PortScanSettings.PortHistory.Count > 0)
             PortsCombo.Text = _settings.PortScanSettings.PortHistory[0];
         else
             PortsCombo.Text = "22,80,443,3306,3389,8080";
@@ -135,7 +142,9 @@ public partial class PortScanWindow : Window
                 PresetCombo.Items.Add(preset.Name);
             }
 
-            // 恢复上次选择的预设
+            // 测试模式不恢复预设，避免“所有端口”等覆盖常用端口
+            if (_noPrompts) return;
+
             var lastSelected = _settings.PortScanSettings.LastSelectedPreset;
             if (!string.IsNullOrEmpty(lastSelected))
             {
@@ -156,7 +165,8 @@ public partial class PortScanWindow : Window
             PresetCombo.Items.Add("数据库端口");
             PresetCombo.Items.Add("SSH 常见端口");
 
-            // 恢复上次选择的预设
+            if (_noPrompts) return;
+
             var lastSelected = _settings.PortScanSettings.LastSelectedPreset;
             if (!string.IsNullOrEmpty(lastSelected))
             {
