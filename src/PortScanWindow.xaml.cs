@@ -50,6 +50,8 @@ public partial class PortScanWindow : Window
     private readonly IList<Tunnel> _tunnels;
     private readonly AppSettings _settings;
     private readonly IStorageService _storage;
+    /// <summary>为 true 时不弹出确认框（如端口范围过大时的深度扫描提示），用于自动化测试。</summary>
+    private readonly bool _noPrompts;
     private CancellationTokenSource? _cts;
     private bool _completed;
     /// <summary>每个目标对应一个 Expander，顺序与 _targetItems 一致，用于合并目标列表与扫描结果。</summary>
@@ -67,7 +69,8 @@ public partial class PortScanWindow : Window
         IList<Node> nodes,
         IList<Credential> credentials,
         IList<Tunnel> tunnels,
-        AppSettings settings)
+        AppSettings settings,
+        bool noPrompts = false)
     {
         InitializeComponent();
         _targetItems = new ObservableCollection<PortScanTargetItem>();
@@ -76,6 +79,7 @@ public partial class PortScanWindow : Window
         _tunnels = tunnels;
         _settings = settings;
         _storage = new StorageService();
+        _noPrompts = noPrompts;
         _targetExpanders = new List<Expander>();
 
         // 从传入的节点初始化目标列表
@@ -613,19 +617,24 @@ public partial class PortScanWindow : Window
             var completed = 0;
             var useDeepScan = DeepScanRadio.IsChecked == true;
 
-            // 大量端口时提示用户
-                if (ports.Count > 100 && useDeepScan)
+            // 大量端口时提示用户（无交互模式如测试时不弹窗，直接使用快速扫描）
+            if (ports.Count > 100 && useDeepScan)
             {
-                UpdateUi(() =>
+                if (_noPrompts)
+                    useDeepScan = false;
+                else
                 {
-                    var result = MessageBox.Show(
-                        $"将扫描 {ports.Count} 个端口，深度扫描可能耗时较久。\n是否使用深度扫描识别服务？\n\n是=深度扫描（准确但慢）\n否=快速扫描（仅检测开放）",
-                        "xOpenTerm",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
-                    useDeepScan = result == MessageBoxResult.Yes;
-                    (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
-                });
+                    UpdateUi(() =>
+                    {
+                        var result = MessageBox.Show(
+                            $"将扫描 {ports.Count} 个端口，深度扫描可能耗时较久。\n是否使用深度扫描识别服务？\n\n是=深度扫描（准确但慢）\n否=快速扫描（仅检测开放）",
+                            "xOpenTerm",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question);
+                        useDeepScan = result == MessageBoxResult.Yes;
+                        (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
+                    });
+                }
             }
 
             try

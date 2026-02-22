@@ -324,24 +324,31 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>端口扫描测试模式：打开扫描窗口，自动开始扫描，完成后延迟 3 秒自动退出。</summary>
+    /// <summary>端口扫描测试模式：仅针对 test 节点下的主机，打开扫描窗口并自动开始扫描，完成后延迟 3 秒自动退出。</summary>
     private async void RunTestScanPort()
     {
         try
         {
-            // 获取所有 SSH 节点
-            var sshNodes = _nodes.Where(n => n.Type == NodeType.ssh).ToList();
-            if (sshNodes.Count == 0)
+            var testNode = _nodes.FirstOrDefault(n => string.Equals(n.Name?.Trim(), "test", StringComparison.OrdinalIgnoreCase));
+            if (testNode == null)
             {
-                ExceptionLog.WriteInfo("TestScanPort: No SSH node found");
+                ExceptionLog.WriteInfo("TestScanPort: No node named 'test' found");
+                Application.Current.Shutdown(1);
+                return;
+            }
+            var leaves = GetLeafNodes(testNode.Id);
+            var targetNodes = leaves.Where(n => n.Type == NodeType.ssh || n.Type == NodeType.rdp).ToList();
+            if (targetNodes.Count == 0)
+            {
+                ExceptionLog.WriteInfo("TestScanPort: No SSH/RDP host under 'test' node");
                 Application.Current.Shutdown(1);
                 return;
             }
 
-            ExceptionLog.WriteInfo($"TestScanPort: Found {sshNodes.Count} SSH node(s)");
+            ExceptionLog.WriteInfo($"TestScanPort: Found {targetNodes.Count} host(s) under test node");
 
-            // 创建扫描窗口
-            var scanWindow = new PortScanWindow(sshNodes, _nodes, _credentials, _tunnels, _appSettings)
+            // 创建扫描窗口（noPrompts: true 避免端口范围过大等弹窗，测试无交互）
+            var scanWindow = new PortScanWindow(targetNodes, _nodes, _credentials, _tunnels, _appSettings, noPrompts: true)
             {
                 Owner = this,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner

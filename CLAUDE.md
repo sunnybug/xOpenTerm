@@ -13,13 +13,19 @@
 # 编译并运行 Release
 .\0run.ps1 --release
 
+# 运行所有单元测试及 0run 的 test-ssh-status、test-scan-port、test-connect（均针对 test 节点）
+.\0run.ps1 --test
+
 # 仅运行 SSH 状态获取单元测试（无 UI，自动退出）
 .\0run.ps1 --test-ssh-status
 
-# 连接测试：遍历名为 test 的节点下所有子节点进行连接，结果输出到命令行并自动退出
+# 端口扫描测试：仅对 test 节点下主机执行端口扫描，打开 UI 自动扫描，完成后延迟 3 秒退出
+.\0run.ps1 --test-scan-port
+
+# 连接测试：遍历 test 节点下所有子节点进行连接，结果输出到命令行并自动退出
 .\0run.ps1 --test-connect
 
-# 运行所有单元测试
+# 仅运行所有单元测试（不包含 0run 的集成/UI 测试）
 dotnet test
 
 # 初始化开发环境（首次克隆项目后）
