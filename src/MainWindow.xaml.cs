@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -112,6 +114,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (Program.IsTestConnectMode)
+        {
+            Loaded += (_, _) =>
+            {
+                LoadData();
+                BuildTree(expandNodes: true, initialExpandedIds: null);
+                UpdateServerSearchPlaceholder();
+                RunTestConnect();
+            };
+            return;
+        }
+
         // 启动时检查是否已询问过主密码：未询问则弹窗设置，已设置则弹窗输入；取消输入则退出
         if (!EnsureMasterPasswordThenContinue(settings))
         {
@@ -136,6 +150,44 @@ public partial class MainWindow : Window
         RemotePathBox.Text = ".";
         Closing += MainWindow_Closing;
         Activated += MainWindow_Activated;
+        // #region agent log
+        Deactivated += (_, _) =>
+        {
+            try
+            {
+                var logPath = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "..", "debug-678e88.log"));
+                var line = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+                {
+                    ["sessionId"] = "678e88",
+                    ["hypothesisId"] = "C",
+                    ["location"] = "MainWindow.Deactivated",
+                    ["message"] = "MainWindow lost activation",
+                    ["data"] = new Dictionary<string, object> { ["time"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() },
+                    ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                }) + "\n";
+                File.AppendAllText(logPath, line, Encoding.UTF8);
+            }
+            catch { }
+        };
+        Activated += (_, _) =>
+        {
+            try
+            {
+                var logPath = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "..", "debug-678e88.log"));
+                var line = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+                {
+                    ["sessionId"] = "678e88",
+                    ["hypothesisId"] = "C",
+                    ["location"] = "MainWindow.Activated",
+                    ["message"] = "MainWindow gained activation",
+                    ["data"] = new Dictionary<string, object> { ["time"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() },
+                    ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                }) + "\n";
+                File.AppendAllText(logPath, line, Encoding.UTF8);
+            }
+            catch { }
+        };
+        // #endregion
 
         // 启动时检查新版本
         Loaded += (_, _) =>
@@ -351,6 +403,130 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>--test-connect 模式：查找名为 test 的节点，遍历其下所有子节点进行连接测试，结果输出到控制台并自动退出。</summary>
+    private async void RunTestConnect()
+    {
+        const string tag = "[test-connect]";
+        try
+        {
+            Visibility = Visibility.Collapsed;
+
+            var testNode = _nodes.FirstOrDefault(n => string.Equals(n.Name?.Trim(), "test", StringComparison.OrdinalIgnoreCase));
+            if (testNode == null)
+            {
+                Console.WriteLine($"{tag} 未找到名为 test 的节点。");
+                ExceptionLog.WriteInfo("TestConnect: No node named 'test' found");
+                Application.Current.Shutdown(1);
+                return;
+            }
+
+            var leaves = GetLeafNodes(testNode.Id);
+            if (leaves.Count == 0)
+            {
+                Console.WriteLine($"{tag} test 节点下没有可连接的主机子节点。");
+                ExceptionLog.WriteInfo("TestConnect: No host nodes under 'test'");
+                Application.Current.Shutdown(0);
+                return;
+            }
+
+            Console.WriteLine($"{tag} 找到 test 节点，共 {leaves.Count} 个子节点，开始连接测试。");
+            var timeout = TimeSpan.FromSeconds(5);
+            var successCount = 0;
+            var failCount = 0;
+
+            foreach (var node in leaves)
+            {
+                var displayName = string.IsNullOrEmpty(node.Name) && node.Config?.Host != null ? node.Config.Host : (node.Name ?? "未命名");
+                if (node.Type == NodeType.ssh)
+                {
+                    try
+                    {
+                        var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) = ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
+                        if (string.IsNullOrWhiteSpace(host))
+                        {
+                            Console.WriteLine($"{tag} [{displayName}] SSH 跳过：未配置主机。");
+                            failCount++;
+                            continue;
+                        }
+                        using var cts = new CancellationTokenSource(timeout);
+                        var (output, failureReason) = await SessionManager.RunSshCommandAsync(host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent, "echo ok", cts.Token, timeout);
+                        if (failureReason != null)
+                        {
+                            Console.WriteLine($"{tag} [{displayName}] SSH {host}:{port} 失败: {failureReason}");
+                            failCount++;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"{tag} [{displayName}] SSH {host}:{port} 成功");
+                            successCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"{tag} [{displayName}] SSH 异常: {ex.Message}");
+                        failCount++;
+                    }
+                }
+                else if (node.Type == NodeType.rdp)
+                {
+                    try
+                    {
+                        var (host, port, _, _, _, _) = ConfigResolver.ResolveRdp(node, _nodes, _credentials);
+                        if (string.IsNullOrWhiteSpace(host))
+                        {
+                            Console.WriteLine($"{tag} [{displayName}] RDP 跳过：未配置主机。");
+                            failCount++;
+                            continue;
+                        }
+                        using var cts = new CancellationTokenSource(timeout);
+                        var ok = await TryTcpConnectAsync(host, port, cts.Token);
+                        if (ok)
+                        {
+                            Console.WriteLine($"{tag} [{displayName}] RDP {host}:{port} 成功");
+                            successCount++;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"{tag} [{displayName}] RDP {host}:{port} 失败（连接超时或拒绝）");
+                            failCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"{tag} [{displayName}] RDP 异常: {ex.Message}");
+                        failCount++;
+                    }
+                }
+            }
+
+            Console.WriteLine($"{tag} 完成: 成功 {successCount}/{leaves.Count}，失败 {failCount}/{leaves.Count}");
+            ExceptionLog.WriteInfo($"TestConnect: Done success={successCount} fail={failCount} total={leaves.Count}");
+            Application.Current.Shutdown(failCount > 0 ? 1 : 0);
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.Write(ex, "TestConnect: Exception");
+            Console.WriteLine($"{tag} 异常: {ex.Message}");
+            Application.Current.Shutdown(1);
+        }
+    }
+
+    private static async Task<bool> TryTcpConnectAsync(string host, int port, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var client = new TcpClient();
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(5000);
+            await client.ConnectAsync(host, port, cts.Token);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>确保主密码已设置或已输入：未询问则弹窗设置，已设置则弹窗输入。返回 true 表示可继续加载数据，false 表示用户取消输入主密码应退出。</summary>
     private bool EnsureMasterPasswordThenContinue(AppSettings settings)
     {
@@ -454,7 +630,29 @@ public partial class MainWindow : Window
     /// <summary>将主窗口带到前台（如 RDP 外部凭据框取消后本进程窗口被其他进程盖住时调用）。</summary>
     internal void BringMainWindowToFront()
     {
-        if (!IsLoaded || !IsVisible) return;
+        var isLoaded = IsLoaded;
+        var isVisible = IsVisible;
+        // #region agent log
+        try
+        {
+            var logPath = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "..", "debug-678e88.log"));
+            if (!isLoaded || !isVisible)
+            {
+                var line = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+                {
+                    ["sessionId"] = "678e88",
+                    ["hypothesisId"] = "D",
+                    ["location"] = "BringMainWindowToFront.earlyReturn",
+                    ["message"] = "Early return: IsLoaded/IsVisible false",
+                    ["data"] = new Dictionary<string, object> { ["isLoaded"] = isLoaded, ["isVisible"] = isVisible },
+                    ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                }) + "\n";
+                File.AppendAllText(logPath, line, Encoding.UTF8);
+            }
+        }
+        catch { }
+        // #endregion
+        if (!isLoaded || !isVisible) return;
         var wasTopmost = Topmost;
         try
         {
@@ -465,6 +663,23 @@ public partial class MainWindow : Window
         {
             Topmost = wasTopmost;
         }
+        // #region agent log
+        try
+        {
+            var logPath = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "..", "debug-678e88.log"));
+            var line2 = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["sessionId"] = "678e88",
+                ["hypothesisId"] = "B",
+                ["location"] = "BringMainWindowToFront.done",
+                ["message"] = "BringMainWindowToFront executed",
+                ["data"] = new Dictionary<string, object> { ["wasTopmost"] = wasTopmost },
+                ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            }) + "\n";
+            File.AppendAllText(logPath, line2, Encoding.UTF8);
+        }
+        catch { }
+        // #endregion
     }
 
     private void ApplyWindowAndLayout(AppSettings settings)
@@ -495,7 +710,8 @@ public partial class MainWindow : Window
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         _searchDebounceTimer?.Stop();
-        if (TabsControl.Items.Count > 0 &&
+        if (!Program.IsTestConnectMode && !Program.IsTestScanPortMode && !Program.IsTestRdpMode
+            && TabsControl.Items.Count > 0 &&
             MessageBox.Show("当前有连接未关闭，确定要退出吗？", "xOpenTerm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
         {
             e.Cancel = true;

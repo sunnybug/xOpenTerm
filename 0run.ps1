@@ -1,21 +1,24 @@
-﻿# Function: Build and run xOpenTerm project, default Debug, use --release for Release
+# Function: Build and run xOpenTerm project, default Debug, use --release for Release
 # Runtime working directory is .run（config 与 log 在 .run 下）
 # --test-ssh-status：仅构建并运行 SSH 状态获取单元测试（root@192.168.1.192 agent，连接超时 3s），无 UI，测试结束自动退出。
 # --test-scan-port：打开 UI 并自动执行端口扫描，扫描完成后延迟 3 秒自动退出。
+# --test-connect：运行程序并遍历名为 test 的节点下所有子节点进行连接测试，结果输出到命令行，无论成功失败均自动退出。
 
 param(
     [switch]$Release,
     [switch]$TestRdp,
     [switch]$TestSshStatus,
-    [switch]$TestScanPort
+    [switch]$TestScanPort,
+    [switch]$TestConnect
 )
 
 if ($args -contains "--release") { $Release = $true }
 if ($args -contains "--test-rdp") { $TestRdp = $true }
 if ($args -contains "--test-ssh-status") { $TestSshStatus = $true }
 if ($args -contains "--test-scan-port") { $TestScanPort = $true }
+if ($args -contains "--test-connect") { $TestConnect = $true }
 
-$AllowedArgs = @("--release", "--test-rdp", "--test-ssh-status", "--test-scan-port")
+$AllowedArgs = @("--release", "--test-rdp", "--test-ssh-status", "--test-scan-port", "--test-connect")
 foreach ($a in $args) {
     if ($a -notin $AllowedArgs) {
         Write-Host "不支持的参数: $a" -ForegroundColor Red
@@ -168,6 +171,58 @@ if ($TestScanPort) {
     } finally {
         # 清理
     }
+}
+
+# --test-connect：运行程序并遍历 test 节点下所有子节点进行连接测试，结果输出到命令行，无论成功失败均自动退出
+if ($TestConnect) {
+    try {
+        if (Test-Path -Path $LogDir -PathType Container) {
+            Get-ChildItem -Path $LogDir -File | ForEach-Object {
+                try { Remove-Item -Path $_.FullName -Force -ErrorAction Stop }
+                catch { Write-Host "  Skipping locked file: $($_.Name)" -ForegroundColor DarkYellow }
+            }
+        }
+    } catch {
+        Write-Host "Error clearing logs: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "Starting application with test-connect mode..." -ForegroundColor Cyan
+    Write-Host "Traversing all child nodes under 'test' and testing connections. Results will be printed below." -ForegroundColor Cyan
+
+    try {
+        $processes = Get-Process -Name "xOpenTerm" -ErrorAction SilentlyContinue
+        foreach ($process in $processes) {
+            Write-Host "Killing existing process: $($process.Id)" -ForegroundColor Yellow
+            $process.Kill()
+            $process.WaitForExit(2000)
+        }
+    } catch {
+        Write-Host "Error killing process: $_" -ForegroundColor Yellow
+    }
+
+    $errorLogPath = Join-Path $LogDir "error.log"
+    $projectPath = Join-Path $Root "src\xOpenTerm.csproj"
+    $config = if ($Release) { "Release" } else { "Debug" }
+    $process = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "$projectPath", "--configuration", "$config", "--", "--test-connect" -WorkingDirectory $RunDir -NoNewWindow -PassThru -RedirectStandardError $errorLogPath
+
+    $process.WaitForExit()
+
+    if ($null -eq $process.ExitCode) {
+        Write-Host "Application process ended without exit code." -ForegroundColor Yellow
+    } elseif ($process.ExitCode -ne 0) {
+        Write-Host "Test-connect finished with failures, exit code: $($process.ExitCode)" -ForegroundColor Red
+    } else {
+        Write-Host "Test-connect finished: all connections succeeded." -ForegroundColor Green
+    }
+
+    if (Test-Path -Path $errorLogPath -PathType Leaf) {
+        $errContent = Get-Content $errorLogPath -Raw -ErrorAction SilentlyContinue
+        if ($errContent -and $errContent.Trim().Length -gt 0) {
+            Write-Host "Stderr:" -ForegroundColor Yellow
+            Get-Content $errorLogPath | Write-Host
+        }
+    }
+    exit $process.ExitCode
 }
 
 Write-Host "Build successful, starting application..." -ForegroundColor Green
