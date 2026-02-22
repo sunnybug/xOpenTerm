@@ -31,6 +31,15 @@ public partial class MainWindow
 
         var win = new DiskUsageCheckWindow(targetNodes, _nodes, _credentials, _tunnels, OpenTab);
         win.Owner = this;
+        // 放在主窗口右侧，避免遮挡左侧节点树，便于同时查看对话框与操作树展开/折叠
+        if (ActualWidth > 0 && ActualHeight > 0)
+        {
+            win.WindowStartupLocation = WindowStartupLocation.Manual;
+            var rightEdge = Left + ActualWidth + 8;
+            var screenRight = SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth;
+            win.Left = rightEdge + win.Width <= screenRight ? rightEdge : Left + ActualWidth - win.Width;
+            win.Top = Top + (ActualHeight - win.Height) / 2;
+        }
         win.Show();
     }
 

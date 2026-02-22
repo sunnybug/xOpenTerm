@@ -680,9 +680,11 @@ public partial class MainWindow : Window
         return true;
     }
 
-    /// <summary>切回本程序时，若有打开的模态子窗口（设置等），将整条 Owner 链中最顶层的对话框带到前台，避免被主窗口挡住导致无法操作。</summary>
+    /// <summary>切回本程序时，若有打开的模态子窗口（设置等），将整条 Owner 链中最顶层的对话框带到前台，避免被主窗口挡住导致无法操作。仅当主窗口被禁用时（即存在模态对话框）才抢回焦点，非模态子窗口（如磁盘占用、端口扫描）打开时允许用户点击主窗口操作节点树。</summary>
     private void MainWindow_Activated(object? sender, EventArgs e)
     {
+        if (IsEnabled)
+            return;
         foreach (Window w in Application.Current.Windows)
         {
             if (w == this || !w.IsLoaded || !w.IsVisible || w.IsActive) continue;
