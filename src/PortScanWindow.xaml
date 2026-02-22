@@ -44,10 +44,13 @@
                     Padding="6,3" Margin="6,0,0,0" Click="ClearHistoryBtn_Click"/>
         </Grid>
 
-        <!-- 第二行：扫描模式 + 超时/并发 + 保存配置（单行） -->
+        <!-- 第二行：扫描模式 + 超时/并发 + 网卡 + 保存配置（单行） -->
         <Border Grid.Row="1" Background="{StaticResource BgInput}" BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="1" Padding="8,6" Margin="0,0,0,6" CornerRadius="{StaticResource RadiusSm}">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -55,6 +58,8 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="200"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="模式：" VerticalAlignment="Center"
@@ -75,7 +80,15 @@
                 <TextBox x:Name="ConcurrencyBox" Grid.Column="5" Width="36" VerticalAlignment="Center"
                          Style="{StaticResource DialogTextBoxStyle}" Text="50" Padding="4,2"
                          ToolTip="同时扫描端口数（1-1000）"/>
-                <CheckBox x:Name="SaveConfigCheckBox" Grid.Column="6" VerticalAlignment="Center"
+                <TextBlock Grid.Column="6" Text="网卡：" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextSecondary}" Margin="12,0,4,0"
+                           ToolTip="选择出口网卡（显示名称与 IP），避免 TUN 导致全部端口显示开放"/>
+                <ComboBox x:Name="NicCombo" Grid.Column="7" VerticalAlignment="Center"
+                          DisplayMemberPath="DisplayText" Padding="4,3"
+                          Background="{StaticResource BgInput}" Foreground="{StaticResource TextPrimary}"
+                          BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                          ToolTip="选择出口网卡（名称与 IP）"/>
+                <CheckBox x:Name="SaveConfigCheckBox" Grid.Column="8" VerticalAlignment="Center"
                           Content="保存为默认" Foreground="{StaticResource TextSecondary}"
                           IsChecked="True" Margin="12,0,0,0"
                           ToolTip="保存当前设置为默认"/>

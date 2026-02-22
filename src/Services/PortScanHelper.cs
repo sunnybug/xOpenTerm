@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -7,9 +9,22 @@ using xOpenTerm.Models;
 
 namespace xOpenTerm.Services;
 
+/// <summary>网卡选择项：用于端口扫描时绑定出口网卡，DisplayText 显示在列表，BindAddressString 为 null 表示默认（自动）。</summary>
+public record BindInterfaceChoice(string DisplayText, string? BindAddressString);
+
 /// <summary>端口扫描辅助类：提供端口输入解析、服务指纹识别、扫描命令生成、结果解析等功能</summary>
 public static class PortScanHelper
 {
+    /// <summary>判断主机地址是否为本机（localhost/127.0.0.1/::1）。扫描本机时连接极快且本机许多端口在监听，会表现为“瞬间完成且多数端口开放”。</summary>
+    public static bool IsLocalhost(string? host)
+    {
+        if (string.IsNullOrWhiteSpace(host)) return false;
+        var h = host.Trim();
+        return h.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || h == "127.0.0.1"
+            || h == "::1"
+            || h == "0.0.0.0";
+    }
     /// <summary>常用服务端口映射（端口号 → 服务名）</summary>
     private static readonly ConcurrentDictionary<int, string> CommonServices = new(
         new Dictionary<int, string>
@@ -320,42 +335,116 @@ public record NodeScanResult(Node Node, List<PortResult> Ports, TimeSpan Duratio
 /// <summary>本地端口扫描：从本地机器发起 TCP 连接检测</summary>
 public static class LocalPortScanner
 {
+    /// <summary>获取网卡选择列表（默认 + 各网卡名称及 IP），用于界面下拉框，列表项显示为“名称 (IP)”。</summary>
+    public static List<BindInterfaceChoice> GetBindInterfaceChoices()
+    {
+        var list = new List<BindInterfaceChoice> { new BindInterfaceChoice("默认（自动）", null) };
+        try
+        {
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up)
+                    continue;
+                var props = ni.GetIPProperties();
+                var name = ni.Name ?? "未命名";
+                foreach (var ua in props.UnicastAddresses)
+                {
+                    if (ua.Address.AddressFamily != AddressFamily.InterNetwork || IPAddress.IsLoopback(ua.Address))
+                        continue;
+                    var ip = ua.Address.ToString();
+                    list.Add(new BindInterfaceChoice($"{name} ({ip})", ip));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.WriteInfo($"LocalPortScanner.GetBindInterfaceChoices: {ex.Message}");
+        }
+        return list;
+    }
+
+    /// <summary>获取用于绑定的非 TUN/VPN 本机 IPv4 地址，使连接走物理网卡以绕过 TUN 导致的“全部端口开放”误报。若无可用时返回 null。</summary>
+    public static IPAddress? GetNonTunLocalAddress()
+    {
+        try
+        {
+            var tunKeywords = new[] { "TAP", "Tun", "Tunnel", "WireGuard", "Wintun", "VPN", "Virtual", "vEthernet", "Vpn" };
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up)
+                    continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel)
+                    continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Ppp)
+                    continue;
+                var name = ni.Name ?? "";
+                var desc = ni.Description ?? "";
+                var combined = (name + " " + desc).ToLowerInvariant();
+                if (tunKeywords.Any(k => combined.Contains(k.ToLowerInvariant())))
+                    continue;
+                var props = ni.GetIPProperties();
+                var addr = props.UnicastAddresses
+                    .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a.Address));
+                if (addr?.Address != null)
+                    return addr.Address;
+            }
+        }
+        catch (Exception ex)
+        {
+            ExceptionLog.WriteInfo($"LocalPortScanner.GetNonTunLocalAddress: {ex.Message}");
+        }
+        return null;
+    }
+
     /// <summary>扫描单个端口（本地发起）</summary>
     /// <param name="host">目标主机</param>
     /// <param name="port">目标端口</param>
     /// <param name="timeoutMillis">超时时间（毫秒）</param>
     /// <param name="token">取消令牌</param>
+    /// <param name="bindAddressString">可选，指定绑定的本机 IP（如从网卡选择）；为 null 或空时使用自动逻辑（优先非 TUN）</param>
     /// <returns>(是否开放, 服务名称)</returns>
-    public static async Task<(bool IsOpen, string Service)> ScanPortAsync(string host, int port, int timeoutMillis, CancellationToken token = default)
+    public static async Task<(bool IsOpen, string Service)> ScanPortAsync(string host, int port, int timeoutMillis, CancellationToken token = default, string? bindAddressString = null)
     {
-        // 在开始连接前检查取消
         token.ThrowIfCancellationRequested();
 
         ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 开始扫描 {host}:{port}，超时 {timeoutMillis}ms");
 
-        using var client = new TcpClient();
-        var sw = Stopwatch.StartNew();
+        if (!string.IsNullOrWhiteSpace(bindAddressString) && IPAddress.TryParse(bindAddressString.Trim(), out var userBindAddr))
+        {
+            return await ScanPortWithBindAsync(host, port, timeoutMillis, userBindAddr, token);
+        }
 
+        var bindAddr = GetNonTunLocalAddress();
+        if (bindAddr != null)
+        {
+            return await ScanPortWithBindAsync(host, port, timeoutMillis, bindAddr, token);
+        }
+
+        return await ScanPortDefaultAsync(host, port, timeoutMillis, token);
+    }
+
+    /// <summary>使用绑定到非 TUN 网卡的 Socket 扫描，绕过 TUN 导致的“全部开放”误报。</summary>
+    private static async Task<(bool IsOpen, string Service)> ScanPortWithBindAsync(string host, int port, int timeoutMillis, IPAddress bindAddress, CancellationToken token)
+    {
+        var sw = Stopwatch.StartNew();
+        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         try
         {
-            // 创建超时控制
+            socket.Bind(new IPEndPoint(bindAddress, 0));
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             cts.CancelAfter(timeoutMillis);
-
-            // 直接等待连接
-            ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 正在连接 {host}:{port}...");
-            await client.ConnectAsync(host, port, cts.Token);
-
-            // 连接成功
+            ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 绑定 {bindAddress} 连接 {host}:{port}...");
+            await socket.ConnectAsync(host, port, cts.Token);
             sw.Stop();
-            client.Close();
+            socket.Close();
             var service = PortScanHelper.IdentifyService(port);
             ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} 开放 ({service}) - 耗时 {sw.ElapsedMilliseconds}ms");
             return (true, service);
         }
         catch (OperationCanceledException)
         {
-            // 超时或被取消
             sw.Stop();
             var status = token.IsCancellationRequested ? "取消" : "超时";
             ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} {status} - 耗时 {sw.ElapsedMilliseconds}ms");
@@ -366,14 +455,12 @@ public static class LocalPortScanner
             ex.SocketErrorCode == SocketError.HostUnreachable ||
             ex.SocketErrorCode == SocketError.NetworkUnreachable)
         {
-            // 明确的连接拒绝
             sw.Stop();
             ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} 关闭 - {ex.SocketErrorCode} - 耗时 {sw.ElapsedMilliseconds}ms");
             return (false, "关闭");
         }
         catch (SocketException ex)
         {
-            // 其他 Socket 错误
             sw.Stop();
             var status = ex.SocketErrorCode == SocketError.TimedOut ? "超时" : "关闭";
             ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} {status} - {ex.SocketErrorCode}: {ex.Message} - 耗时 {sw.ElapsedMilliseconds}ms");
@@ -381,7 +468,54 @@ public static class LocalPortScanner
         }
         catch (Exception ex)
         {
-            // 其他异常
+            sw.Stop();
+            ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} 异常 - {ex.GetType().Name}: {ex.Message} - 耗时 {sw.ElapsedMilliseconds}ms");
+            return (false, "关闭");
+        }
+    }
+
+    /// <summary>默认扫描（不绑定网卡），用于无 TUN 环境或无法获取非 TUN 地址时。</summary>
+    private static async Task<(bool IsOpen, string Service)> ScanPortDefaultAsync(string host, int port, int timeoutMillis, CancellationToken token)
+    {
+        using var client = new TcpClient();
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(timeoutMillis);
+            ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 正在连接 {host}:{port}...");
+            await client.ConnectAsync(host, port, cts.Token);
+            sw.Stop();
+            client.Close();
+            var service = PortScanHelper.IdentifyService(port);
+            ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} 开放 ({service}) - 耗时 {sw.ElapsedMilliseconds}ms");
+            return (true, service);
+        }
+        catch (OperationCanceledException)
+        {
+            sw.Stop();
+            var status = token.IsCancellationRequested ? "取消" : "超时";
+            ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} {status} - 耗时 {sw.ElapsedMilliseconds}ms");
+            return (false, status);
+        }
+        catch (SocketException ex) when (
+            ex.SocketErrorCode == SocketError.ConnectionRefused ||
+            ex.SocketErrorCode == SocketError.HostUnreachable ||
+            ex.SocketErrorCode == SocketError.NetworkUnreachable)
+        {
+            sw.Stop();
+            ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} 关闭 - {ex.SocketErrorCode} - 耗时 {sw.ElapsedMilliseconds}ms");
+            return (false, "关闭");
+        }
+        catch (SocketException ex)
+        {
+            sw.Stop();
+            var status = ex.SocketErrorCode == SocketError.TimedOut ? "超时" : "关闭";
+            ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} {status} - {ex.SocketErrorCode}: {ex.Message} - 耗时 {sw.ElapsedMilliseconds}ms");
+            return (false, status);
+        }
+        catch (Exception ex)
+        {
             sw.Stop();
             ExceptionLog.WriteInfo($"LocalPortScanner.ScanPortAsync: 端口 {host}:{port} 异常 - {ex.GetType().Name}: {ex.Message} - 耗时 {sw.ElapsedMilliseconds}ms");
             return (false, "关闭");
@@ -395,6 +529,7 @@ public static class LocalPortScanner
     /// <param name="concurrency">并发数</param>
     /// <param name="progress">进度回调</param>
     /// <param name="token">取消令牌</param>
+    /// <param name="bindAddressString">可选，指定绑定的本机 IP（如从网卡选择）</param>
     /// <returns>端口扫描结果列表</returns>
     public static async Task<List<PortResult>> ScanPortsAsync(
         string host,
@@ -402,11 +537,11 @@ public static class LocalPortScanner
         int timeoutMillis,
         int concurrency,
         IProgress<(int Port, PortResult Result)>? progress = null,
-        CancellationToken token = default)
+        CancellationToken token = default,
+        string? bindAddressString = null)
     {
         var results = new ConcurrentBag<PortResult>();
 
-        // 分批并发扫描
         for (var i = 0; i < ports.Count; i += concurrency)
         {
             token.ThrowIfCancellationRequested();
@@ -414,8 +549,7 @@ public static class LocalPortScanner
             var batch = ports.Skip(i).Take(concurrency).ToList();
             var tasks = batch.Select(async port =>
             {
-                // 每个端口扫描都传入取消令牌
-                var (isOpen, service) = await ScanPortAsync(host, port, timeoutMillis, token);
+                var (isOpen, service) = await ScanPortAsync(host, port, timeoutMillis, token, bindAddressString);
                 var result = new PortResult(port, isOpen, service, null);
                 results.Add(result);
                 progress?.Report((port, result));

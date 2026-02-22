@@ -96,6 +96,10 @@ public class PortScanSettings
     /// <summary>上次选择的端口预设名称（用于恢复上次选择）</summary>
     [YamlMember(Alias = "lastSelectedPreset")]
     public string? LastSelectedPreset { get; set; }
+
+    /// <summary>上次选择的出口网卡 IP（用于端口扫描绑定；null 或空表示默认自动）</summary>
+    [YamlMember(Alias = "lastSelectedBindAddress")]
+    public string? LastSelectedBindAddress { get; set; }
 }
 
 /// <summary>端口预设方案</summary>

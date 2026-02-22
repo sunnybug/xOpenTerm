@@ -104,6 +104,7 @@ public partial class PortScanWindow : Window
 
         LoadSettings();
         InitializePresetCombo();
+        InitializeNicCombo();
         if (_noPrompts)
             PortsCombo.Text = TestModePorts;
 
@@ -203,8 +204,25 @@ public partial class PortScanWindow : Window
                 _settings.PortScanSettings.PortHistory.RemoveAt(20);
         }
 
+        // 保存网卡选择
+        var nicChoice = NicCombo.SelectedItem as BindInterfaceChoice;
+        _settings.PortScanSettings.LastSelectedBindAddress = nicChoice?.BindAddressString;
+
         // 保存到文件
         _storage.SaveAppSettings(_settings);
+    }
+
+    /// <summary>初始化网卡下拉框（显示名称与 IP）</summary>
+    private void InitializeNicCombo()
+    {
+        var choices = LocalPortScanner.GetBindInterfaceChoices();
+        NicCombo.ItemsSource = choices;
+        if (choices.Count == 0) return;
+        var last = _settings.PortScanSettings.LastSelectedBindAddress;
+        var idx = string.IsNullOrEmpty(last)
+            ? 0
+            : choices.FindIndex(c => string.Equals(c.BindAddressString, last, StringComparison.OrdinalIgnoreCase));
+        NicCombo.SelectedIndex = idx >= 0 ? idx : 0;
     }
 
     /// <summary>端口预设选择变更</summary>
@@ -530,6 +548,7 @@ public partial class PortScanWindow : Window
                 PortsCombo.IsEnabled = true;
                 TimeoutBox.IsEnabled = true;
                 ConcurrencyBox.IsEnabled = true;
+                NicCombo.IsEnabled = true;
                 SaveConfigCheckBox.IsEnabled = true;
                 TargetAddBtn.IsEnabled = true;
                 UpdateTargetButtonsState();
@@ -605,6 +624,7 @@ public partial class PortScanWindow : Window
             PortsCombo.IsEnabled = false;
             TimeoutBox.IsEnabled = false;
             ConcurrencyBox.IsEnabled = false;
+            NicCombo.IsEnabled = false;
             SaveConfigCheckBox.IsEnabled = false;
             TargetAddBtn.IsEnabled = false;
             TargetEditBtn.IsEnabled = false;
@@ -656,6 +676,8 @@ public partial class PortScanWindow : Window
                 var plannedTotalPorts = targetNodes.Count * ports.Count;
                 var actuallyScannedPorts = 0;
 
+                var bindAddress = (NicCombo.SelectedItem as BindInterfaceChoice)?.BindAddressString;
+
                 // 按节点顺序扫描，每个节点的端口并发扫描
                 for (var j = 0; j < targetNodes.Count; j++)
                 {
@@ -663,12 +685,13 @@ public partial class PortScanWindow : Window
                     var node = targetNodes[j];
                     var targetIndex = targetIndices[j];
 
-                    // 统一使用本地端口扫描（从本机发起 TCP 连接）
+                    // 统一使用本地端口扫描（从本机发起 TCP 连接，可选绑定指定网卡）
                     var result = await ScanLocalNodeAsync(node, ports, timeout, token, concurrency, targetIndex,
                         (idx, n, portResult) =>
                         {
                             UpdateUi(() => AddPortResultToNodeExpander(idx, n, portResult));
-                        });
+                        },
+                        bindAddress);
 
                     if (result != null)
                     {
@@ -728,6 +751,7 @@ public partial class PortScanWindow : Window
                 PortsCombo.IsEnabled = true;
                 TimeoutBox.IsEnabled = true;
                 ConcurrencyBox.IsEnabled = true;
+                NicCombo.IsEnabled = true;
                 SaveConfigCheckBox.IsEnabled = true;
                 TargetAddBtn.IsEnabled = true;
                 CancelBtn.Content = "关闭";
@@ -742,6 +766,7 @@ public partial class PortScanWindow : Window
     }
 
     /// <summary>扫描节点的所有端口（从本机发起 TCP 连接，适用于 SSH 和 RDP 节点）</summary>
+    /// <param name="bindAddressString">可选，绑定的本机 IP（从网卡选择）；null 表示默认自动</param>
     private async Task<NodeScanResult?> ScanLocalNodeAsync(
         Node node,
         List<int> ports,
@@ -749,7 +774,8 @@ public partial class PortScanWindow : Window
         CancellationToken token,
         int portConcurrency,
         int targetIndex,
-        Action<int, Node, PortResult>? onPortScanned = null)
+        Action<int, Node, PortResult>? onPortScanned = null,
+        string? bindAddressString = null)
     {
         var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
         try
@@ -767,6 +793,11 @@ public partial class PortScanWindow : Window
                 throw new Exception("节点配置中没有主机地址");
             }
 
+            if (PortScanHelper.IsLocalhost(host))
+            {
+                WriteInfo($"PortScanWindow.ScanLocalNodeAsync: 节点 {nodeName} 的目标地址为本机 ({host})，扫描的是本机端口，会很快完成且本机监听中的端口会显示为开放。若需扫描远程主机，请将节点的主机地址改为远程 IP 或主机名。");
+            }
+
             var sw = Stopwatch.StartNew();
             var timeoutMillis = timeout * 1000;
 
@@ -775,7 +806,7 @@ public partial class PortScanWindow : Window
                 onPortScanned?.Invoke(targetIndex, node, p.Result);
             });
             var portResults = await LocalPortScanner.ScanPortsAsync(
-                host, ports, timeoutMillis, portConcurrency, progress, token);
+                host, ports, timeoutMillis, portConcurrency, progress, token, bindAddressString);
 
             sw.Stop();
             return new NodeScanResult(node, portResults, sw.Elapsed);
@@ -825,9 +856,10 @@ public partial class PortScanWindow : Window
 
         var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
         var host = node.Config?.Host ?? "";
+        var localHint = PortScanHelper.IsLocalhost(host) ? " [本机]" : "";
         var contentPanel = new StackPanel { Margin = new Thickness(12, 0, 0, 8) };
         var expander = _targetExpanders[targetIndex];
-        expander.Header = $"{nodeName} ({host}) — 正在扫描...";
+        expander.Header = $"{nodeName} ({host}){localHint} — 正在扫描...";
         expander.Content = contentPanel;
         expander.Foreground = (Brush)FindResource("TextPrimary");
         expander.Tag = new NodeExpanderData { NodeId = node.Id ?? "", TotalPorts = totalPorts, ScannedCount = 0, OpenCount = 0 };
@@ -849,7 +881,8 @@ public partial class PortScanWindow : Window
 
         var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
         var host = node.Config?.Host ?? "";
-        expander.Header = $"{nodeName} ({host}) — 扫描中 {data.ScannedCount}/{data.TotalPorts}，开放 {data.OpenCount}";
+        var localHint = PortScanHelper.IsLocalhost(host) ? " [本机]" : "";
+        expander.Header = $"{nodeName} ({host}){localHint} — 扫描中 {data.ScannedCount}/{data.TotalPorts}，开放 {data.OpenCount}";
 
         // 检查是否为错误结果
         if (portResult.Port == 0 && !portResult.IsOpen)
@@ -902,8 +935,8 @@ public partial class PortScanWindow : Window
         var nodeName = string.IsNullOrEmpty(node.Name) ? (node.Config?.Host ?? "未命名") : node.Name;
         var host = node.Config?.Host ?? "";
         var openCount = ports.Count(p => p.IsOpen);
-
-        expander.Header = $"{nodeName} ({host}) — {openCount}/{ports.Count} 端口开放 ({duration.TotalSeconds:F1}s)";
+        var localHint = PortScanHelper.IsLocalhost(host) ? " [本机]" : "";
+        expander.Header = $"{nodeName} ({host}){localHint} — {openCount}/{ports.Count} 端口开放 ({duration.TotalSeconds:F1}s)";
         expander.IsExpanded = false;
 
         if (openCount > 0)

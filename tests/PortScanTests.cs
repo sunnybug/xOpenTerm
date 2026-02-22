@@ -68,6 +68,25 @@ public class PortScanTests
         Assert.Throws<ArgumentException>(() => PortScanHelper.ParsePortInput("1-99999"));
     }
 
+    /// <summary>测试本机地址判断 - 用于解释“瞬间完成且多数端口开放”现象</summary>
+    [Test]
+    public void IsLocalhost_LocalAddresses_ReturnsTrue()
+    {
+        Assert.That(PortScanHelper.IsLocalhost("localhost"), Is.True);
+        Assert.That(PortScanHelper.IsLocalhost("LOCALHOST"), Is.True);
+        Assert.That(PortScanHelper.IsLocalhost("127.0.0.1"), Is.True);
+        Assert.That(PortScanHelper.IsLocalhost("::1"), Is.True);
+        Assert.That(PortScanHelper.IsLocalhost("0.0.0.0"), Is.True);
+    }
+
+    [Test]
+    public void IsLocalhost_RemoteOrEmpty_ReturnsFalse()
+    {
+        Assert.That(PortScanHelper.IsLocalhost("192.168.1.1"), Is.False);
+        Assert.That(PortScanHelper.IsLocalhost(""), Is.False);
+        Assert.That(PortScanHelper.IsLocalhost(null), Is.False);
+    }
+
     /// <summary>测试服务识别 - 常用端口</summary>
     [Test]
     public void IdentifyService_CommonPorts_ReturnsCorrectService()
