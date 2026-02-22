@@ -97,6 +97,8 @@ public partial class PortScanWindow : Window
 
         LoadSettings();
         InitializePresetCombo();
+
+        Closed += (_, _) => (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
     }
 
     /// <summary>加载配置和历史记录</summary>
@@ -259,6 +261,7 @@ public partial class PortScanWindow : Window
             PortsCombo.ItemsSource = null;
             PortsCombo.Text = "";
         }
+        (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
     }
 
     /// <summary>管理预设按钮点击</summary>
@@ -267,6 +270,7 @@ public partial class PortScanWindow : Window
         var manageWindow = new PortPresetManageWindow(_settings, _storage, InitializePresetCombo);
         manageWindow.Owner = this;
         manageWindow.ShowDialog();
+        (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
     }
 
     /// <summary>根据 _targetItems 刷新“目标与扫描结果”合并列表，每个目标一个 Expander。</summary>
@@ -450,6 +454,7 @@ public partial class PortScanWindow : Window
             if (string.IsNullOrEmpty(h))
             {
                 MessageBox.Show("请输入主机地址。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
                 return;
             }
             resultName = (nameBox.Text ?? "").Trim();
@@ -462,6 +467,7 @@ public partial class PortScanWindow : Window
 
         win.Content = grid;
         win.ShowDialog();
+        (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
 
         if (confirmed)
         {
@@ -531,6 +537,7 @@ public partial class PortScanWindow : Window
                 {
                     WriteInfo("PortScanWindow.StartBtn_Click: 端口列表为空，退出");
                     MessageBox.Show("请输入有效的端口范围。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
                     return;
                 }
                 WriteInfo($"PortScanWindow.StartBtn_Click: 解析到 {ports.Count} 个端口");
@@ -539,6 +546,7 @@ public partial class PortScanWindow : Window
             {
                 WriteInfo($"PortScanWindow.StartBtn_Click: 端口输入格式错误: {ex.Message}");
                 MessageBox.Show($"端口输入格式错误：{ex.Message}", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
                 return;
             }
 
@@ -546,6 +554,7 @@ public partial class PortScanWindow : Window
             if (!int.TryParse(TimeoutBox.Text, out var timeout) || timeout < 1 || timeout > 10)
             {
                 MessageBox.Show("超时时间必须在 1-10 秒之间。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
                 return;
             }
 
@@ -553,6 +562,7 @@ public partial class PortScanWindow : Window
             if (!int.TryParse(ConcurrencyBox.Text, out var concurrency) || concurrency < 1 || concurrency > 1000)
             {
                 MessageBox.Show("并发节点数必须在 1-1000 之间。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
                 return;
             }
 
@@ -569,6 +579,7 @@ public partial class PortScanWindow : Window
             {
                 WriteInfo("PortScanWindow.StartBtn_Click: 没有主机节点可扫描");
                 MessageBox.Show("没有可扫描的主机节点（SSH/RDP）。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+                (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
                 return;
             }
 
@@ -613,6 +624,7 @@ public partial class PortScanWindow : Window
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Question);
                     useDeepScan = result == MessageBoxResult.Yes;
+                    (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
                 });
             }
 

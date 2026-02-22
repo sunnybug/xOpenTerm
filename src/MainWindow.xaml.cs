@@ -403,18 +403,33 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>--test-connect 模式：查找名为 test 的节点，遍历其下所有子节点进行连接测试，结果输出到控制台并自动退出。</summary>
+    /// <summary>--test-connect 模式：查找名为 test 的节点，遍历其下所有子节点进行连接测试，结果输出到控制台并写入 test-connect.log（WinExe 无控制台时由 0run.ps1 打印该文件）。</summary>
     private async void RunTestConnect()
     {
         const string tag = "[test-connect]";
+        var logPath = Path.Combine(ExceptionLog.LogDirectory, "test-connect.log");
+        StreamWriter? logWriter = null;
+        void WriteLine(string line)
+        {
+            Console.WriteLine(line);
+            try
+            {
+                logWriter?.WriteLine(line);
+                logWriter?.Flush();
+            }
+            catch { /* ignore */ }
+        }
         try
         {
+            try { logWriter = new StreamWriter(logPath, false, Encoding.UTF8) { AutoFlush = true }; } catch { /* continue without file */ }
+            try { Console.OutputEncoding = Encoding.UTF8; } catch { }
+
             Visibility = Visibility.Collapsed;
 
             var testNode = _nodes.FirstOrDefault(n => string.Equals(n.Name?.Trim(), "test", StringComparison.OrdinalIgnoreCase));
             if (testNode == null)
             {
-                Console.WriteLine($"{tag} 未找到名为 test 的节点。");
+                WriteLine($"{tag} 未找到名为 test 的节点。");
                 ExceptionLog.WriteInfo("TestConnect: No node named 'test' found");
                 Application.Current.Shutdown(1);
                 return;
@@ -423,16 +438,20 @@ public partial class MainWindow : Window
             var leaves = GetLeafNodes(testNode.Id);
             if (leaves.Count == 0)
             {
-                Console.WriteLine($"{tag} test 节点下没有可连接的主机子节点。");
+                WriteLine($"{tag} test 节点下没有可连接的主机子节点。");
                 ExceptionLog.WriteInfo("TestConnect: No host nodes under 'test'");
                 Application.Current.Shutdown(0);
                 return;
             }
 
-            Console.WriteLine($"{tag} 找到 test 节点，共 {leaves.Count} 个子节点，开始连接测试。");
+            WriteLine($"{tag} 找到 test 节点，共 {leaves.Count} 个子节点，开始连接测试（通过界面 SSH 标签校验终端显示）。");
             var timeout = TimeSpan.FromSeconds(5);
+            var sshTabTimeout = TimeSpan.FromSeconds(25);
             var successCount = 0;
             var failCount = 0;
+
+            // 保持窗口可见，使 SSH 标签与 WebView2 终端正常初始化并显示
+            Visibility = Visibility.Visible;
 
             foreach (var node in leaves)
             {
@@ -444,26 +463,67 @@ public partial class MainWindow : Window
                         var (host, port, username, password, keyPath, keyPassphrase, jumpChain, useAgent) = ConfigResolver.ResolveSsh(node, _nodes, _credentials, _tunnels);
                         if (string.IsNullOrWhiteSpace(host))
                         {
-                            Console.WriteLine($"{tag} [{displayName}] SSH 跳过：未配置主机。");
+                            WriteLine($"{tag} [{displayName}] SSH 跳过：未配置主机。");
                             failCount++;
                             continue;
                         }
-                        using var cts = new CancellationTokenSource(timeout);
-                        var (output, failureReason) = await SessionManager.RunSshCommandAsync(host, port, username ?? "", password, keyPath, keyPassphrase, jumpChain, useAgent, "echo ok", cts.Token, timeout);
-                        if (failureReason != null)
+                        var tabId = "test-connect-" + DateTime.UtcNow.Ticks;
+                        var tabTitle = displayName;
+                        OpenSshTab(tabId, tabTitle, node, host, port, username, password, keyPath, keyPassphrase, useAgent, jumpChain);
+                        if (!_tabIdToSshHostControl.TryGetValue(tabId, out var sshControl))
                         {
-                            Console.WriteLine($"{tag} [{displayName}] SSH {host}:{port} 失败: {failureReason}");
+                            WriteLine($"{tag} [{displayName}] SSH {host}:{port} 失败: 未找到标签控件");
                             failCount++;
+                            continue;
                         }
-                        else
+                        var connectedTcs = new TaskCompletionSource<bool>();
+                        var outputTcs = new TaskCompletionSource<bool>();
+                        void OnConnected(object? _, EventArgs __) => connectedTcs.TrySetResult(true);
+                        void OnFirstOutput(object? _, EventArgs __) => outputTcs.TrySetResult(true);
+                        void OnClosed(object? _, EventArgs __)
                         {
-                            Console.WriteLine($"{tag} [{displayName}] SSH {host}:{port} 成功");
-                            successCount++;
+                            if (!connectedTcs.Task.IsCompleted)
+                                connectedTcs.TrySetResult(false);
                         }
+                        sshControl.Connected += OnConnected;
+                        sshControl.FirstOutputReceived += OnFirstOutput;
+                        sshControl.Closed += OnClosed;
+                        try
+                        {
+                            await Task.WhenAny(
+                                Task.WhenAll(connectedTcs.Task, outputTcs.Task),
+                                Task.Delay(sshTabTimeout));
+                            var connectedOk = connectedTcs.Task.IsCompletedSuccessfully && connectedTcs.Task.Result;
+                            var outputOk = outputTcs.Task.IsCompletedSuccessfully;
+                            if (connectedOk && outputOk)
+                            {
+                                WriteLine($"{tag} [{displayName}] SSH {host}:{port} 成功（终端已显示）");
+                                successCount++;
+                            }
+                            else if (!connectedOk)
+                            {
+                                var reason = sshControl.LastConnectionError ?? "连接未完成";
+                                WriteLine($"{tag} [{displayName}] SSH {host}:{port} 失败: {reason}");
+                                failCount++;
+                            }
+                            else
+                            {
+                                WriteLine($"{tag} [{displayName}] SSH {host}:{port} 失败: 终端无输出（黑屏）");
+                                failCount++;
+                            }
+                        }
+                        finally
+                        {
+                            sshControl.Connected -= OnConnected;
+                            sshControl.FirstOutputReceived -= OnFirstOutput;
+                            sshControl.Closed -= OnClosed;
+                            CloseTab(tabId);
+                        }
+                        await Task.Delay(300);
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"{tag} [{displayName}] SSH 异常: {ex.Message}");
+                        WriteLine($"{tag} [{displayName}] SSH 异常: {ex.Message}");
                         failCount++;
                     }
                 }
@@ -474,7 +534,7 @@ public partial class MainWindow : Window
                         var (host, port, _, _, _, _) = ConfigResolver.ResolveRdp(node, _nodes, _credentials);
                         if (string.IsNullOrWhiteSpace(host))
                         {
-                            Console.WriteLine($"{tag} [{displayName}] RDP 跳过：未配置主机。");
+                            WriteLine($"{tag} [{displayName}] RDP 跳过：未配置主机。");
                             failCount++;
                             continue;
                         }
@@ -482,32 +542,36 @@ public partial class MainWindow : Window
                         var ok = await TryTcpConnectAsync(host, port, cts.Token);
                         if (ok)
                         {
-                            Console.WriteLine($"{tag} [{displayName}] RDP {host}:{port} 成功");
+                            WriteLine($"{tag} [{displayName}] RDP {host}:{port} 成功");
                             successCount++;
                         }
                         else
                         {
-                            Console.WriteLine($"{tag} [{displayName}] RDP {host}:{port} 失败（连接超时或拒绝）");
+                            WriteLine($"{tag} [{displayName}] RDP {host}:{port} 失败（连接超时或拒绝）");
                             failCount++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"{tag} [{displayName}] RDP 异常: {ex.Message}");
+                        WriteLine($"{tag} [{displayName}] RDP 异常: {ex.Message}");
                         failCount++;
                     }
                 }
             }
 
-            Console.WriteLine($"{tag} 完成: 成功 {successCount}/{leaves.Count}，失败 {failCount}/{leaves.Count}");
+            WriteLine($"{tag} 完成: 成功 {successCount}/{leaves.Count}，失败 {failCount}/{leaves.Count}");
             ExceptionLog.WriteInfo($"TestConnect: Done success={successCount} fail={failCount} total={leaves.Count}");
             Application.Current.Shutdown(failCount > 0 ? 1 : 0);
         }
         catch (Exception ex)
         {
             ExceptionLog.Write(ex, "TestConnect: Exception");
-            Console.WriteLine($"{tag} 异常: {ex.Message}");
+            WriteLine($"{tag} 异常: {ex.Message}");
             Application.Current.Shutdown(1);
+        }
+        finally
+        {
+            try { logWriter?.Dispose(); } catch { }
         }
     }
 

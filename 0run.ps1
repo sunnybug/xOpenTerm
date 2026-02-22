@@ -175,6 +175,9 @@ if ($TestScanPort) {
 
 # --test-connect：运行程序并遍历 test 节点下所有子节点进行连接测试，结果输出到命令行，无论成功失败均自动退出
 if ($TestConnect) {
+    # 控制台使用 UTF-8，以便正确显示中文结果
+    try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+
     try {
         if (Test-Path -Path $LogDir -PathType Container) {
             Get-ChildItem -Path $LogDir -File | ForEach-Object {
@@ -213,6 +216,12 @@ if ($TestConnect) {
         Write-Host "Test-connect finished with failures, exit code: $($process.ExitCode)" -ForegroundColor Red
     } else {
         Write-Host "Test-connect finished: all connections succeeded." -ForegroundColor Green
+    }
+
+    $testConnectLogPath = Join-Path $LogDir "test-connect.log"
+    if (Test-Path -Path $testConnectLogPath -PathType Leaf) {
+        Write-Host "Test-connect output:" -ForegroundColor Cyan
+        Get-Content $testConnectLogPath -Encoding UTF8 | Write-Host
     }
 
     if (Test-Path -Path $errorLogPath -PathType Leaf) {

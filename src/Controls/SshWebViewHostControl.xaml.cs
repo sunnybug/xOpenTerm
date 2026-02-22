@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Web.WebView2.Core;
@@ -14,16 +17,24 @@ namespace xOpenTerm.Controls;
 /// </summary>
 public partial class SshWebViewHostControl : UserControl
 {
+    /// <summary>进程内共享的 WebView2 环境（仅创建一次），避免多控件/并发初始化时出现 "already initialized with a different CoreWebView2Environment"。</summary>
+    private static readonly Lazy<Task<CoreWebView2Environment>> SharedEnvironment = new Lazy<Task<CoreWebView2Environment>>(CreateSharedEnvironmentAsync);
+
     private SshTerminalBridge? _bridge;
     private bool _webViewReady;
+    private bool _webViewInitFailed;
+    private string? _webViewInitErrorMessage;
     private bool _messageHandlerSubscribed;
     private WebView2? _webView;
+    private readonly SemaphoreSlim _ensureWebViewLock = new(1, 1);
+    /// <summary>单例异步初始化任务，避免多个调用方同时执行 EnsureCoreWebView2Async 导致死锁。</summary>
+    private Task? _ensureWebViewInitTask;
 
     public SshWebViewHostControl()
     {
         InitializeComponent();
         _webView = new WebView2();
-        RootGrid.Children.Add(_webView);
+        // 不在此处加入视觉树，否则 WPF 会立即用默认环境隐式初始化，导致后续无法改用自定义数据目录
         Loaded += OnLoaded;
     }
 
@@ -34,12 +45,30 @@ public partial class SshWebViewHostControl : UserControl
     /// <summary>终端已连接并显示时触发（可用于远程文件、状态栏轮询等）。</summary>
     public event EventHandler? Connected;
 
+    /// <summary>终端首次收到服务端输出并送往 WebView 时触发（用于 test-connect 校验非黑屏）。</summary>
+    public event EventHandler? FirstOutputReceived;
+
     public bool IsRunning => _bridge?.IsConnected ?? false;
+
+    /// <summary>上次连接失败时的错误信息（用于 test-connect 等场景输出具体原因）。</summary>
+    public string? LastConnectionError { get; private set; }
+
+    private bool _hasReceivedOutput;
 
     /// <summary>连接 SSH 并创建交互式 Shell。支持跳板链与现有认证方式。</summary>
     public async void Connect(string host, int port, string username, string? password, string? keyPath, string? keyPassphrase, bool useAgent, List<JumpHop>? jumpChain)
     {
+        LastConnectionError = null;
         await EnsureWebViewReadyAsync();
+        if (_webViewInitFailed || !_webViewReady)
+        {
+            LastConnectionError = _webViewInitErrorMessage ?? "WebView2 初始化失败";
+            var detail = string.IsNullOrEmpty(_webViewInitErrorMessage) ? "请确认已安装 WebView2 运行时。" : _webViewInitErrorMessage;
+            if (!xOpenTerm.Program.IsTestConnectMode)
+                MessageBox.Show("WebView2 初始化失败，无法打开终端。\n\n" + detail, "终端不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Closed?.Invoke(this, EventArgs.Empty);
+            return;
+        }
         _bridge?.Dispose();
         _bridge = new SshTerminalBridge();
         _bridge.OnOutput = s =>
@@ -49,6 +78,11 @@ public partial class SshWebViewHostControl : UserControl
                 if (WebView?.CoreWebView2 == null) return;
                 try
                 {
+                    if (!_hasReceivedOutput)
+                    {
+                        _hasReceivedOutput = true;
+                        FirstOutputReceived?.Invoke(this, EventArgs.Empty);
+                    }
                     var payload = JsonSerializer.Serialize(new { type = "output", data = s });
                     WebView.CoreWebView2.PostWebMessageAsString(payload);
                 }
@@ -80,6 +114,9 @@ public partial class SshWebViewHostControl : UserControl
         {
             ExceptionLog.Write(ex, "SSH 连接失败", toCrashLog: false);
             var message = ex.Message;
+            if (ex.InnerException != null)
+                message += " " + ex.InnerException.Message;
+            LastConnectionError = message;
             if (WebView?.CoreWebView2 != null)
             {
                 try
@@ -94,7 +131,8 @@ public partial class SshWebViewHostControl : UserControl
             _bridge?.Dispose();
             _bridge = null;
             Closed?.Invoke(this, EventArgs.Empty);
-            MessageBox.Show(message, "SSH 连接失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (!xOpenTerm.Program.IsTestConnectMode)
+                MessageBox.Show(message, "SSH 连接失败", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -109,6 +147,7 @@ public partial class SshWebViewHostControl : UserControl
             _webView = null;
         }
         catch { }
+        try { _ensureWebViewLock?.Dispose(); } catch { }
     }
 
     public void FocusTerminal()
@@ -121,28 +160,100 @@ public partial class SshWebViewHostControl : UserControl
         await EnsureWebViewReadyAsync();
     }
 
-    private async System.Threading.Tasks.Task EnsureWebViewReadyAsync()
+    /// <summary>WebView2 用户数据目录，使用可写的 %LocalAppData%\xOpenTerm\WebView2，避免 dotnet run 时落在 Program Files 下导致无法写入。</summary>
+    private static string GetWebView2UserDataFolder()
     {
-        if (_webViewReady || WebView == null) return;
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var dir = string.IsNullOrEmpty(baseDir)
+            ? Path.Combine(Path.GetTempPath(), "xOpenTerm", "WebView2")
+            : Path.Combine(baseDir, "xOpenTerm", "WebView2");
+        try { Directory.CreateDirectory(dir); } catch { }
+        return dir;
+    }
+
+    private static async Task<CoreWebView2Environment> CreateSharedEnvironmentAsync()
+    {
+        var userDataFolder = GetWebView2UserDataFolder();
+        return await CoreWebView2Environment.CreateAsync(null, userDataFolder, null);
+    }
+
+    /// <summary>仅执行一次的 WebView2 核心初始化，供多路调用方共享，避免并发 EnsureCoreWebView2Async 死锁。</summary>
+    private async Task EnsureCoreWebView2OnceAsync()
+    {
+        var env = await SharedEnvironment.Value;
+        if (WebView == null) return;
+        // 部分环境下 CoreWebView2 需在控件已加入视觉树后才完成初始化，先加入再 Ensure
+        await Dispatcher.InvokeAsync(() =>
+        {
+            if (WebView != null && !RootGrid.Children.Contains(WebView))
+                RootGrid.Children.Add(WebView);
+        });
+        await WebView.EnsureCoreWebView2Async(env);
+    }
+
+    private async Task EnsureWebViewReadyAsync()
+    {
+        if (_webViewReady || _webViewInitFailed || WebView == null) return;
+        await _ensureWebViewLock.WaitAsync();
+        bool weInit = false;
         try
         {
-            await WebView.EnsureCoreWebView2Async(null);
-            if (!_messageHandlerSubscribed)
-            {
-                WebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
-                _messageHandlerSubscribed = true;
-            }
-            var htmlPath = Path.Combine(AppContext.BaseDirectory, "TerminalPage.html");
-            if (File.Exists(htmlPath))
-                WebView.Source = new Uri(htmlPath);
-            else
-                WebView.NavigateToString(GetEmbeddedTerminalHtml());
-            _webViewReady = true;
+            if (_webViewReady || _webViewInitFailed || WebView == null) return;
+            weInit = true;
+        }
+        finally
+        {
+            _ensureWebViewLock.Release();
+        }
+        if (!weInit) return;
+        Task initTask;
+        await _ensureWebViewLock.WaitAsync();
+        try
+        {
+            if (_ensureWebViewInitTask == null)
+                _ensureWebViewInitTask = EnsureCoreWebView2OnceAsync();
+            initTask = _ensureWebViewInitTask;
+        }
+        finally
+        {
+            _ensureWebViewLock.Release();
+        }
+        try
+        {
+            await initTask;
         }
         catch (Exception ex)
         {
             ExceptionLog.Write(ex, "WebView2 初始化失败", toCrashLog: false);
-            throw;
+            _webViewInitFailed = true;
+            _webViewInitErrorMessage = ex.Message;
+            if (ex.InnerException != null)
+                _webViewInitErrorMessage += "\n" + ex.InnerException.Message;
+            return;
+        }
+        await _ensureWebViewLock.WaitAsync();
+        try
+        {
+            if (_webViewReady || _webViewInitFailed || WebView == null) return;
+            if (!RootGrid.Children.Contains(WebView))
+                RootGrid.Children.Add(WebView);
+            if (!_messageHandlerSubscribed)
+            {
+                WebView!.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+                _messageHandlerSubscribed = true;
+            }
+            // 使用 Navigate 而非设置 Source，避免隐式用默认环境再次初始化（见 WebView2 文档与 GitHub #1782）
+            var htmlPath = Path.Combine(AppContext.BaseDirectory, "TerminalPage.html");
+            var useFile = File.Exists(htmlPath);
+            if (useFile)
+                WebView!.CoreWebView2.Navigate(new Uri(htmlPath).AbsoluteUri);
+            else
+                WebView!.NavigateToString(GetEmbeddedTerminalHtml());
+            _webViewReady = true;
+        }
+        finally
+        {
+            _ensureWebViewLock.Release();
         }
     }
 

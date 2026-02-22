@@ -35,6 +35,8 @@ public partial class DiskUsageCheckWindow : Window
         _credentials = credentials;
         _tunnels = tunnels;
         _openConnection = openConnection;
+
+        Closed += (_, _) => (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
     }
 
     private void UpdateUi(Action action)
@@ -220,6 +222,7 @@ public partial class DiskUsageCheckWindow : Window
         if (!int.TryParse(ThresholdBox?.Text?.Trim(), out var threshold) || threshold < 1 || threshold > 100)
         {
             MessageBox.Show("请输入 1–100 之间的整数作为阈值（仅用于 SSH 节点）。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Warning);
+            (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
             return;
         }
 
@@ -230,6 +233,7 @@ public partial class DiskUsageCheckWindow : Window
         if (total == 0)
         {
             MessageBox.Show("没有可检查的 SSH 或云 RDP 节点。", "xOpenTerm", MessageBoxButton.OK, MessageBoxImage.Information);
+            (Application.Current.MainWindow as MainWindow)?.BringMainWindowToFront();
             return;
         }
 

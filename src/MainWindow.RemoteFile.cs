@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -23,6 +26,23 @@ public partial class MainWindow
     private bool? ShowDialogAndActivate(Window dialog)
     {
         dialog.ShowDialog();
+        // #region agent log
+        try
+        {
+            var logPath = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "..", "debug-678e88.log"));
+            var line = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["sessionId"] = "678e88",
+                ["hypothesisId"] = "A",
+                ["location"] = "ShowDialogAndActivate.afterShowDialog",
+                ["message"] = "Dialog closed, about to BringMainWindowToFront",
+                ["data"] = new Dictionary<string, object> { ["dialogResult"] = dialog.DialogResult?.ToString() ?? "null" },
+                ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            }) + "\n";
+            File.AppendAllText(logPath, line, Encoding.UTF8);
+        }
+        catch { }
+        // #endregion
         BringMainWindowToFront();
         return dialog.DialogResult;
     }
